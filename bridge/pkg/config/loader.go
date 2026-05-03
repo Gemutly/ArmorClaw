@@ -140,6 +140,11 @@ func applyEnvOverrides(cfg *Config) error {
 		}
 	}
 
+	// E2EE kill switch override
+	if v := os.Getenv("ARMORCLAW_E2EE_ENABLED"); v != "" {
+		cfg.Matrix.E2EE.Enabled = v == "true" || v == "1"
+	}
+
 	// WebRTC overrides
 	if v := os.Getenv("ARMORCLAW_WEBRTC_STUN_SERVER"); v != "" {
 		// Override the default STUN server

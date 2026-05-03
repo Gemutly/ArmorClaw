@@ -15,6 +15,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"syscall"
 	"time"
 
@@ -23,19 +24,19 @@ import (
 	"github.com/armorclaw/bridge/internal/events"
 	"github.com/armorclaw/bridge/internal/skills"
 	"github.com/armorclaw/bridge/pkg/appservice"
+	"github.com/armorclaw/bridge/pkg/audit"
 	"github.com/armorclaw/bridge/pkg/browser"
 	"github.com/armorclaw/bridge/pkg/docker"
 	"github.com/armorclaw/bridge/pkg/eventbus"
 	"github.com/armorclaw/bridge/pkg/eventlog"
 	"github.com/armorclaw/bridge/pkg/interfaces"
+	"github.com/armorclaw/bridge/pkg/invite"
 	"github.com/armorclaw/bridge/pkg/keystore"
 	"github.com/armorclaw/bridge/pkg/mcp"
 	"github.com/armorclaw/bridge/pkg/provisioning"
 	"github.com/armorclaw/bridge/pkg/secretary"
 	"github.com/armorclaw/bridge/pkg/studio"
 	"github.com/armorclaw/bridge/pkg/translator"
-	"github.com/armorclaw/bridge/pkg/audit"
-	"github.com/armorclaw/bridge/pkg/invite"
 	"github.com/armorclaw/bridge/pkg/trust"
 )
 
@@ -140,67 +141,68 @@ type HealthCheckResponse struct {
 type HandlerFunc func(ctx context.Context, req *Request) (interface{}, *ErrorObj)
 
 type Server struct {
-	keystore        Keystore
-	matrix          MatrixAdapter
-	aiService       *ai.AIService
-	aiSemaphore     chan struct{}
-	aiMaxConcurrent int
-	bridgeMgr       BridgeManager
-	browserJobs     *BrowserJobManager
-	browserBroker   browser.BrowserBroker
-	studio          StudioService
-	appService      AppService
-	provisioningMgr ProvisioningManager
-	skillMgr        SkillManager
-	skillGate       interfaces.SkillGate
-	mcpRouter       *mcp.MCPRouter
-	translator      *translator.RPCToMCPTranslator
-	eventBus        *eventbus.EventBus
-	handlers        map[string]HandlerFunc
-	hardeningStore  trust.Store
-	deviceStore     *trust.DeviceStore
-	inviteStore     *invite.InviteStore
-	secretaryHandler secretaryRPCHandler
-	heartbeats      sync.Map
-	metrics         *Metrics
-	listener        net.Listener
-	shutdownCh      chan struct{}
-	rpcTransport    string
-	listenAddr      string
-	dockerClient    *docker.Client
-	guard           *trust.TrustedProxyGuard
-	auditLog        *audit.AuditLog
-	governanceRoomID string
+	keystore          Keystore
+	matrix            MatrixAdapter
+	aiService         *ai.AIService
+	aiSemaphore       chan struct{}
+	aiMaxConcurrent   int
+	bridgeMgr         BridgeManager
+	browserJobs       *BrowserJobManager
+	browserBroker     browser.BrowserBroker
+	studio            StudioService
+	appService        AppService
+	provisioningMgr   ProvisioningManager
+	skillMgr          SkillManager
+	skillGate         interfaces.SkillGate
+	mcpRouter         *mcp.MCPRouter
+	translator        *translator.RPCToMCPTranslator
+	eventBus          *eventbus.EventBus
+	handlers          map[string]HandlerFunc
+	hardeningStore    trust.Store
+	deviceStore       *trust.DeviceStore
+	inviteStore       *invite.InviteStore
+	secretaryHandler  secretaryRPCHandler
+	heartbeats        sync.Map
+	metrics           *Metrics
+	listener          net.Listener
+	shutdownCh        chan struct{}
+	rpcTransport      string
+	listenAddr        string
+	dockerClient      *docker.Client
+	guard             *trust.TrustedProxyGuard
+	auditLog          *audit.AuditLog
+	governanceRoomID  string
 	tlsInfoProvider   TLSInfoProvider
 	piiRequestManager *keystore.PIIRequestManager
+	e2eeEnabled       atomic.Bool
 }
 
 type Config struct {
-	SocketPath      string
-	RPCTransport    string
-	ListenAddr      string
-	Keystore        Keystore
-	Matrix          MatrixAdapter
-	AIService       *ai.AIService
-	AIMaxConcurrent int
-	BridgeManager   BridgeManager
-	BrowserJobs     *BrowserJobManager
-	Studio          StudioService
-	AppService      AppService
-	ProvisioningMgr ProvisioningManager
-	SkillManager    SkillManager
-	SkillGate       interfaces.SkillGate
-	EventBus        *eventbus.EventBus
-	HardeningStore  trust.Store
-	DeviceStore     *trust.DeviceStore
-	InviteStore     *invite.InviteStore
-	Metrics         *Metrics
-	DockerClient    *docker.Client
-	Guard           *trust.TrustedProxyGuard
-	AuditLog        *audit.AuditLog
-	MCPRouter       *mcp.MCPRouter
+	SocketPath       string
+	RPCTransport     string
+	ListenAddr       string
+	Keystore         Keystore
+	Matrix           MatrixAdapter
+	AIService        *ai.AIService
+	AIMaxConcurrent  int
+	BridgeManager    BridgeManager
+	BrowserJobs      *BrowserJobManager
+	Studio           StudioService
+	AppService       AppService
+	ProvisioningMgr  ProvisioningManager
+	SkillManager     SkillManager
+	SkillGate        interfaces.SkillGate
+	EventBus         *eventbus.EventBus
+	HardeningStore   trust.Store
+	DeviceStore      *trust.DeviceStore
+	InviteStore      *invite.InviteStore
+	Metrics          *Metrics
+	DockerClient     *docker.Client
+	Guard            *trust.TrustedProxyGuard
+	AuditLog         *audit.AuditLog
+	MCPRouter        *mcp.MCPRouter
 	GovernanceRoomID string
-	Translator      *translator.RPCToMCPTranslator
+	Translator       *translator.RPCToMCPTranslator
 	SecretaryHandler secretaryRPCHandler
 }
 
@@ -210,32 +212,32 @@ func New(cfg Config) (*Server, error) {
 	}
 
 	s := &Server{
-		keystore:        cfg.Keystore,
-		matrix:          cfg.Matrix,
-		aiService:       cfg.AIService,
-		aiMaxConcurrent: cfg.AIMaxConcurrent,
-		aiSemaphore:     make(chan struct{}, cfg.AIMaxConcurrent),
-		bridgeMgr:       cfg.BridgeManager,
-		browserJobs:     cfg.BrowserJobs,
-		studio:          cfg.Studio,
-		appService:      cfg.AppService,
-		provisioningMgr: cfg.ProvisioningMgr,
-		skillMgr:        cfg.SkillManager,
-		skillGate:       cfg.SkillGate,
-		eventBus:        cfg.EventBus,
-		handlers:        make(map[string]HandlerFunc, 32),
-		hardeningStore:  cfg.HardeningStore,
-		deviceStore:     cfg.DeviceStore,
-		inviteStore:     cfg.InviteStore,
-		metrics:         cfg.Metrics,
-		shutdownCh:      make(chan struct{}),
-		rpcTransport:    cfg.RPCTransport,
-		listenAddr:      cfg.ListenAddr,
-		dockerClient:    cfg.DockerClient,
-		guard:           cfg.Guard,
-		auditLog:        cfg.AuditLog,
-		mcpRouter:       cfg.MCPRouter,
-		translator:      cfg.Translator,
+		keystore:         cfg.Keystore,
+		matrix:           cfg.Matrix,
+		aiService:        cfg.AIService,
+		aiMaxConcurrent:  cfg.AIMaxConcurrent,
+		aiSemaphore:      make(chan struct{}, cfg.AIMaxConcurrent),
+		bridgeMgr:        cfg.BridgeManager,
+		browserJobs:      cfg.BrowserJobs,
+		studio:           cfg.Studio,
+		appService:       cfg.AppService,
+		provisioningMgr:  cfg.ProvisioningMgr,
+		skillMgr:         cfg.SkillManager,
+		skillGate:        cfg.SkillGate,
+		eventBus:         cfg.EventBus,
+		handlers:         make(map[string]HandlerFunc, 32),
+		hardeningStore:   cfg.HardeningStore,
+		deviceStore:      cfg.DeviceStore,
+		inviteStore:      cfg.InviteStore,
+		metrics:          cfg.Metrics,
+		shutdownCh:       make(chan struct{}),
+		rpcTransport:     cfg.RPCTransport,
+		listenAddr:       cfg.ListenAddr,
+		dockerClient:     cfg.DockerClient,
+		guard:            cfg.Guard,
+		auditLog:         cfg.AuditLog,
+		mcpRouter:        cfg.MCPRouter,
+		translator:       cfg.Translator,
 		secretaryHandler: cfg.SecretaryHandler,
 		governanceRoomID: cfg.GovernanceRoomID,
 	}
@@ -870,99 +872,101 @@ func randomString(n int) string {
 
 func (s *Server) registerHandlers() {
 	h := map[string]HandlerFunc{
-		"ai.chat":                   s.handleAIChat,
-		"browser.navigate":          s.handleBrowserNavigate,
-		"browser.fill":              s.handleBrowserFill,
-		"browser.click":             s.handleBrowserClick,
-		"browser.status":            s.handleBrowserStatus,
-		"browser.wait_for_element":  s.handleBrowserWaitForElement,
-		"browser.wait_for_captcha":  s.handleBrowserWaitForCaptcha,
-		"browser.wait_for_2fa":      s.handleBrowserWaitFor2FA,
-		"browser.complete":          s.handleBrowserComplete,
-		"browser.fail":              s.handleBrowserFail,
-		"browser.list":              s.handleBrowserList,
-		"browser.cancel":            s.handleBrowserCancel,
-		"bridge.start":              s.handleBridgeStart,
-		"bridge.stop":               s.handleBridgeStop,
-		"bridge.status":             s.handleBridgeStatus,
-		"bridge.channel":            s.handleBridgeChannel,
-		"bridge.unchannel":          s.handleUnbridgeChannel,
-		"bridge.list":               s.handleListBridgedChannels,
-		"bridge.ghost_list":         s.handleGhostUserList,
-		"bridge.appservice_status":  s.handleAppServiceStatus,
-		"pii.request":               s.handlePIIRequest,
-		"pii.approve":               s.handlePIIApprove,
-		"pii.deny":                  s.handlePIIDeny,
-		"pii.status":                s.handlePIIStatus,
-		"pii.list_pending":          s.handlePIIListPending,
-		"pii.stats":                 s.handlePIIStats,
-		"pii.cancel":                s.handlePIICancel,
-		"pii.fulfill":               s.handlePIIFulfill,
-		"pii.wait_for_approval":     s.handlePIIWaitForApproval,
-		"skills.execute":            s.handleSkillsExecute,
-		"skills.list":               s.handleSkillsList,
-		"skills.get_schema":         s.handleSkillsGetSchema,
-		"skills.allow":              s.handleSkillsAllow,
-		"skills.block":              s.handleSkillsBlock,
-		"skills.allowlist_add":      s.handleSkillsAllowlistAdd,
-		"skills.allowlist_remove":   s.handleSkillsAllowlistRemove,
-		"skills.allowlist_list":     s.handleSkillsAllowlistList,
-		"skills.web_search":         s.handleSkillsWebSearch,
-		"skills.web_extract":        s.handleSkillsWebExtract,
-		"skills.email_send":         s.handleSkillsEmailSend,
-		"skills.slack_message":      s.handleSkillsSlackMessage,
-		"skills.file_read":          s.handleSkillsFileRead,
-		"skills.data_analyze":       s.handleSkillsDataAnalyze,
-		"matrix.status":             s.handleMatrixStatus,
-		"matrix.login":              s.handleMatrixLogin,
-		"matrix.send":               s.handleMatrixSend,
-		"matrix.receive":            s.handleMatrixReceive,
-		"matrix.join_room":          s.handleMatrixJoinRoom,
-		"events.replay":             s.handleEventsReplay,
-		"events.stream":             s.handleEventsStream,
-		"studio.deploy":             s.handleStudio,
-		"studio.stats":              s.handleStudioStats,
-		"store_key":                 s.handleStoreKey,
-		"provisioning.start":        s.handleProvisioningStart,
-		"provisioning.claim":        s.handleProvisioningClaim,
-		"hardening.status":          s.handleHardeningStatus,
-		"hardening.ack":             s.handleHardeningAck,
-		"hardening.rotate_password": s.handleHardeningRotatePassword,
-		"health.check":              s.handleHealthCheck,
-		"mobile.heartbeat":          s.handleMobileHeartbeat,
-		"container.terminate":       s.handleTerminateContainer,
-		"container.list":            s.handleListContainers,
-		"resolve_blocker":           s.handleResolveBlocker,
-		"approve_email":             s.handleApproveEmail,
-		"deny_email":                s.handleDenyEmail,
-		"email_approval_status":     s.handleEmailApprovalStatus,
-		"email.list_pending":        s.handleEmailListPending,
-		"account.delete":            s.handleAccountDelete,
-		"secretary.start_workflow":  s.handleSecretaryMethod,
-		"secretary.get_workflow":    s.handleSecretaryMethod,
-		"secretary.cancel_workflow": s.handleSecretaryMethod,
+		"ai.chat":                    s.handleAIChat,
+		"browser.navigate":           s.handleBrowserNavigate,
+		"browser.fill":               s.handleBrowserFill,
+		"browser.click":              s.handleBrowserClick,
+		"browser.status":             s.handleBrowserStatus,
+		"browser.wait_for_element":   s.handleBrowserWaitForElement,
+		"browser.wait_for_captcha":   s.handleBrowserWaitForCaptcha,
+		"browser.wait_for_2fa":       s.handleBrowserWaitFor2FA,
+		"browser.complete":           s.handleBrowserComplete,
+		"browser.fail":               s.handleBrowserFail,
+		"browser.list":               s.handleBrowserList,
+		"browser.cancel":             s.handleBrowserCancel,
+		"bridge.start":               s.handleBridgeStart,
+		"bridge.stop":                s.handleBridgeStop,
+		"bridge.status":              s.handleBridgeStatus,
+		"bridge.channel":             s.handleBridgeChannel,
+		"bridge.unchannel":           s.handleUnbridgeChannel,
+		"bridge.list":                s.handleListBridgedChannels,
+		"bridge.ghost_list":          s.handleGhostUserList,
+		"bridge.appservice_status":   s.handleAppServiceStatus,
+		"pii.request":                s.handlePIIRequest,
+		"pii.approve":                s.handlePIIApprove,
+		"pii.deny":                   s.handlePIIDeny,
+		"pii.status":                 s.handlePIIStatus,
+		"pii.list_pending":           s.handlePIIListPending,
+		"pii.stats":                  s.handlePIIStats,
+		"pii.cancel":                 s.handlePIICancel,
+		"pii.fulfill":                s.handlePIIFulfill,
+		"pii.wait_for_approval":      s.handlePIIWaitForApproval,
+		"skills.execute":             s.handleSkillsExecute,
+		"skills.list":                s.handleSkillsList,
+		"skills.get_schema":          s.handleSkillsGetSchema,
+		"skills.allow":               s.handleSkillsAllow,
+		"skills.block":               s.handleSkillsBlock,
+		"skills.allowlist_add":       s.handleSkillsAllowlistAdd,
+		"skills.allowlist_remove":    s.handleSkillsAllowlistRemove,
+		"skills.allowlist_list":      s.handleSkillsAllowlistList,
+		"skills.web_search":          s.handleSkillsWebSearch,
+		"skills.web_extract":         s.handleSkillsWebExtract,
+		"skills.email_send":          s.handleSkillsEmailSend,
+		"skills.slack_message":       s.handleSkillsSlackMessage,
+		"skills.file_read":           s.handleSkillsFileRead,
+		"skills.data_analyze":        s.handleSkillsDataAnalyze,
+		"matrix.status":              s.handleMatrixStatus,
+		"matrix.login":               s.handleMatrixLogin,
+		"matrix.send":                s.handleMatrixSend,
+		"matrix.receive":             s.handleMatrixReceive,
+		"matrix.join_room":           s.handleMatrixJoinRoom,
+		"events.replay":              s.handleEventsReplay,
+		"events.stream":              s.handleEventsStream,
+		"studio.deploy":              s.handleStudio,
+		"studio.stats":               s.handleStudioStats,
+		"store_key":                  s.handleStoreKey,
+		"provisioning.start":         s.handleProvisioningStart,
+		"provisioning.claim":         s.handleProvisioningClaim,
+		"hardening.status":           s.handleHardeningStatus,
+		"hardening.ack":              s.handleHardeningAck,
+		"hardening.rotate_password":  s.handleHardeningRotatePassword,
+		"health.check":               s.handleHealthCheck,
+		"mobile.heartbeat":           s.handleMobileHeartbeat,
+		"container.terminate":        s.handleTerminateContainer,
+		"container.list":             s.handleListContainers,
+		"resolve_blocker":            s.handleResolveBlocker,
+		"approve_email":              s.handleApproveEmail,
+		"deny_email":                 s.handleDenyEmail,
+		"email_approval_status":      s.handleEmailApprovalStatus,
+		"email.list_pending":         s.handleEmailListPending,
+		"account.delete":             s.handleAccountDelete,
+		"secretary.start_workflow":   s.handleSecretaryMethod,
+		"secretary.get_workflow":     s.handleSecretaryMethod,
+		"secretary.cancel_workflow":  s.handleSecretaryMethod,
 		"secretary.create_workflow":  s.handleSecretaryMethod,
 		"secretary.advance_workflow": s.handleSecretaryMethod,
-		"secretary.list_templates":  s.handleSecretaryMethod,
-		"secretary.create_template": s.handleSecretaryMethod,
-		"secretary.get_template":    s.handleSecretaryMethod,
-		"secretary.delete_template": s.handleSecretaryMethod,
-		"secretary.update_template": s.handleSecretaryMethod,
+		"secretary.list_templates":   s.handleSecretaryMethod,
+		"secretary.create_template":  s.handleSecretaryMethod,
+		"secretary.get_template":     s.handleSecretaryMethod,
+		"secretary.delete_template":  s.handleSecretaryMethod,
+		"secretary.update_template":  s.handleSecretaryMethod,
 		"secretary.is_running":       s.handleSecretaryMethod,
 		"secretary.get_active_count": s.handleSecretaryMethod,
 		"secretary.shutdown":         s.handleSecretaryMethod,
-		"task.create":               s.handleSecretaryMethod,
-		"task.list":                 s.handleSecretaryMethod,
-		"task.cancel":               s.handleSecretaryMethod,
-		"task.get":                  s.handleSecretaryMethod,
-		"device.list":               s.handleDeviceList,
-		"device.get":                s.handleDeviceGet,
-		"device.approve":            s.handleDeviceApprove,
-		"device.reject":            s.handleDeviceReject,
-		"invite.list":              s.handleInviteList,
-		"invite.create":            s.handleInviteCreate,
-		"invite.revoke":            s.handleInviteRevoke,
-		"invite.validate":          s.handleInviteValidate,
+		"task.create":                s.handleSecretaryMethod,
+		"task.list":                  s.handleSecretaryMethod,
+		"task.cancel":                s.handleSecretaryMethod,
+		"task.get":                   s.handleSecretaryMethod,
+		"device.list":                s.handleDeviceList,
+		"device.get":                 s.handleDeviceGet,
+		"device.approve":             s.handleDeviceApprove,
+		"device.reject":              s.handleDeviceReject,
+		"invite.list":                s.handleInviteList,
+		"invite.create":              s.handleInviteCreate,
+		"invite.revoke":              s.handleInviteRevoke,
+		"invite.validate":            s.handleInviteValidate,
+		"bridge.e2ee_enable":         s.handleE2EEEnable,
+		"bridge.e2ee_disable":        s.handleE2EEDisable,
 	}
 
 	s.handlers = h

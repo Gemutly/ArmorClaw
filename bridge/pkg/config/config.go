@@ -181,6 +181,13 @@ type ProviderConfig struct {
 	Tags        []string          `toml:"tags"`
 }
 
+// E2EEConfig is a kill switch for Matrix E2EE crypto operations.
+// When Enabled is false, no E2EE crypto runs. Default: false (unimplemented).
+// Runtime toggle: bridge.e2ee_enable / bridge.e2ee_disable RPC methods.
+type E2EEConfig struct {
+	Enabled bool `toml:"enabled" env:"ARMORCLAW_E2EE_ENABLED"`
+}
+
 // MatrixConfig holds Matrix-specific configuration
 type MatrixConfig struct {
 	// Enabled enables Matrix communication
@@ -210,8 +217,9 @@ type MatrixConfig struct {
 	// Retry configuration
 	Retry RetryConfig `toml:"retry"`
 
-	// Zero-trust configuration
 	ZeroTrust ZeroTrustConfig `toml:"zero_trust"`
+
+	E2EE E2EEConfig `toml:"e2ee"`
 }
 
 // RetryConfig holds retry configuration for Matrix operations
@@ -880,6 +888,9 @@ func DefaultConfig() *Config {
 				TrustedRooms:    []string{}, // Empty = allow all rooms
 				RejectUntrusted: false,      // Silent drop by default
 			},
+			E2EE: E2EEConfig{
+				Enabled: false,
+			},
 		},
 		Budget: BudgetConfig{
 			DailyLimitUSD:   5.00,   // $5/day default
@@ -1236,6 +1247,10 @@ func (c *Config) MatrixCredentials() (username, password string) {
 // IsMatrixEnabled returns true if Matrix communication is enabled
 func (c *Config) IsMatrixEnabled() bool {
 	return c.Matrix.Enabled
+}
+
+func (c *Config) IsE2EEEnabled() bool {
+	return c.Matrix.E2EE.Enabled
 }
 
 // GetSyncInterval returns the Matrix sync interval as a Duration

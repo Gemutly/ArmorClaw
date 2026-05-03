@@ -1,0 +1,13 @@
+[global]
+server_name = "localhost"
+
+[global.database]
+path = "/var/lib/conduit/conduit.db"
+
+[global.matrix]
+allow_device_key_name_changes = true
+allow_encryption_over_unencrypted = true
+allow_device_key_updates = true
+
+[global.media]
+proxy = "none"

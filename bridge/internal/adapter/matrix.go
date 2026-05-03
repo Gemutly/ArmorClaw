@@ -297,6 +297,9 @@ func (m *MatrixAdapter) Login(username, password string) error {
 	m.accessToken = result.AccessToken
 	m.userID = result.UserID
 	m.refreshToken = result.RefreshToken // P1-HIGH-1: Store refresh token for long-lived sessions
+	if result.DeviceID != "" {
+		m.deviceID = result.DeviceID
+	}
 	m.mu.Unlock()
 
 	matrixTracker.Success("login", map[string]any{"user_id": result.UserID})
