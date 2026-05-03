@@ -3,11 +3,14 @@
 package trust
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
+	"log/slog"
 	"sync"
 	"time"
 
+	"github.com/armorclaw/bridge/pkg/crypto"
 	"github.com/armorclaw/bridge/pkg/securerandom"
 )
 
@@ -114,24 +117,31 @@ func DefaultTrustConfig() *TrustConfig {
 
 // Manager handles device trust verification
 type Manager struct {
-	mu       sync.RWMutex
-	config   *TrustConfig
-	devices  map[string]*Device
-	pending  map[string]*VerificationRequest
-	admins   []string // Admin user IDs for notifications
+	mu           sync.RWMutex
+	config       *TrustConfig
+	devices      map[string]*Device
+	pending      map[string]*VerificationRequest
+	admins       []string // Admin user IDs for notifications
+	crossSigning *crypto.CrossSigningService
 }
 
-// NewManager creates a new trust manager
-func NewManager(config *TrustConfig) *Manager {
+// NewManager creates a new trust manager.
+// The optional crossSigning parameter enables cross-signing-based
+// bridge verification via IsBridgeVerified.
+func NewManager(config *TrustConfig, crossSigning ...*crypto.CrossSigningService) *Manager {
 	if config == nil {
 		config = DefaultTrustConfig()
 	}
-	return &Manager{
+	m := &Manager{
 		config:  config,
 		devices: make(map[string]*Device),
 		pending: make(map[string]*VerificationRequest),
 		admins:  make([]string, 0),
 	}
+	if len(crossSigning) > 0 && crossSigning[0] != nil {
+		m.crossSigning = crossSigning[0]
+	}
+	return m
 }
 
 // RegisterDevice registers a new device and creates verification request
@@ -354,6 +364,34 @@ func (m *Manager) IsDeviceTrusted(deviceID string) bool {
 		return false
 	}
 	return device.TrustState == StateVerified
+}
+
+// IsBridgeVerified checks if the bridge device for a given user is verified
+// via cross-signing. If cross-signing is bootstrapped for the user, the device
+// is considered verified. If cross-signing is not configured or not yet
+// bootstrapped, the device is unverified but not blocked.
+func (m *Manager) IsBridgeVerified(ctx context.Context, userID string) (bool, error) {
+	if m.crossSigning == nil {
+		slog.Debug("cross_signing_not_configured", "user_id", userID)
+		return false, nil
+	}
+
+	bootstrapped, err := m.crossSigning.IsBootstrapped(ctx, userID)
+	if err != nil {
+		return false, err
+	}
+
+	if bootstrapped {
+		m.mu.Lock()
+		defer m.mu.Unlock()
+		for _, device := range m.devices {
+			if device.UserID == userID && device.TrustState == StateVerified {
+				return true, nil
+			}
+		}
+	}
+
+	return false, nil
 }
 
 // ListPendingRequests returns all pending verification requests
