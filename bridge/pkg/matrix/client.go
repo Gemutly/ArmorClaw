@@ -284,10 +284,21 @@ type StateFilter struct {
 	LazyLoadMembers bool `json:"lazy_load_members"`
 }
 
-// SyncResponse represents a /sync response
+type ToDevice struct {
+	Events []json.RawMessage `json:"events"`
+}
+
+type DeviceLists struct {
+	Changed []string `json:"changed,omitempty"`
+	Left    []string `json:"left,omitempty"`
+}
+
 type SyncResponse struct {
-	NextBatch string                     `json:"next_batch"`
-	Rooms     map[string]json.RawMessage `json:"rooms,omitempty"`
+	NextBatch             string              `json:"next_batch"`
+	ToDevice              *ToDevice           `json:"to_device,omitempty"`
+	DeviceLists           *DeviceLists        `json:"device_lists,omitempty"`
+	DeviceOneTimeKeysCount map[string]int     `json:"device_one_time_keys_count,omitempty"`
+	Rooms                 map[string]json.RawMessage `json:"rooms,omitempty"`
 }
 
 // DefaultSyncFilter returns a filter suitable for production use

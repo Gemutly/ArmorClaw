@@ -54,6 +54,7 @@ type MatrixAdapter struct {
 	syncFilterID     string                  // Server-side sync filter ID for performance
 	syncMetrics      SyncMetrics             // Sync performance metrics
 	eventBus         *events.MatrixEventBus  // High-throughput event bus for agent streaming
+	keyIngestion     *KeyIngestionManager    // E2EE key ingestion for to_device events
 }
 
 // StudioCommandHandler handles Agent Studio commands via Matrix
@@ -81,6 +82,7 @@ var bridgeSyncFilter = map[string]interface{}{
 				"m.room.message",
 				"m.room.member",
 				"m.room.bridge",
+				"m.room.encrypted",
 				"app.armorclaw.alert",
 				"com.armorclaw.agent.status",
 			},
@@ -102,7 +104,10 @@ var bridgeSyncFilter = map[string]interface{}{
 		},
 	},
 	"presence": map[string]interface{}{
-		"types": []string{}, // Ignore presence updates to reduce payload
+		"types": []string{},
+	},
+	"to_device": map[string]interface{}{
+		"limit": 100,
 	},
 }
 
@@ -123,10 +128,24 @@ type MatrixMessage struct {
 	MsgType string `json:"msgtype"`
 }
 
+// ToDevice represents the to_device section of a /sync response
+type ToDevice struct {
+	Events []json.RawMessage `json:"events"`
+}
+
+// DeviceLists represents the device_lists section of a /sync response
+type DeviceLists struct {
+	Changed []string `json:"changed,omitempty"`
+	Left    []string `json:"left,omitempty"`
+}
+
 // SyncResponse represents Matrix sync response
 type SyncResponse struct {
-	NextBatch string `json:"next_batch"`
-	Rooms     struct {
+	NextBatch             string              `json:"next_batch"`
+	ToDevice              *ToDevice           `json:"to_device,omitempty"`
+	DeviceLists           *DeviceLists        `json:"device_lists,omitempty"`
+	DeviceOneTimeKeysCount map[string]int     `json:"device_one_time_keys_count,omitempty"`
+	Rooms                 struct {
 		Join map[string]struct {
 			Timeline struct {
 				Events []json.RawMessage `json:"events"`
@@ -775,7 +794,38 @@ func (m *MatrixAdapter) processEvents(syncResp *SyncResponse) int {
 			}
 		}
 	}
+
+	if syncResp.ToDevice != nil {
+		m.processToDeviceEvents(syncResp.ToDevice.Events)
+	}
+
 	return processed
+}
+
+func (m *MatrixAdapter) processToDeviceEvents(events []json.RawMessage) {
+	m.mu.RLock()
+	ki := m.keyIngestion
+	m.mu.RUnlock()
+
+	if ki == nil {
+		return
+	}
+
+	for _, rawEvent := range events {
+		var toDeviceEvent struct {
+			Type    string          `json:"type"`
+			Sender  string          `json:"sender"`
+			Content json.RawMessage `json:"content"`
+		}
+		if err := json.Unmarshal(rawEvent, &toDeviceEvent); err != nil {
+			fmt.Printf("[matrix] processToDeviceEvents: unmarshal error: %v\n", err)
+			continue
+		}
+
+		if err := ki.HandleKeyEvent(m.ctx, toDeviceEvent.Type, toDeviceEvent.Content, toDeviceEvent.Sender); err != nil {
+			fmt.Printf("[matrix] processToDeviceEvents: HandleKeyEvent error: type=%s err=%v\n", toDeviceEvent.Type, err)
+		}
+	}
 }
 
 func (m *MatrixAdapter) publishCustomEvent(event *MatrixEvent, roomID string) {
