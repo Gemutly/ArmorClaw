@@ -468,7 +468,7 @@ func (m *QRManager) signConfig(config *ConfigPayload) string {
 			config.ExpiresAt,
 		)
 	} else {
-		data = fmt.Sprintf("%d:%s:%s:%s:%s:%s:%s:%s:%d",
+		data = fmt.Sprintf("%d:%s:%s:%s:%s:%s:%s:%s:%s:%d:%d",
 			config.Version,
 			config.MatrixHomeserver,
 			config.RpcURL,
@@ -477,6 +477,8 @@ func (m *QRManager) signConfig(config *ConfigPayload) string {
 			config.ServerName,
 			config.TLSMode,
 			config.TLSFingerprintSHA256,
+			config.TLSTrustHint,
+			config.CertExpiresAt,
 			config.ExpiresAt,
 		)
 	}

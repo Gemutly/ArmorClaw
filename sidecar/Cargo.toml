@@ -20,12 +20,15 @@ prost-types = "0.12"
 tower = { version = "0.4", features = ["limit", "timeout", "buffer", "util"] }
 tower-http = { version = "0.5", features = ["trace"] }
 
-# Cloud SDKs (Phase 1: S3 only)
-aws-sdk-s3 = "1.10"
-aws-config = "1.1"
+# Cloud SDKs (rustls/ring only — no aws-lc-rs, no clang needed)
+aws-sdk-s3 = { version = "1.10", default-features = false, features = ["rt-tokio", "rustls", "sigv4a"] }
+aws-config = { version = "1.1", default-features = false, features = ["rt-tokio", "credentials-process", "sso"] }
 aws-credential-types = "1.1"
 
-# HTTP Client (for future connectors)
+azure_storage = { version = "0.21", default-features = false, features = ["enable_reqwest_rustls"] }
+azure_storage_blobs = { version = "0.21", default-features = false, features = ["enable_reqwest_rustls", "hmac_rust"] }
+
+# HTTP Client
 reqwest = { version = "0.11", features = ["json", "stream", "rustls-tls"], default-features = false }
 reqwest-middleware = { version = "0.2" }
 reqwest-retry = { version = "0.3" }

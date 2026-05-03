@@ -272,6 +272,8 @@ impl TonicInterceptor for RateLimitInterceptor {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::time::Duration;
+    use tonic::Code;
 
     #[test]
     fn test_token_bucket_creation() {
@@ -402,10 +404,9 @@ mod tests {
         assert!(result.is_err());
         assert_eq!(result.unwrap_err().code(), Code::ResourceExhausted);
     }
-    }
 
     #[test]
-    fn test_rate_limit_interceptor_with_registry() {
+    fn test_rate_limit_interceptor_with_registry_rate_limiting() {
         let registry = Registry::new();
         let mut interceptor = RateLimitInterceptor::with_registry(100, 5, &registry).unwrap();
 
@@ -439,3 +440,4 @@ mod tests {
         // Should succeed now
         assert!(interceptor.call(tonic::Request::new(())).is_ok());
     }
+}

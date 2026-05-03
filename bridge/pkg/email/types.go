@@ -3,6 +3,8 @@ package email
 import (
 	"context"
 	"time"
+
+	"github.com/armorclaw/bridge/pkg/pii"
 )
 
 type EmailAddress struct {
@@ -33,13 +35,15 @@ type EmailSender interface {
 	Provider() string
 }
 
-type ApprovalStatus string
+// ApprovalStatus is an alias for pii.AccessRequestStatus for backward compatibility.
+// Deprecated: Use pii.AccessRequestStatus directly.
+type ApprovalStatus = pii.AccessRequestStatus
 
 const (
-	ApprovalPending  ApprovalStatus = "pending"
-	ApprovalApproved ApprovalStatus = "approved"
-	ApprovalRejected ApprovalStatus = "rejected"
-	ApprovalExpired  ApprovalStatus = "expired"
+	ApprovalPending  = pii.StatusPending
+	ApprovalApproved = pii.StatusApproved
+	ApprovalRejected = pii.StatusRejected
+	ApprovalExpired  = pii.StatusExpired
 )
 
 type OutboundResult struct {

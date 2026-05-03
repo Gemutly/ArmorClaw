@@ -422,6 +422,13 @@ func (s *Server) loadOrGenerateCerts() error {
 }
 
 func (s *Server) updateQRTLSInfo() {
+	mode := s.deriveTLSMode()
+
+	if mode == "none" {
+		s.qrManager.SetTLSInfo("none", "", "", 0)
+		return
+	}
+
 	fp, err := s.GetCertificateFingerprint()
 	if err != nil {
 		return
@@ -442,7 +449,7 @@ func (s *Server) updateQRTLSInfo() {
 		trustHint = "self_signed"
 	}
 
-	s.qrManager.SetTLSInfo("private", fp, trustHint, cert.NotAfter.Unix())
+	s.qrManager.SetTLSInfo(mode, fp, trustHint, cert.NotAfter.Unix())
 	s.qrManager.SetWsURL(toWSS(fmt.Sprintf("https://%s:%d", s.config.Hostname, s.config.Port)) + "/ws")
 }
 

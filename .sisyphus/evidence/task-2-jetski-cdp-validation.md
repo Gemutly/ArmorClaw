@@ -1,95 +1,66 @@
 # Task 2: Jetski CDP Event Access Validation
 
-**Date**: 2026-05-03
-**Status**: COMPLETE
-**Verdict**: `cdp_event_stream_exists: false`
+**Date:** 2026-05-03
+**Status:** COMPLETE
+**Gate Result:** `cdp_event_stream_exists: false`
 
-## 1. RPC API Inventory (`jetski/internal/rpc/rpc.go`)
+---
 
-The RPC server runs on port **9223** and registers exactly **4 core endpoints + conditional approval endpoints**:
+## 1. Jetski RPC API — All Registered Endpoints
 
-| Endpoint | Method | Parameters | Return Type | Description |
-|----------|--------|------------|-------------|-------------|
-| `/rpc/status` | GET | none | `{"active_sessions": int, "engine_health": string}` | Session count + health string |
-| `/rpc/session/create` | POST | none | `{"id": string}` | Creates `session-N` ID, increments counter |
-| `/rpc/session/close` | POST | `{"id": string}` | `{"status": "closed"}` | Removes session from map |
-| `/rpc/health` | GET | none | `{"status": "healthy", "uptime": float64}` | Uptime in seconds |
+File: `jetski/internal/rpc/rpc.go`
 
-**Conditional (if approval client != nil):**
-| Endpoint | Registered via | Purpose |
-|----------|---------------|---------|
-| Approval handlers | `approval.RegisterApprovalHandlers(mux, ac)` | HITL approval flow |
+| Endpoint | Method | Purpose |
+|----------|--------|---------|
+| `/rpc/status` | GET | Returns `active_sessions` count and `engine_health` |
+| `/rpc/session/create` | POST | Creates a session, returns `{"id": "session-N"}` |
+| `/rpc/session/close` | POST | Closes a session by ID |
+| `/rpc/health` | GET | Returns `status` and `uptime_seconds` |
+| `/rpc/approval/*` | POST | Conditional — registered only if `ApprovalClient` is non-nil |
 
-### Key Finding: No Event Subscription Endpoint
+**Key finding:** There is NO `/rpc/events`, `/rpc/cdp/stream`, `/rpc/subscribe`, or any WebSocket/SSE streaming endpoint in the RPC server. All endpoints are simple HTTP request/response.
 
-**None of these endpoints return CDP events or provide a streaming/event subscription mechanism.** The RPC server is a simple HTTP JSON API with request-response semantics only.
+---
 
-## 2. CDP Proxy Architecture (`jetski/internal/cdp/proxy.go`)
+## 2. CDP Proxy — Event Interception Points
 
-### How CDP Events Flow
+File: `jetski/internal/cdp/proxy.go`
 
-The proxy is a **bidirectional WebSocket pipe** between client (agent) and engine (Lightpanda):
+The Proxy is a **bidirectional WebSocket pipe** between agent (clientConn) and browser engine (engineConn). It intercepts CDP messages in both directions:
 
-```
-Client (Agent) <--WebSocket--> Jetski Proxy <--WebSocket--> Engine (Lightpanda)
-     Port 9222                           Port 9333
-```
+### Inbound (Client → Engine): `forwardToEngine()`
+- Reads from `clientConn`, forwards to `engineConn`
+- Applies PII scrubbing, PII scanning, method routing, and approval checks
+- **Records events** via `MessageRecorder` callback (line 289-291):
+  ```go
+  if p.recorder != nil && msg.Method != "" {
+      p.recorder(msg.Method, msg.Params)
+  }
+  ```
 
-### `forwardToEngine()` (client → engine, lines 249-320)
+### Outbound (Engine → Client): `forwardToClient()`
+- Reads from `engineConn`, forwards to `clientConn`
+- **Also records events** via the same `MessageRecorder` callback (line 345-349):
+  ```go
+  if p.recorder != nil && messageType == websocket.TextMessage {
+      var msg CDPMessage
+      if json.Unmarshal(data, &msg) == nil && msg.Method != "" {
+          p.recorder(msg.Method, msg.Params)
+      }
+  }
+  ```
 
-1. Reads message from `clientConn`
-2. Unmarshals to `CDPMessage` struct
-3. **PII scrubbing**: `p.ScrubPII(data)` — regex replacement of SSN, CC, email, password
-4. **PII scanning**: `p.piiScanner.ScanJSONMessage()` — logs findings
-5. **Message recording**: `p.recorder(msg.Method, msg.Params)` — writes to Sonar buffer
-6. **Method routing**: `p.router.Route(msg.Method)` — translates Input.* commands via 3-tier fallback
-7. **Approval gate**: `p.checkApproval(&msg)` — blocks Input.insertText (PII) and Page.navigate
-8. Writes to `engineConn`
-
-### `forwardToClient()` (engine → client, lines 322-365)
-
-1. Reads message from `engineConn`
-2. **Message recording**: `p.recorder(msg.Method, msg.Params)` — writes to Sonar buffer
-3. **Session ID extraction**: `p.extractSessionID(data)` — extracts `sessionId` from responses
-4. Writes to `clientConn`
-
-### CDP Message Format (`CDPMessage` struct, line 36-42)
-
+### MessageRecorder Type
 ```go
-type CDPMessage struct {
-    ID     int             `json:"id,omitempty"`      // Request ID (commands only)
-    Method string          `json:"method,omitempty"`  // e.g. "Page.frameNavigated"
-    Params json.RawMessage `json:"params,omitempty"`  // Event parameters
-    Result json.RawMessage `json:"result,omitempty"`  // Command response
-    Error  *CDPError       `json:"error,omitempty"`   // Error response
-}
+type MessageRecorder func(method string, params json.RawMessage)
 ```
+Set via `proxy.SetRecorder(fn)`. This is an **in-process callback only** — there is no external interface to subscribe to recorded events.
 
-**Events** (engine → client) have `Method` + `Params`, no `ID`.
-**Commands** (client → engine) have `ID` + `Method` + `Params`.
-**Responses** (engine → client) have `ID` + `Result` or `ID` + `Error`.
+---
 
-## 3. Sonar Telemetry (`jetski/internal/sonar/`)
+## 3. How the Recorder is Currently Used
 
-CDP events ARE captured — but only into an **in-memory circular buffer**:
-
-```go
-// CDPFrame (buffer.go:10-15)
-type CDPFrame struct {
-    Timestamp time.Time       `json:"timestamp"`
-    Method    string          `json:"method"`
-    Params    json.RawMessage `json:"params"`
-    SessionID string          `json:"session_id"`
-}
-```
-
-- **Buffer capacity**: 1000 frames (set in `main.go:74`)
-- **Buffer type**: Circular — oldest frames evicted when full
-- **Access methods**: `GetLastN(n)`, `GetAll()`, `Count()`
-- **Consumer**: Only `WreckageReport` (black box flight recorder for failures)
-- **No RPC exposure**: The Sonar buffer is NOT exposed via any RPC endpoint
-
-### How Recording Is Wired (`main.go:86-88`)
+File: `jetski/cmd/observer/main.go` (line 86-88)
 
 ```go
 cdpProxy.SetRecorder(func(method string, params json.RawMessage) {
@@ -97,11 +68,13 @@ cdpProxy.SetRecorder(func(method string, params json.RawMessage) {
 })
 ```
 
-The `MessageRecorder` callback type is `func(method string, params json.RawMessage)` (proxy.go:50).
+The recorder feeds into the **Sonar telemetry buffer** (`CircularBuffer`) for post-mortem `WreckageReport` generation. This is a **flight data recorder pattern** — data is written to an in-memory ring buffer for crash analysis, NOT streamed to external consumers.
 
-## 4. Bridge's Expected CDP Events (`bridge/pkg/agent/state_inference.go`)
+---
 
-The bridge's `InferAgentState()` function consumes `[]CDPEvent`:
+## 4. Bridge Expected CDPEvent Types
+
+File: `bridge/pkg/agent/state_inference.go`
 
 ```go
 type CDPEvent struct {
@@ -110,63 +83,101 @@ type CDPEvent struct {
 }
 ```
 
-**Recognized event types:**
+`InferAgentState()` processes these CDP methods:
 
-| CDP Method | Inferred Agent Status | Notes |
-|-----------|----------------------|-------|
+| CDP Method | Maps To AgentStatus | Notes |
+|------------|---------------------|-------|
 | `Page.frameNavigated` | `StatusBrowsing` | Page navigation detected |
-| `DOM.focus` (input element) | `StatusFormFilling` | Checks nodeName/type for INPUT/TEXTAREA/SELECT |
-| `Runtime.executionContextCreated` | `StatusInitializing` | Only if current state is Idle or Offline |
-| `Inspector.detached` | No transition | Connection drop — maintain current state |
-| `Inspector.targetCrashed` | No transition | Connection drop — maintain current state |
+| `DOM.focus` (on input elements) | `StatusFormFilling` | Checks nodeName: INPUT/TEXTAREA/SELECT |
+| `Runtime.executionContextCreated` | `StatusInitializing` | Only from Idle/Offline states |
+| `Inspector.detached` | No transition | Jetski restart — maintain state |
+| `Inspector.targetCrashed` | No transition | Browser crash — maintain state |
 
-**Type mismatch**: Bridge expects `Params map[string]interface{}` but Jetski stores `json.RawMessage`. Conversion needed.
+The function signature expects a **batched slice**: `InferAgentState(cdpEvents []CDPEvent, ...)`
 
-## 5. Method Router (`jetski/internal/cdp/router.go`)
+---
 
-The router handles **commands** (client → engine), not events:
+## 5. External Access Mechanism Assessment
 
-| Domain | Default Action | Notes |
-|--------|---------------|-------|
-| Page | Passthrough | |
-| Runtime | Translate | 3-tier fallback (CSS → XPath → JS) |
-| Input | Passthrough | Individual handlers for mouse/key/text |
-| Network | Passthrough | |
-| DOM | Passthrough | |
-| Target | Passthrough | |
-| Browser | Passthrough | |
-| Emulation | Passthrough | |
-| Fetch | Passthrough | |
-| Security | Passthrough | |
-| Performance | Passthrough | |
-| Schema | Passthrough | |
+### Question: Can the Bridge subscribe to CDP events from Jetski on port 9223?
 
-**The router does NOT intercept or emit events.** It only transforms outbound commands.
+**Answer: NO.**
 
-## 6. Conclusion
+The Jetski RPC server on port 9223 (`/rpc/*`) provides only:
+1. Session management (create/close)
+2. Health/status polling
+3. Approval flow (conditional)
 
-### `cdp_event_stream_exists: false`
+There is **no streaming mechanism** — no WebSocket event subscription, no SSE endpoint, no gRPC streaming, no pub/sub. CDP events flow through the proxy only within a single WebSocket connection (agent ↔ Jetski ↔ browser). The `MessageRecorder` is an in-process Go callback with no network exposure.
 
-Jetski does **NOT** expose CDP events via its RPC API (port 9223). Here's why:
+### What exists vs what's needed:
 
-1. **RPC server** has only 4 endpoints (status, session/create, session/close, health) — none return CDP events
-2. **CDP proxy** is a pure WebSocket pipe — it transparently forwards events but does not expose them via HTTP
-3. **Sonar buffer** captures events in-memory (1000-frame circular buffer) but is only used for `WreckageReport` post-mortem analysis, not exposed via RPC
-4. **No WebSocket subscription endpoint** exists on the RPC server for external consumers
+| Component | Exists | Exposed Externally |
+|-----------|--------|-------------------|
+| CDP event interception (recorder) | YES — `MessageRecorder` callback | NO — in-process only |
+| Sonar telemetry buffer | YES — `CircularBuffer` for crash reports | NO — in-memory ring buffer |
+| RPC status/health endpoints | YES — HTTP on :9223 | YES — but no event data |
+| WebSocket CDP proxy | YES — on :9222 (for agents) | YES — but this is the raw CDP pipe, not a curated event stream |
 
-### What Changes Are Needed for Task 2.5
+### Why raw CDP WebSocket (port 9222) doesn't solve this:
+- Port 9222 is a **single-connection** WebSocket proxy — the Bridge can't open a second connection
+- Even if it could, the Bridge would need to parse ALL CDP traffic and filter for the 4-5 event types it cares about
+- This duplicates the PII scrubbing and introduces a second consumer on a single-connection pipe
 
-To enable CDP event streaming from Jetski to Bridge's `InferAgentState()`:
+---
 
-| Change | File | Function | Description |
-|--------|------|----------|-------------|
-| Add RPC endpoint | `jetski/internal/rpc/rpc.go` | New handler | `/rpc/events/stream` — WebSocket or SSE endpoint |
-| Expose Sonar buffer | `jetski/internal/rpc/rpc.go` | Handler logic | Read from Sonar `CircularBuffer`, stream new frames |
-| Or: add subscription callback | `jetski/internal/cdp/proxy.go` | `SetRecorder` pattern | Add a second recorder for RPC subscribers |
-| Wire RPC to proxy | `jetski/cmd/observer/main.go` | `main()` | Pass Sonar buffer reference to RPC server |
-| Add event subscriber RPC | `jetski/internal/rpc/rpc.go` | New struct field | `Server` needs access to Sonar buffer |
-| Type conversion | Bridge-side | `InferAgentState()` call site | Convert `json.RawMessage` → `map[string]interface{}` |
+## 6. Changes Needed to Enable CDP Event Streaming
 
-**Estimated effort**: ~100-150 lines of Go across rpc.go and main.go. Medium complexity (needs concurrent-safe subscription pattern, likely channel-based).
+To make CDP events available to the Bridge, Jetski needs:
 
-**Recommended approach**: Add a `/rpc/events/stream` WebSocket endpoint to the RPC server that subscribes to a new broadcast channel in the Proxy. The Proxy's existing `recorder` callback already fires on every CDP message in both directions — add a second fan-out to a pub/sub channel.
+### Option A: RPC Event Streaming Endpoint (Recommended)
+Add a new endpoint to `jetski/internal/rpc/rpc.go`:
+- `GET /rpc/events/stream` — SSE (Server-Sent Events) endpoint
+- Register the `MessageRecorder` in `main.go` to fan-out events to SSE subscribers
+- Files to modify:
+  - `jetski/internal/rpc/rpc.go` — add SSE handler and subscriber registry
+  - `jetski/cmd/observer/main.go` — wire recorder to RPC server subscriber fan-out
+  - New: `jetski/internal/rpc/eventbus.go` — subscriber registry and fan-out logic
+
+### Option B: Shared Event Buffer via RPC Polling
+Add a ring buffer accessible via RPC:
+- `GET /rpc/events?since=<seq>` — returns buffered CDP events since sequence number
+- Simpler to implement but higher latency (polling-based)
+- Files to modify:
+  - `jetski/internal/rpc/rpc.go` — add events endpoint
+  - `jetski/cmd/observer/main.go` — wire recorder to shared buffer
+
+### Data Format (Bridge-Ready):
+```json
+{
+  "seq": 42,
+  "session_id": "session-1",
+  "method": "Page.frameNavigated",
+  "params": {"frame": {"id": "main"}, "url": "https://example.com"},
+  "timestamp": "2026-05-03T12:00:00Z"
+}
+```
+
+---
+
+## 7. Available CDP Event Types (from state_inference.go)
+
+Events the Bridge cares about for state inference:
+
+1. **Page.frameNavigated** — navigation events
+2. **DOM.focus** — form element focus (with nodeType/nodeName/type params)
+3. **Runtime.executionContextCreated** — JS context creation
+4. **Inspector.detached** — CDP disconnect
+5. **Inspector.targetCrashed** — browser crash
+
+All other CDP events are ignored by the inference engine (maintain current state).
+
+---
+
+## Conclusion
+
+**`cdp_event_stream_exists: false`**
+
+Jetski has internal CDP event interception (via `MessageRecorder`) but no mechanism to expose these events to external consumers. The Bridge's `InferAgentState()` function is fully implemented and tested but **unwired** — it cannot receive CDP events because Jetski has no streaming endpoint.
+
+**Task 2.5 (CDP streaming endpoint) IS needed.** The infrastructure for event capture exists inside Jetski; only the external delivery mechanism is missing.

@@ -6,6 +6,8 @@ package studio
 import (
 	"encoding/json"
 	"time"
+
+	"github.com/armorclaw/bridge/pkg/pii"
 )
 
 //=============================================================================
@@ -134,14 +136,17 @@ type PIIField struct {
 	CreatedAt time.Time `json:"created_at"`
 }
 
-// SensitivityLevel represents the classification of PII sensitivity
-type SensitivityLevel string
+// SensitivityLevel is an alias for pii.SensitivityLevel.
+// Use pii.SensitivityLevel directly for new code.
+//
+// Deprecated: Use pii.SensitivityLevel directly.
+type SensitivityLevel = pii.SensitivityLevel
 
 const (
-	SensitivityLow      SensitivityLevel = "low"
-	SensitivityMedium   SensitivityLevel = "medium"
-	SensitivityHigh     SensitivityLevel = "high"
-	SensitivityCritical SensitivityLevel = "critical"
+	SensitivityLow      = pii.SensitivityLow
+	SensitivityMedium   = pii.SensitivityMedium
+	SensitivityHigh     = pii.SensitivityHigh
+	SensitivityCritical = pii.SensitivityCritical
 )
 
 // RequiresApprovalForSensitivity returns true if the given sensitivity requires approval

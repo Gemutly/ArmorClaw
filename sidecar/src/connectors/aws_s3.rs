@@ -824,6 +824,7 @@ impl S3Connector {
 mod tests {
     use super::*;
     use std::io::Write;
+    use tokio::io::BufReader;
 
     #[tokio::test]
     #[ignore]

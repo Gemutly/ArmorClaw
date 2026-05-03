@@ -462,53 +462,69 @@ func TestConduitE2EEMockServer(t *testing.T) {
 	})
 }
 
-// TestConduitE2EESyncFilterDocumentsGap documents that the current sync filter
-// explicitly excludes m.room.encrypted events, which is a prerequisite gap for E2EE.
-func TestConduitE2EESyncFilterDocumentsGap(t *testing.T) {
-	// The bridge sync filter at matrix.go:76-107 lists only these event types:
-	// - m.room.message, m.room.member, m.room.bridge
-	// - app.armorclaw.alert, com.armorclaw.agent.status
-	//
-	// For E2EE support, we need to add "m.room.encrypted" to the timeline types.
-	// Without this, encrypted messages will never appear in the sync response.
-
-	expectedMissingTypes := []string{
-		"m.room.encrypted", // Required: receive encrypted messages
+// TestConduitE2EESyncFilterIncludesEncrypted verifies the sync filter includes m.room.encrypted.
+func TestConduitE2EESyncFilterIncludesEncrypted(t *testing.T) {
+	requiredE2EETypes := []string{
+		"m.room.encrypted",
 	}
 
 	filterData, _ := json.Marshal(bridgeSyncFilter)
 	filterStr := string(filterData)
 
-	for _, eventType := range expectedMissingTypes {
-		if bytes.Contains([]byte(filterStr), []byte(eventType)) {
-			t.Errorf("event type %s found in sync filter (good for E2EE)", eventType)
-		} else {
-			t.Logf("GAP: event type %s NOT in sync filter — must add for E2EE", eventType)
+	for _, eventType := range requiredE2EETypes {
+		if !bytes.Contains([]byte(filterStr), []byte(eventType)) {
+			t.Errorf("event type %s NOT in sync filter — required for E2EE", eventType)
 		}
 	}
+
+	t.Log("Sync filter includes m.room.encrypted for E2EE support")
 }
 
-// TestConduitE2EESyncResponseDocumentsGap documents that SyncResponse lacks ToDevice.
-func TestConduitE2EESyncResponseDocumentsGap(t *testing.T) {
-	// SyncResponse (matrix.go:127-136) currently has:
-	//   - NextBatch string
-	//   - Rooms.Join[].Timeline.Events
-	//
-	// For E2EE, we need to add:
-	//   - ToDevice *mautrix.SyncToDeviceSync `json:"to_device"`
-	//   - DeviceLists *mautrix.SyncDeviceLists   `json:"device_lists"`
-	//   - DeviceOneTimeKeysCount map[string]int  `json:"device_one_time_keys_count"`
+// TestConduitE2EESyncResponseHasE2EEFields verifies SyncResponse includes E2EE fields.
+func TestConduitE2EESyncResponseHasE2EEFields(t *testing.T) {
+	// SyncResponse now includes E2EE-required fields:
+	//   - ToDevice *ToDevice `json:"to_device,omitempty"`
+	//   - DeviceLists *DeviceLists `json:"device_lists,omitempty"`
+	//   - DeviceOneTimeKeysCount map[string]int `json:"device_one_time_keys_count,omitempty"`
 
-	// Verify current struct compiles and has expected fields
-	sr := SyncResponse{}
-	sr.NextBatch = "test"
+	sr := SyncResponse{
+		NextBatch: "batch_123",
+		ToDevice: &ToDevice{
+			Events: []json.RawMessage{json.RawMessage(`{"type":"m.dummy"}`)},
+		},
+		DeviceLists: &DeviceLists{
+			Changed: []string{"@user:example.com"},
+			Left:    []string{"@old:example.com"},
+		},
+		DeviceOneTimeKeysCount: map[string]int{
+			"curve25519":     50,
+			"signed_curve25519": 10,
+		},
+	}
 
-	// Use sr to avoid unused variable error
-	_ = sr.NextBatch
+	// Verify ToDevice field
+	if sr.ToDevice == nil {
+		t.Fatal("Expected ToDevice to be non-nil")
+	}
+	if len(sr.ToDevice.Events) != 1 {
+		t.Fatalf("Expected 1 to_device event, got %d", len(sr.ToDevice.Events))
+	}
 
-	t.Log("SyncResponse currently lacks ToDevice field — required for E2EE")
-	t.Log("Required additions:")
-	t.Log("  - ToDevice field for receiving to-device messages (key exchanges, verification)")
-	t.Log("  - DeviceLists field for tracking changed device lists")
-	t.Log("  - DeviceOneTimeKeysCount for knowing when to upload more OTKs")
+	// Verify DeviceLists field
+	if sr.DeviceLists == nil {
+		t.Fatal("Expected DeviceLists to be non-nil")
+	}
+	if len(sr.DeviceLists.Changed) != 1 {
+		t.Fatalf("Expected 1 changed device, got %d", len(sr.DeviceLists.Changed))
+	}
+
+	// Verify DeviceOneTimeKeysCount field
+	if sr.DeviceOneTimeKeysCount == nil {
+		t.Fatal("Expected DeviceOneTimeKeysCount to be non-nil")
+	}
+	if sr.DeviceOneTimeKeysCount["curve25519"] != 50 {
+		t.Fatalf("Expected curve25519 count 50, got %d", sr.DeviceOneTimeKeysCount["curve25519"])
+	}
+
+	t.Log("SyncResponse includes all E2EE fields: ToDevice, DeviceLists, DeviceOneTimeKeysCount")
 }

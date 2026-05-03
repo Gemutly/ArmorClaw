@@ -1,6 +1,10 @@
 package browser
 
-import "time"
+import (
+	"time"
+
+	"github.com/armorclaw/bridge/pkg/queue"
+)
 
 type JobID string
 
@@ -57,16 +61,20 @@ type BrokerError struct {
 	Screenshot string `json:"screenshot,omitempty"` // base64
 }
 
-type JobStatus string
+// JobStatus is an alias for queue.JobStatus.
+// All browser job status tracking uses the canonical type from the queue package.
+//
+// Deprecated: Use queue.JobStatus directly.
+type JobStatus = queue.JobStatus
 
 const (
-	JobStatusPending    JobStatus = "pending"
-	JobStatusRunning    JobStatus = "running"
-	JobStatusPaused     JobStatus = "paused"
-	JobStatusCompleted  JobStatus = "completed"
-	JobStatusFailed     JobStatus = "failed"
-	JobStatusCancelled  JobStatus = "cancelled"
-	JobStatusAwaitingPII JobStatus = "awaiting_pii"
+	JobStatusPending     = queue.JobStatusPending
+	JobStatusRunning     = queue.JobStatusRunning
+	JobStatusPaused      = queue.JobStatusPaused
+	JobStatusCompleted   = queue.JobStatusCompleted
+	JobStatusFailed      = queue.JobStatusFailed
+	JobStatusCancelled   = queue.JobStatusCancelled
+	JobStatusAwaitingPII = queue.JobStatusAwaitingPII
 )
 
 type JobSummary struct {
