@@ -132,6 +132,16 @@ type Store interface {
 	// Returns empty string if not set (not an error).
 	GetNextBatch(ctx context.Context) (string, error)
 
+	GetCrossSigningKeys(ctx context.Context, userID string) ([]CrossSigningKey, error)
+	PutSignature(ctx context.Context, signedKeyID, signerUserID, signerKeyID, signature string) error
+	GetSignatures(ctx context.Context, signedKeyID string) ([]Signature, error)
+	GetMessageIndex(ctx context.Context, sessionID, messageIndex string) (*MessageIndex, error)
+	PutMessageIndex(ctx context.Context, sessionID, messageIndex string, mi MessageIndex) error
+	GetWithheldSession(ctx context.Context, roomID, senderKey, sessionID string) (*WithheldSession, error)
+	PutWithheldSession(ctx context.Context, roomID, senderKey, sessionID string, ws WithheldSession) error
+	IsOutdated(ctx context.Context, userID string) (bool, error)
+	MarkOutdated(ctx context.Context, userID string, outdated bool) error
+
 	// --- Lifecycle ---
 
 	// Flush ensures that everything in the store is persisted to disk.
@@ -142,14 +152,18 @@ type Store interface {
 
 // MemoryStore is an in-memory implementation of Store for testing
 type MemoryStore struct {
-	sessions          map[string][]byte // key: roomID:senderKey:sessionID
+	sessions          map[string][]byte
 	olmAccount        *OlmAccountData
-	outboundSessions  map[string]*outboundGroupSessionEntry // key: roomID
-	deviceKeys        map[string][]byte                     // key: userID:deviceID
-	olmSessions       map[string][]OlmSessionData           // key: senderKey
+	outboundSessions  map[string]*outboundGroupSessionEntry
+	deviceKeys        map[string][]byte
+	olmSessions       map[string][]OlmSessionData
 	nextBatch         string
-	crossSigningKeys  map[string]string // key: userID:usage
+	crossSigningKeys  map[string]string
 	inboundByRoom     map[string][]InboundGroupSessionDetail
+	signatures        map[string][]Signature
+	messageIndices    map[string]MessageIndex
+	withheldSessions  map[string]WithheldSession
+	trackedUsers      map[string]bool
 }
 
 type outboundGroupSessionEntry struct {
@@ -167,6 +181,10 @@ func NewMemoryStore() *MemoryStore {
 		olmSessions:      make(map[string][]OlmSessionData),
 		crossSigningKeys: make(map[string]string),
 		inboundByRoom:    make(map[string][]InboundGroupSessionDetail),
+		signatures:       make(map[string][]Signature),
+		messageIndices:   make(map[string]MessageIndex),
+		withheldSessions: make(map[string]WithheldSession),
+		trackedUsers:     make(map[string]bool),
 	}
 }
 
@@ -297,6 +315,81 @@ func (s *MemoryStore) PutCrossSigningKey(ctx context.Context, userID, usage stri
 	return nil
 }
 
+func (s *MemoryStore) GetCrossSigningKeys(ctx context.Context, userID string) ([]CrossSigningKey, error) {
+	var result []CrossSigningKey
+	for k, v := range s.crossSigningKeys {
+		prefix := userID + ":"
+		if len(k) >= len(prefix) && k[:len(prefix)] == prefix {
+			result = append(result, CrossSigningKey{
+				UserID:  userID,
+				Usage:   k[len(prefix):],
+				KeyData: v,
+			})
+		}
+	}
+	if result == nil {
+		result = []CrossSigningKey{}
+	}
+	return result, nil
+}
+
+func (s *MemoryStore) PutSignature(ctx context.Context, signedKeyID, signerUserID, signerKeyID, signature string) error {
+	s.signatures[signedKeyID] = append(s.signatures[signedKeyID], Signature{
+		SignedKeyID:  signedKeyID,
+		SignerUserID: signerUserID,
+		SignerKeyID:  signerKeyID,
+		Signature:    signature,
+	})
+	return nil
+}
+
+func (s *MemoryStore) GetSignatures(ctx context.Context, signedKeyID string) ([]Signature, error) {
+	sigs := s.signatures[signedKeyID]
+	if sigs == nil {
+		return []Signature{}, nil
+	}
+	return sigs, nil
+}
+
+func (s *MemoryStore) GetMessageIndex(ctx context.Context, sessionID, messageIndex string) (*MessageIndex, error) {
+	key := sessionID + ":" + messageIndex
+	mi, ok := s.messageIndices[key]
+	if !ok {
+		return nil, nil
+	}
+	return &mi, nil
+}
+
+func (s *MemoryStore) PutMessageIndex(ctx context.Context, sessionID, messageIndex string, mi MessageIndex) error {
+	key := sessionID + ":" + messageIndex
+	s.messageIndices[key] = mi
+	return nil
+}
+
+func (s *MemoryStore) GetWithheldSession(ctx context.Context, roomID, senderKey, sessionID string) (*WithheldSession, error) {
+	key := roomID + ":" + senderKey + ":" + sessionID
+	ws, ok := s.withheldSessions[key]
+	if !ok {
+		return nil, nil
+	}
+	return &ws, nil
+}
+
+func (s *MemoryStore) PutWithheldSession(ctx context.Context, roomID, senderKey, sessionID string, ws WithheldSession) error {
+	key := roomID + ":" + senderKey + ":" + sessionID
+	s.withheldSessions[key] = ws
+	return nil
+}
+
+func (s *MemoryStore) IsOutdated(ctx context.Context, userID string) (bool, error) {
+	return s.trackedUsers[userID], nil
+}
+
+func (s *MemoryStore) MarkOutdated(ctx context.Context, userID string, outdated bool) error {
+	s.trackedUsers[userID] = outdated
+	return nil
+}
+
 // PutSession stores an Olm session for a sender key
 func (s *MemoryStore) PutSession(ctx context.Context, senderKey, sessionID string, sessionPickle []byte, createdAt int64) error {
 	sessions := s.olmSessions[senderKey]
@@ -360,6 +453,39 @@ func (s *MemoryStore) GetNextBatch(ctx context.Context) (string, error) {
 // Flush is a no-op for in-memory store
 func (s *MemoryStore) Flush(ctx context.Context) error {
 	return nil
+}
+
+// CrossSigningKey represents a stored cross-signing key for a user.
+type CrossSigningKey struct {
+	UserID  string
+	Usage   string // "master", "self_signing", "user_signing"
+	KeyData string
+}
+
+// Signature represents a key signature in the cross-signing verification chain.
+type Signature struct {
+	SignedKeyID  string
+	SignerUserID string
+	SignerKeyID  string
+	Signature    string
+}
+
+// MessageIndex records the first known occurrence of a Megolm message index
+// to detect replay attacks.
+type MessageIndex struct {
+	SessionID    string
+	MessageIndex string
+	EventID      string
+	Timestamp    int64
+}
+
+// WithheldSession stores information about a withheld Megolm session key.
+type WithheldSession struct {
+	RoomID    string
+	SenderKey string
+	SessionID string
+	Code      string
+	Reason    string
 }
 
 // ErrSessionNotFound is returned when a session is not found

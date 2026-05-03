@@ -14,7 +14,7 @@ import (
 
 // currentSchemaVersion is the latest schema version for the crypto store.
 // Each new table addition increments this version.
-const currentSchemaVersion = 1
+const currentSchemaVersion = 2
 
 // KeystoreBackedStore implements Store using the encrypted keystore database
 // This provides persistent, encrypted storage for Megolm session keys
@@ -119,6 +119,13 @@ func (s *KeystoreBackedStore) runMigrations() error {
 		}
 	}
 
+	// Migration v2: Add cross-signing keys, signatures, message indices, withheld sessions, tracked users
+	if currentVersion < 2 {
+		if err := s.migrateV2(); err != nil {
+			return fmt.Errorf("migration v2 failed: %w", err)
+		}
+	}
+
 	return nil
 }
 
@@ -181,6 +188,58 @@ func (s *KeystoreBackedStore) migrateV1() error {
 	_, err = s.db.Exec(`INSERT OR IGNORE INTO schema_version (version, applied_at) VALUES (1, ?)`, time.Now().Unix())
 	if err != nil {
 		return fmt.Errorf("failed to record schema version: %w", err)
+	}
+
+	return nil
+}
+
+func (s *KeystoreBackedStore) migrateV2() error {
+	_, err := s.db.Exec(`
+		CREATE TABLE IF NOT EXISTS cross_signing_keys (
+			user_id TEXT NOT NULL,
+			usage TEXT NOT NULL,
+			key_data TEXT NOT NULL,
+			updated_at INTEGER NOT NULL DEFAULT (strftime('%s','now')),
+			PRIMARY KEY (user_id, usage)
+		);
+
+		CREATE TABLE IF NOT EXISTS signatures (
+			signed_key_id TEXT NOT NULL,
+			signer_user_id TEXT NOT NULL,
+			signer_key_id TEXT NOT NULL,
+			signature TEXT NOT NULL,
+			PRIMARY KEY (signed_key_id, signer_user_id, signer_key_id)
+		);
+
+		CREATE TABLE IF NOT EXISTS message_indices (
+			session_id TEXT NOT NULL,
+			message_index TEXT NOT NULL,
+			event_id TEXT NOT NULL,
+			timestamp INTEGER NOT NULL,
+			PRIMARY KEY (session_id, message_index)
+		);
+
+		CREATE TABLE IF NOT EXISTS withheld_sessions (
+			room_id TEXT NOT NULL,
+			sender_key TEXT NOT NULL,
+			session_id TEXT NOT NULL,
+			code TEXT NOT NULL,
+			reason TEXT NOT NULL DEFAULT '',
+			PRIMARY KEY (room_id, sender_key, session_id)
+		);
+
+		CREATE TABLE IF NOT EXISTS tracked_users (
+			user_id TEXT PRIMARY KEY,
+			outdated INTEGER NOT NULL DEFAULT 0
+		);
+	`)
+	if err != nil {
+		return fmt.Errorf("failed to create v2 tables: %w", err)
+	}
+
+	_, err = s.db.Exec(`INSERT OR IGNORE INTO schema_version (version, applied_at) VALUES (2, ?)`, time.Now().Unix())
+	if err != nil {
+		return fmt.Errorf("failed to record schema version v2: %w", err)
 	}
 
 	return nil
@@ -262,6 +321,11 @@ func (s *KeystoreBackedStore) Clear(ctx context.Context) error {
 		"device_keys",
 		"olm_sessions",
 		"next_batch",
+		"cross_signing_keys",
+		"signatures",
+		"message_indices",
+		"withheld_sessions",
+		"tracked_users",
 	}
 	for _, table := range tables {
 		_, err := s.db.ExecContext(ctx, "DELETE FROM "+table)
@@ -486,27 +550,204 @@ func (s *KeystoreBackedStore) GetDeviceKeys(ctx context.Context, userID, deviceI
 	return keyData, nil
 }
 
-// --- Cross-signing (stub for Task 9.5) ---
+// --- Cross-signing ---
 
-// PutCrossSigningKey stores a cross-signing key for a user.
-// Stub implementation — will be fully implemented with dedicated tables in Task 9.5.
 func (s *KeystoreBackedStore) PutCrossSigningKey(ctx context.Context, userID, usage string, key string) error {
-	// Task 9.5 will add cross_signing_keys table and full implementation.
-	// For now, store in device_keys with a synthetic device_id to avoid data loss.
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	syntheticDeviceID := "_csk_" + usage
 	_, err := s.db.ExecContext(ctx, `
-		INSERT INTO device_keys (user_id, device_id, key_data, uploaded_at)
-		VALUES (?, ?, ?, ?)
-		ON CONFLICT(user_id, device_id) DO UPDATE SET
+		INSERT INTO cross_signing_keys (user_id, usage, key_data, updated_at)
+		VALUES (?, ?, ?, strftime('%s','now'))
+		ON CONFLICT(user_id, usage) DO UPDATE SET
 			key_data = excluded.key_data,
-			uploaded_at = excluded.uploaded_at
-	`, userID, syntheticDeviceID, []byte(key), time.Now().Unix())
+			updated_at = strftime('%s','now')
+	`, userID, usage, key)
 
 	if err != nil {
-		return fmt.Errorf("failed to store cross-signing key (stub): %w", err)
+		return fmt.Errorf("failed to store cross-signing key: %w", err)
+	}
+	return nil
+}
+
+func (s *KeystoreBackedStore) GetCrossSigningKeys(ctx context.Context, userID string) ([]CrossSigningKey, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	rows, err := s.db.QueryContext(ctx, `
+		SELECT user_id, usage, key_data FROM cross_signing_keys WHERE user_id = ?
+	`, userID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query cross-signing keys: %w", err)
+	}
+	defer rows.Close()
+
+	var result []CrossSigningKey
+	for rows.Next() {
+		var key CrossSigningKey
+		if err := rows.Scan(&key.UserID, &key.Usage, &key.KeyData); err != nil {
+			return nil, fmt.Errorf("failed to scan cross-signing key: %w", err)
+		}
+		result = append(result, key)
+	}
+	if result == nil {
+		result = []CrossSigningKey{}
+	}
+	return result, nil
+}
+
+func (s *KeystoreBackedStore) PutSignature(ctx context.Context, signedKeyID, signerUserID, signerKeyID, signature string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	_, err := s.db.ExecContext(ctx, `
+		INSERT INTO signatures (signed_key_id, signer_user_id, signer_key_id, signature)
+		VALUES (?, ?, ?, ?)
+		ON CONFLICT(signed_key_id, signer_user_id, signer_key_id) DO UPDATE SET
+			signature = excluded.signature
+	`, signedKeyID, signerUserID, signerKeyID, signature)
+
+	if err != nil {
+		return fmt.Errorf("failed to store signature: %w", err)
+	}
+	return nil
+}
+
+func (s *KeystoreBackedStore) GetSignatures(ctx context.Context, signedKeyID string) ([]Signature, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	rows, err := s.db.QueryContext(ctx, `
+		SELECT signed_key_id, signer_user_id, signer_key_id, signature
+		FROM signatures WHERE signed_key_id = ?
+	`, signedKeyID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query signatures: %w", err)
+	}
+	defer rows.Close()
+
+	var result []Signature
+	for rows.Next() {
+		var sig Signature
+		if err := rows.Scan(&sig.SignedKeyID, &sig.SignerUserID, &sig.SignerKeyID, &sig.Signature); err != nil {
+			return nil, fmt.Errorf("failed to scan signature: %w", err)
+		}
+		result = append(result, sig)
+	}
+	if result == nil {
+		result = []Signature{}
+	}
+	return result, nil
+}
+
+func (s *KeystoreBackedStore) GetMessageIndex(ctx context.Context, sessionID, messageIndex string) (*MessageIndex, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	var mi MessageIndex
+	err := s.db.QueryRowContext(ctx, `
+		SELECT session_id, message_index, event_id, timestamp
+		FROM message_indices WHERE session_id = ? AND message_index = ?
+	`, sessionID, messageIndex).Scan(&mi.SessionID, &mi.MessageIndex, &mi.EventID, &mi.Timestamp)
+
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("failed to get message index: %w", err)
+	}
+	return &mi, nil
+}
+
+func (s *KeystoreBackedStore) PutMessageIndex(ctx context.Context, sessionID, messageIndex string, mi MessageIndex) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	_, err := s.db.ExecContext(ctx, `
+		INSERT INTO message_indices (session_id, message_index, event_id, timestamp)
+		VALUES (?, ?, ?, ?)
+		ON CONFLICT(session_id, message_index) DO UPDATE SET
+			event_id = excluded.event_id,
+			timestamp = excluded.timestamp
+	`, sessionID, messageIndex, mi.EventID, mi.Timestamp)
+
+	if err != nil {
+		return fmt.Errorf("failed to store message index: %w", err)
+	}
+	return nil
+}
+
+func (s *KeystoreBackedStore) GetWithheldSession(ctx context.Context, roomID, senderKey, sessionID string) (*WithheldSession, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	var ws WithheldSession
+	err := s.db.QueryRowContext(ctx, `
+		SELECT room_id, sender_key, session_id, code, reason
+		FROM withheld_sessions WHERE room_id = ? AND sender_key = ? AND session_id = ?
+	`, roomID, senderKey, sessionID).Scan(&ws.RoomID, &ws.SenderKey, &ws.SessionID, &ws.Code, &ws.Reason)
+
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("failed to get withheld session: %w", err)
+	}
+	return &ws, nil
+}
+
+func (s *KeystoreBackedStore) PutWithheldSession(ctx context.Context, roomID, senderKey, sessionID string, ws WithheldSession) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	_, err := s.db.ExecContext(ctx, `
+		INSERT INTO withheld_sessions (room_id, sender_key, session_id, code, reason)
+		VALUES (?, ?, ?, ?, ?)
+		ON CONFLICT(room_id, sender_key, session_id) DO UPDATE SET
+			code = excluded.code,
+			reason = excluded.reason
+	`, roomID, senderKey, sessionID, ws.Code, ws.Reason)
+
+	if err != nil {
+		return fmt.Errorf("failed to store withheld session: %w", err)
+	}
+	return nil
+}
+
+func (s *KeystoreBackedStore) IsOutdated(ctx context.Context, userID string) (bool, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	var outdated int
+	err := s.db.QueryRowContext(ctx, `
+		SELECT outdated FROM tracked_users WHERE user_id = ?
+	`, userID).Scan(&outdated)
+
+	if err == sql.ErrNoRows {
+		return false, nil
+	}
+	if err != nil {
+		return false, fmt.Errorf("failed to check outdated: %w", err)
+	}
+	return outdated != 0, nil
+}
+
+func (s *KeystoreBackedStore) MarkOutdated(ctx context.Context, userID string, outdated bool) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	outdatedInt := 0
+	if outdated {
+		outdatedInt = 1
+	}
+
+	_, err := s.db.ExecContext(ctx, `
+		INSERT INTO tracked_users (user_id, outdated) VALUES (?, ?)
+		ON CONFLICT(user_id) DO UPDATE SET outdated = excluded.outdated
+	`, userID, outdatedInt)
+
+	if err != nil {
+		return fmt.Errorf("failed to mark outdated: %w", err)
 	}
 	return nil
 }

@@ -374,15 +374,315 @@ func TestStoreNextBatchCRUD(t *testing.T) {
 	}
 }
 
-func TestStoreCrossSigningKeyStub(t *testing.T) {
+func TestStoreCrossSigningKeys(t *testing.T) {
 	store := openTestDB(t)
 	defer store.Close()
 	ctx := context.Background()
 
-	// PutCrossSigningKey should not error (stub)
-	err := store.PutCrossSigningKey(ctx, "@alice:test", "master", "ed25519:abc123")
+	// GetCrossSigningKeys on empty returns empty slice
+	keys, err := store.GetCrossSigningKeys(ctx, "@alice:test")
 	if err != nil {
-		t.Fatalf("PutCrossSigningKey (stub): %v", err)
+		t.Fatalf("GetCrossSigningKeys on empty: %v", err)
+	}
+	if len(keys) != 0 {
+		t.Fatalf("expected 0 keys, got %d", len(keys))
+	}
+
+	// Put master key
+	err = store.PutCrossSigningKey(ctx, "@alice:test", "master", "ed25519:master_key_abc")
+	if err != nil {
+		t.Fatalf("PutCrossSigningKey: %v", err)
+	}
+
+	// Put self-signing key
+	err = store.PutCrossSigningKey(ctx, "@alice:test", "self_signing", "ed25519:self_sign_key_def")
+	if err != nil {
+		t.Fatalf("PutCrossSigningKey (self_signing): %v", err)
+	}
+
+	// Get
+	keys, err = store.GetCrossSigningKeys(ctx, "@alice:test")
+	if err != nil {
+		t.Fatalf("GetCrossSigningKeys: %v", err)
+	}
+	if len(keys) != 2 {
+		t.Fatalf("expected 2 keys, got %d", len(keys))
+	}
+
+	found := map[string]string{}
+	for _, k := range keys {
+		found[k.Usage] = k.KeyData
+	}
+	if found["master"] != "ed25519:master_key_abc" {
+		t.Errorf("master key = %q, want %q", found["master"], "ed25519:master_key_abc")
+	}
+	if found["self_signing"] != "ed25519:self_sign_key_def" {
+		t.Errorf("self_signing key = %q, want %q", found["self_signing"], "ed25519:self_sign_key_def")
+	}
+
+	// Different user returns empty
+	keys, err = store.GetCrossSigningKeys(ctx, "@bob:test")
+	if err != nil {
+		t.Fatalf("GetCrossSigningKeys (other user): %v", err)
+	}
+	if len(keys) != 0 {
+		t.Fatalf("expected 0 keys for other user, got %d", len(keys))
+	}
+
+	// Upsert master key
+	err = store.PutCrossSigningKey(ctx, "@alice:test", "master", "ed25519:master_key_updated")
+	if err != nil {
+		t.Fatalf("PutCrossSigningKey (update): %v", err)
+	}
+
+	keys, _ = store.GetCrossSigningKeys(ctx, "@alice:test")
+	for _, k := range keys {
+		if k.Usage == "master" && k.KeyData != "ed25519:master_key_updated" {
+			t.Errorf("master key not updated: %q", k.KeyData)
+		}
+	}
+}
+
+func TestStoreSignatures(t *testing.T) {
+	store := openTestDB(t)
+	defer store.Close()
+	ctx := context.Background()
+
+	// GetSignatures on empty returns empty slice
+	sigs, err := store.GetSignatures(ctx, "ed25519:device_key_1")
+	if err != nil {
+		t.Fatalf("GetSignatures on empty: %v", err)
+	}
+	if len(sigs) != 0 {
+		t.Fatalf("expected 0 signatures, got %d", len(sigs))
+	}
+
+	// Put signature
+	err = store.PutSignature(ctx, "ed25519:device_key_1", "@alice:test", "ed25519:master_alice", "sig_data_1")
+	if err != nil {
+		t.Fatalf("PutSignature: %v", err)
+	}
+
+	// Put second signature from different signer
+	err = store.PutSignature(ctx, "ed25519:device_key_1", "@bob:test", "ed25519:master_bob", "sig_data_2")
+	if err != nil {
+		t.Fatalf("PutSignature (second): %v", err)
+	}
+
+	// Get
+	sigs, err = store.GetSignatures(ctx, "ed25519:device_key_1")
+	if err != nil {
+		t.Fatalf("GetSignatures: %v", err)
+	}
+	if len(sigs) != 2 {
+		t.Fatalf("expected 2 signatures, got %d", len(sigs))
+	}
+
+	// Upsert signature
+	err = store.PutSignature(ctx, "ed25519:device_key_1", "@alice:test", "ed25519:master_alice", "sig_data_updated")
+	if err != nil {
+		t.Fatalf("PutSignature (update): %v", err)
+	}
+
+	sigs, _ = store.GetSignatures(ctx, "ed25519:device_key_1")
+	if len(sigs) != 2 {
+		t.Fatalf("expected 2 signatures after update, got %d", len(sigs))
+	}
+
+	for _, s := range sigs {
+		if s.SignerUserID == "@alice:test" && s.Signature != "sig_data_updated" {
+			t.Errorf("signature not updated: %q", s.Signature)
+		}
+	}
+}
+
+func TestStoreMessageIndex(t *testing.T) {
+	store := openTestDB(t)
+	defer store.Close()
+	ctx := context.Background()
+
+	// Get on empty returns nil
+	mi, err := store.GetMessageIndex(ctx, "sess_123", "42")
+	if err != nil {
+		t.Fatalf("GetMessageIndex on empty: %v", err)
+	}
+	if mi != nil {
+		t.Fatal("expected nil for non-existent message index")
+	}
+
+	// Put
+	err = store.PutMessageIndex(ctx, "sess_123", "42", MessageIndex{
+		SessionID:    "sess_123",
+		MessageIndex: "42",
+		EventID:      "$event_abc",
+		Timestamp:    1234567890,
+	})
+	if err != nil {
+		t.Fatalf("PutMessageIndex: %v", err)
+	}
+
+	// Get
+	mi, err = store.GetMessageIndex(ctx, "sess_123", "42")
+	if err != nil {
+		t.Fatalf("GetMessageIndex: %v", err)
+	}
+	if mi == nil {
+		t.Fatal("expected message index, got nil")
+	}
+	if mi.EventID != "$event_abc" {
+		t.Errorf("EventID = %q, want %q", mi.EventID, "$event_abc")
+	}
+	if mi.Timestamp != 1234567890 {
+		t.Errorf("Timestamp = %d, want %d", mi.Timestamp, 1234567890)
+	}
+
+	// Upsert
+	err = store.PutMessageIndex(ctx, "sess_123", "42", MessageIndex{
+		SessionID:    "sess_123",
+		MessageIndex: "42",
+		EventID:      "$event_def",
+		Timestamp:    1234567999,
+	})
+	if err != nil {
+		t.Fatalf("PutMessageIndex (update): %v", err)
+	}
+
+	mi, _ = store.GetMessageIndex(ctx, "sess_123", "42")
+	if mi == nil || mi.EventID != "$event_def" {
+		t.Errorf("EventID not updated: %v", mi)
+	}
+
+	// Different index for same session
+	err = store.PutMessageIndex(ctx, "sess_123", "43", MessageIndex{
+		SessionID:    "sess_123",
+		MessageIndex: "43",
+		EventID:      "$event_ghi",
+		Timestamp:    1234568000,
+	})
+	if err != nil {
+		t.Fatalf("PutMessageIndex (second): %v", err)
+	}
+
+	mi, _ = store.GetMessageIndex(ctx, "sess_123", "43")
+	if mi == nil || mi.EventID != "$event_ghi" {
+		t.Error("second message index not stored")
+	}
+
+	// Original still intact
+	mi, _ = store.GetMessageIndex(ctx, "sess_123", "42")
+	if mi == nil || mi.EventID != "$event_def" {
+		t.Error("original message index lost")
+	}
+}
+
+func TestStoreWithheldSession(t *testing.T) {
+	store := openTestDB(t)
+	defer store.Close()
+	ctx := context.Background()
+
+	// Get on empty returns nil
+	ws, err := store.GetWithheldSession(ctx, "!room:test", "sender1", "sess1")
+	if err != nil {
+		t.Fatalf("GetWithheldSession on empty: %v", err)
+	}
+	if ws != nil {
+		t.Fatal("expected nil for non-existent withheld session")
+	}
+
+	// Put
+	err = store.PutWithheldSession(ctx, "!room:test", "sender1", "sess1", WithheldSession{
+		RoomID:    "!room:test",
+		SenderKey: "sender1",
+		SessionID: "sess1",
+		Code:      "m.unverified",
+		Reason:    "device not verified",
+	})
+	if err != nil {
+		t.Fatalf("PutWithheldSession: %v", err)
+	}
+
+	// Get
+	ws, err = store.GetWithheldSession(ctx, "!room:test", "sender1", "sess1")
+	if err != nil {
+		t.Fatalf("GetWithheldSession: %v", err)
+	}
+	if ws == nil {
+		t.Fatal("expected withheld session, got nil")
+	}
+	if ws.Code != "m.unverified" {
+		t.Errorf("Code = %q, want %q", ws.Code, "m.unverified")
+	}
+	if ws.Reason != "device not verified" {
+		t.Errorf("Reason = %q, want %q", ws.Reason, "device not verified")
+	}
+
+	// Upsert
+	err = store.PutWithheldSession(ctx, "!room:test", "sender1", "sess1", WithheldSession{
+		RoomID:    "!room:test",
+		SenderKey: "sender1",
+		SessionID: "sess1",
+		Code:      "m.blacklisted",
+		Reason:    "device blacklisted",
+	})
+	if err != nil {
+		t.Fatalf("PutWithheldSession (update): %v", err)
+	}
+
+	ws, _ = store.GetWithheldSession(ctx, "!room:test", "sender1", "sess1")
+	if ws == nil || ws.Code != "m.blacklisted" {
+		t.Errorf("Code not updated: %v", ws)
+	}
+}
+
+func TestStoreTrackedUserOutdated(t *testing.T) {
+	store := openTestDB(t)
+	defer store.Close()
+	ctx := context.Background()
+
+	// IsOutdated on unknown user returns false
+	outdated, err := store.IsOutdated(ctx, "@alice:test")
+	if err != nil {
+		t.Fatalf("IsOutdated on unknown: %v", err)
+	}
+	if outdated {
+		t.Error("expected false for unknown user")
+	}
+
+	// Mark as outdated
+	err = store.MarkOutdated(ctx, "@alice:test", true)
+	if err != nil {
+		t.Fatalf("MarkOutdated(true): %v", err)
+	}
+
+	outdated, err = store.IsOutdated(ctx, "@alice:test")
+	if err != nil {
+		t.Fatalf("IsOutdated: %v", err)
+	}
+	if !outdated {
+		t.Error("expected true after marking outdated")
+	}
+
+	// Mark as not outdated
+	err = store.MarkOutdated(ctx, "@alice:test", false)
+	if err != nil {
+		t.Fatalf("MarkOutdated(false): %v", err)
+	}
+
+	outdated, _ = store.IsOutdated(ctx, "@alice:test")
+	if outdated {
+		t.Error("expected false after clearing outdated")
+	}
+
+	// Different user independent
+	_ = store.MarkOutdated(ctx, "@bob:test", true)
+	outdated, _ = store.IsOutdated(ctx, "@bob:test")
+	if !outdated {
+		t.Error("expected bob to be outdated")
+	}
+
+	outdated, _ = store.IsOutdated(ctx, "@alice:test")
+	if outdated {
+		t.Error("alice should not be affected by bob")
 	}
 }
 
@@ -518,21 +818,23 @@ func TestStoreClear(t *testing.T) {
 	defer store.Close()
 	ctx := context.Background()
 
-	// Populate all tables
 	_ = store.PutOlmAccount(ctx, "DEV1", []byte("pickle"), false)
 	_ = store.AddInboundGroupSession(ctx, "!room:test", "sender", "sess1", []byte("key"))
 	_ = store.PutOutboundGroupSession(ctx, "!room:test", "out1", []byte("out_pickle"), 0)
 	_ = store.PutDeviceKeys(ctx, "@user:test", "DEV1", []byte("keys"), time.Now().Unix())
 	_ = store.PutSession(ctx, "sender1", "olm1", []byte("olm_pickle"), time.Now().Unix())
 	_ = store.PutNextBatch(ctx, "token123")
+	_ = store.PutCrossSigningKey(ctx, "@alice:test", "master", "key123")
+	_ = store.PutSignature(ctx, "key1", "@alice:test", "signer1", "sig1")
+	_ = store.PutMessageIndex(ctx, "sess1", "0", MessageIndex{SessionID: "sess1", MessageIndex: "0", EventID: "$ev1", Timestamp: 1})
+	_ = store.PutWithheldSession(ctx, "!room:test", "sender1", "sess1", WithheldSession{RoomID: "!room:test", SenderKey: "sender1", SessionID: "sess1", Code: "m.unverified", Reason: "test"})
+	_ = store.MarkOutdated(ctx, "@alice:test", true)
 
-	// Clear
 	err := store.Clear(ctx)
 	if err != nil {
 		t.Fatalf("Clear: %v", err)
 	}
 
-	// Verify all cleared
 	acct, _ := store.GetOlmAccount(ctx)
 	if acct != nil {
 		t.Error("olm account not cleared")
@@ -561,6 +863,31 @@ func TestStoreClear(t *testing.T) {
 	token, _ := store.GetNextBatch(ctx)
 	if token != "" {
 		t.Error("next batch not cleared")
+	}
+
+	csKeys, _ := store.GetCrossSigningKeys(ctx, "@alice:test")
+	if len(csKeys) != 0 {
+		t.Error("cross-signing keys not cleared")
+	}
+
+	sigs, _ := store.GetSignatures(ctx, "key1")
+	if len(sigs) != 0 {
+		t.Error("signatures not cleared")
+	}
+
+	mi, _ := store.GetMessageIndex(ctx, "sess1", "0")
+	if mi != nil {
+		t.Error("message indices not cleared")
+	}
+
+	ws, _ := store.GetWithheldSession(ctx, "!room:test", "sender1", "sess1")
+	if ws != nil {
+		t.Error("withheld sessions not cleared")
+	}
+
+	outdated, _ := store.IsOutdated(ctx, "@alice:test")
+	if outdated {
+		t.Error("tracked users not cleared")
 	}
 }
 
@@ -613,7 +940,7 @@ func TestSchemaMigration(t *testing.T) {
 
 	// Verify schema version recorded
 	var version int
-	err = store2.db.QueryRow("SELECT version FROM schema_version LIMIT 1").Scan(&version)
+	err = store2.db.QueryRow("SELECT MAX(version) FROM schema_version").Scan(&version)
 	if err != nil {
 		t.Fatalf("failed to query schema_version: %v", err)
 	}
