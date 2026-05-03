@@ -706,16 +706,21 @@ func (s *Server) handleWellKnown(w http.ResponseWriter, r *http.Request) {
 		bridgeURL = fmt.Sprintf("https://%s:%d", s.config.Hostname, s.config.Port)
 	}
 
+	tlsInfo, _ := s.GetTLSInfo().(TLSInfo)
+
 	response := map[string]interface{}{
 		"m.homeserver": map[string]string{
 			"base_url": matrixURL,
 		},
-		"com.armorclaw": map[string]string{
-			"base_url":     bridgeURL,
-			"api_endpoint": bridgeURL + "/api",
-			"ws_endpoint":  toWSS(bridgeURL) + "/ws",
-			"push_gateway": bridgeURL + "/_matrix/push/v1/notify",
-			"tls_mode":     s.tlsMode(),
+		"com.armorclaw": map[string]interface{}{
+			"base_url":              bridgeURL,
+			"api_endpoint":          bridgeURL + "/api",
+			"ws_endpoint":           toWSS(bridgeURL) + "/ws",
+			"push_gateway":          bridgeURL + "/_matrix/push/v1/notify",
+			"tls_mode":              tlsInfo.Mode,
+			"tls_fingerprint_sha256": tlsInfo.FingerprintSHA256,
+			"tls_trust_hint":        tlsInfo.TrustType,
+			"cert_expires_at":       tlsInfo.ExpiresAt,
 		},
 	}
 

@@ -7,10 +7,12 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/armorclaw/jetski/internal/cdp"
 )
 
 func TestRPCStatusReturnsSessionInfo(t *testing.T) {
-	srv := NewServer(nil)
+	srv := NewServer(nil, nil)
 	ts := httptest.NewServer(srv.Handler())
 	defer ts.Close()
 
@@ -38,7 +40,7 @@ func TestRPCStatusReturnsSessionInfo(t *testing.T) {
 }
 
 func TestRPCSessionCreateReturnsID(t *testing.T) {
-	srv := NewServer(nil)
+	srv := NewServer(nil, nil)
 	ts := httptest.NewServer(srv.Handler())
 	defer ts.Close()
 
@@ -67,7 +69,7 @@ func TestRPCSessionCreateReturnsID(t *testing.T) {
 }
 
 func TestRPCSessionCreateIncrementsActiveCount(t *testing.T) {
-	srv := NewServer(nil)
+	srv := NewServer(nil, nil)
 	ts := httptest.NewServer(srv.Handler())
 	defer ts.Close()
 
@@ -92,7 +94,7 @@ func TestRPCSessionCreateIncrementsActiveCount(t *testing.T) {
 }
 
 func TestRPCSessionCloseRemovesSession(t *testing.T) {
-	srv := NewServer(nil)
+	srv := NewServer(nil, nil)
 	ts := httptest.NewServer(srv.Handler())
 	defer ts.Close()
 
@@ -134,7 +136,7 @@ func TestRPCSessionCloseRemovesSession(t *testing.T) {
 }
 
 func TestRPCSessionCloseInvalidID(t *testing.T) {
-	srv := NewServer(nil)
+	srv := NewServer(nil, nil)
 	ts := httptest.NewServer(srv.Handler())
 	defer ts.Close()
 
@@ -148,7 +150,7 @@ func TestRPCSessionCloseInvalidID(t *testing.T) {
 }
 
 func TestRPCHealthReturnsDetailedInfo(t *testing.T) {
-	srv := NewServer(nil)
+	srv := NewServer(nil, nil)
 	ts := httptest.NewServer(srv.Handler())
 	defer ts.Close()
 
@@ -176,7 +178,7 @@ func TestRPCHealthReturnsDetailedInfo(t *testing.T) {
 }
 
 func TestRPCHealthUptimeIncreases(t *testing.T) {
-	srv := NewServer(nil)
+	srv := NewServer(nil, nil)
 	time.Sleep(10 * time.Millisecond)
 
 	ts := httptest.NewServer(srv.Handler())
@@ -194,7 +196,7 @@ func TestRPCHealthUptimeIncreases(t *testing.T) {
 }
 
 func TestRPCUnknownPathReturns404(t *testing.T) {
-	srv := NewServer(nil)
+	srv := NewServer(nil, nil)
 	ts := httptest.NewServer(srv.Handler())
 	defer ts.Close()
 
@@ -206,5 +208,75 @@ func TestRPCUnknownPathReturns404(t *testing.T) {
 
 	if resp.StatusCode != http.StatusNotFound {
 		t.Fatalf("expected 404, got %d", resp.StatusCode)
+	}
+}
+
+func TestRPCEventsSubscribeDisabledReturns503(t *testing.T) {
+	em := cdp.NewEventEmitter(false)
+	srv := NewServer(nil, em)
+	ts := httptest.NewServer(srv.Handler())
+	defer ts.Close()
+
+	resp, err := http.Post(ts.URL+"/rpc/events.subscribe", "application/json",
+		strings.NewReader(`{"type":"register","payload":{"device_id":"dev-1"}}`))
+	if err != nil {
+		t.Fatalf("request failed: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusServiceUnavailable {
+		t.Fatalf("expected 503 when emitter disabled, got %d", resp.StatusCode)
+	}
+}
+
+func TestRPCEventsSubscribeNilEmitterReturns503(t *testing.T) {
+	srv := NewServer(nil, nil)
+	ts := httptest.NewServer(srv.Handler())
+	defer ts.Close()
+
+	resp, err := http.Post(ts.URL+"/rpc/events.subscribe", "application/json",
+		strings.NewReader(`{"type":"register","payload":{"device_id":"dev-1"}}`))
+	if err != nil {
+		t.Fatalf("request failed: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusServiceUnavailable {
+		t.Fatalf("expected 503 when emitter is nil, got %d", resp.StatusCode)
+	}
+}
+
+func TestRPCEventsSubscribeBadHandshake(t *testing.T) {
+	em := cdp.NewEventEmitter(true)
+	srv := NewServer(nil, em)
+	ts := httptest.NewServer(srv.Handler())
+	defer ts.Close()
+
+	resp, err := http.Post(ts.URL+"/rpc/events.subscribe", "application/json",
+		strings.NewReader(`{"type":"wrong","payload":{"device_id":"dev-1"}}`))
+	if err != nil {
+		t.Fatalf("request failed: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusBadRequest {
+		t.Fatalf("expected 400 for bad handshake type, got %d", resp.StatusCode)
+	}
+}
+
+func TestRPCEventsSubscribeGETNotAllowed(t *testing.T) {
+	em := cdp.NewEventEmitter(true)
+	srv := NewServer(nil, em)
+	ts := httptest.NewServer(srv.Handler())
+	defer ts.Close()
+
+	resp, err := http.Get(ts.URL + "/rpc/events.subscribe")
+	if err != nil {
+		t.Fatalf("request failed: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusMethodNotAllowed {
+		t.Fatalf("expected 405 for GET, got %d", resp.StatusCode)
 	}
 }

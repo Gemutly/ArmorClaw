@@ -378,7 +378,7 @@ Max Concurrent: 8 (Wave 1)
   - Message: `chore(agent): document Jetski CDP event access validation`
   - Files: `.sisyphus/evidence/task-2-*.md`
 
-- [ ] 2.5. Add CDP Event Streaming Endpoint to Jetski RPC API (CONDITIONAL)
+- [x] 2.5. Add CDP Event Streaming Endpoint to Jetski RPC API (CONDITIONAL)
 
   > **⚠️ CONDITIONAL TASK**: Execute ONLY if Task 2 validation finds no existing CDP event streaming mechanism.
   > Skip entirely if Jetski already exposes CDP events to external consumers.
@@ -572,7 +572,7 @@ Max Concurrent: 8 (Wave 1)
   - Files: `bridge/pkg/qr/public.go`
   - Pre-commit: `go test ./pkg/qr/...`
 
-- [ ] 5. Fix TLS Well-Known Endpoint Enrichment
+- [x] 5. Fix TLS Well-Known Endpoint Enrichment
 
   **What to do**:
   - Update `handleWellKnown()` in `bridge/pkg/http/server.go:689-719` to include TLS metadata fields beyond just `tls_mode`

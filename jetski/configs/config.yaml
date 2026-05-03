@@ -39,6 +39,8 @@ security:
   piiScanning: true
   # Encrypt session files (Tethered Mode default)
   encryptSession: true
+  # Enable CDP event streaming for agent state inference (Bridge consumes this)
+  emitStateEvents: false
 
 network:
   # List of proxy URLs (comma-separated)

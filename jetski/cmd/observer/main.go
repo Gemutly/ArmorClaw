@@ -95,6 +95,12 @@ func main() {
 		log.Info("Approval client wired", "bridge_url", cfg.Approval.BridgeURL, "room_id", cfg.Approval.RoomID, "timeout", cfg.Approval.Timeout)
 	}
 
+	eventEmitter := cdp.NewEventEmitter(cfg.Security.EmitStateEvents)
+	if eventEmitter.Enabled() {
+		cdpProxy.SetEventEmitter(eventEmitter)
+		log.Info("Event emitter enabled, CDP events will stream to subscribers")
+	}
+
 	mux := http.NewServeMux()
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/" {
@@ -142,7 +148,7 @@ func main() {
 
 	rpcServer := &http.Server{
 		Addr:         fmt.Sprintf("%s:%s", cfg.Server.Host, "9223"),
-		Handler:      rpc.NewServer(approvalClient).Handler(),
+		Handler:      rpc.NewServer(approvalClient, eventEmitter).Handler(),
 		ReadTimeout:  cfg.Server.ReadTimeout,
 		WriteTimeout: cfg.Server.WriteTimeout,
 	}

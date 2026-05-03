@@ -137,3 +137,62 @@ Bridge infrastructure is partially built. Missing crypto library integration + a
 - Environment has `CC=clang` but clang not installed (no sudo access)
 - Workaround: `CC=gcc cargo build` / `CC=gcc cargo test --lib`
 - This should be set in `.cargo/config.toml` for the project
+
+## 2026-05-03 Task 5: TLS Well-Known Endpoint Enrichment
+
+### Changes
+- `handleWellKnown()` in server.go: replaced `s.tlsMode()` call with full `s.GetTLSInfo().(TLSInfo)` type assertion
+- `com.armorclaw` map changed from `map[string]string` to `map[string]interface{}` (required for numeric `cert_expires_at`)
+- Added 3 new fields: `tls_fingerprint_sha256`, `tls_trust_hint`, `cert_expires_at` alongside existing `tls_mode`
+- Native mode: GetTLSInfo returns TLSInfo{Mode:"none", ...} with zero-valued fingerprint/trust/expires — fields present but empty, not omitted
+- `m.homeserver` and `m.identity_server` sections unchanged
+
+### Pattern: map[string]interface{} for mixed-type JSON
+- When a JSON object contains both string and numeric fields, must use `map[string]interface{}` not `map[string]string`
+- JSON encoder serializes int64 correctly through interface{} (as number, not string)
+
+### Test pattern: httptest for HTTP handler tests
+- Use `httptest.NewRecorder()` + `httptest.NewRequest()` to test HTTP handlers directly
+- No need for full server startup — handler method is package-accessible
+- Existing `newTestServer()` and `generateTestSelfSignedCert()` helpers reused from server_tls_test.go
+
+## 2026-05-03 Task 2.5: CDP Event Streaming Endpoint (Jetski)
+
+### Architecture Decisions
+- Used SSE (Server-Sent Events) over WebSocket — simpler for Go HTTP handlers, unidirectional push fits the use case
+- EventEmitter is a parallel emission path alongside existing MessageRecorder/Sonar telemetry — does NOT modify existing proxy behavior
+- Registration handshake enforced: POST with `{"type":"register","payload":{"device_id":"..."}}` before any events flow
+- `emit_state_events` config flag (default false) gates the entire feature — disabled emitters return 503
+
+### Files Created
+- `jetski/internal/cdp/event_emitter.go` — EventEmitter struct with mutex-protected subscriber map, PII redaction, relevant event filtering
+- `jetski/internal/cdp/errors.go` — sentinel errors (ErrEmitterDisabled, ErrMissingDeviceID, ErrAlreadySubscribed)
+- `jetski/internal/cdp/event_emitter_test.go` — 18 tests covering subscribe, fan-out, PII redaction, config gating
+
+### Files Modified
+- `jetski/internal/rpc/rpc.go` — added EventEmitter to Server, registered /rpc/events.subscribe SSE handler
+- `jetski/internal/cdp/proxy.go` — added eventEmitter field + SetEventEmitter(), Emit() calls in forwardToEngine and forwardToClient
+- `jetski/pkg/config/config.go` — added EmitStateEvents bool to SecurityConfig + env override JETSKI_EMIT_STATE_EVENTS
+- `jetski/configs/config.yaml` — added emitStateEvents: false
+- `jetski/cmd/observer/main.go` — wired EventEmitter creation + passed to RPC server and proxy
+- `jetski/internal/rpc/rpc_test.go` — updated NewServer(nil) → NewServer(nil, nil), added 4 events.subscribe tests
+
+### PII Redaction in Emitted Events
+- URLs: query params and fragments stripped (may contain tokens/session IDs)
+- Frame URLs: same treatment for nested frame.url fields
+- DOM content: truncated to 200 chars, then SSN/CC/email patterns masked
+- All string values: pass through maskPIIStrings (SSN→[REDACTED_SSN], CC→[REDACTED_CC], EMAIL→[REDACTED_EMAIL])
+
+### Relevant CDP Events (whitelist for state inference)
+- Page.frameNavigated, DOM.focus, Runtime.executionContextCreated
+- Page.javascriptDialogOpening, Page.loadEventFired
+- All other CDP events silently dropped by Emit()
+
+### Pattern: SSE in Go without external dependencies
+- Set headers: Content-Type=text/event-stream, Cache-Control=no-cache, Connection=keep-alive
+- Use http.Flusher interface for immediate delivery
+- Channel back-pressure: drop events when subscriber channel is full (256 buffer) rather than blocking
+- Context cancellation handles client disconnect → defer Unsubscribe()
+
+### Unblocks
+- Task 10: Bridge-side Jetski CDP Event Subscriber can now POST to /rpc/events.subscribe

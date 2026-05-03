@@ -43,10 +43,11 @@ type WatchdogConfig struct {
 }
 
 type SecurityConfig struct {
-	Passphrase     string `yaml:"passphrase"`
-	SessionDir     string `yaml:"sessionDir"`
-	PIIScanning    bool   `yaml:"piiScanning"`
-	EncryptSession bool   `yaml:"encryptSession"`
+	Passphrase       string `yaml:"passphrase"`
+	SessionDir       string `yaml:"sessionDir"`
+	PIIScanning      bool   `yaml:"piiScanning"`
+	EncryptSession   bool   `yaml:"encryptSession"`
+	EmitStateEvents  bool   `yaml:"emitStateEvents"`
 }
 
 type NetworkConfig struct {
@@ -185,6 +186,10 @@ func applyEnvOverrides(cfg *Config) error {
 
 	if encryptSession := os.Getenv("JETSKI_ENCRYPT_SESSION"); encryptSession != "" {
 		cfg.Security.EncryptSession = encryptSession == "true" || encryptSession == "1"
+	}
+
+	if emitStateEvents := os.Getenv("JETSKI_EMIT_STATE_EVENTS"); emitStateEvents != "" {
+		cfg.Security.EmitStateEvents = emitStateEvents == "true" || emitStateEvents == "1"
 	}
 
 	if approvalEnabled := os.Getenv("JETSKI_APPROVAL_ENABLED"); approvalEnabled != "" {

@@ -67,6 +67,7 @@ type Proxy struct {
 	router          *MethodRouter
 	errorChan       chan error
 	recorder        MessageRecorder
+	eventEmitter    *EventEmitter
 	piiScanner      PIIScanner
 	tetheredMode    bool
 	approvalClient  ApprovalChecker
@@ -89,6 +90,10 @@ func NewProxy(engineURL string, router *MethodRouter, piiScanner PIIScanner, tet
 
 func (p *Proxy) SetRecorder(r MessageRecorder) {
 	p.recorder = r
+}
+
+func (p *Proxy) SetEventEmitter(em *EventEmitter) {
+	p.eventEmitter = em
 }
 
 func (p *Proxy) SetApprovalClient(client ApprovalChecker) {
@@ -290,6 +295,10 @@ func (p *Proxy) forwardToEngine() {
 					p.recorder(msg.Method, msg.Params)
 				}
 
+				if p.eventEmitter != nil && msg.Method != "" {
+					p.eventEmitter.Emit(msg.Method, msg.Params)
+				}
+
 				if msg.Method != "" {
 					route := p.router.Route(msg.Method)
 					if route != nil && route.Handler != nil {
@@ -346,6 +355,13 @@ func (p *Proxy) forwardToClient() {
 				var msg CDPMessage
 				if json.Unmarshal(data, &msg) == nil && msg.Method != "" {
 					p.recorder(msg.Method, msg.Params)
+				}
+			}
+
+			if p.eventEmitter != nil && messageType == websocket.TextMessage {
+				var msg CDPMessage
+				if json.Unmarshal(data, &msg) == nil && msg.Method != "" {
+					p.eventEmitter.Emit(msg.Method, msg.Params)
 				}
 			}
 
