@@ -57,6 +57,7 @@ type MatrixAdapter struct {
 	eventBus          *events.MatrixEventBus    // High-throughput event bus for agent streaming
 	keyIngestion      *KeyIngestionManager      // E2EE key ingestion for to_device events
 	encryptionService *crypto.EncryptionService // E2EE encrypt/decrypt service (nil when disabled)
+	keyExchange       *crypto.KeyExchangeService // E2EE key upload/query/claim (nil when disabled)
 }
 
 // StudioCommandHandler handles Agent Studio commands via Matrix
@@ -584,6 +585,9 @@ func (m *MatrixAdapter) Sync(timeout int) error {
 	// Process events and queue them
 	eventsProcessed := m.processEvents(&syncResp)
 
+	// Handle E2EE key exchange from sync response
+	m.processKeyExchange(&syncResp)
+
 	// Update sync token
 	m.mu.Lock()
 	m.syncToken = syncResp.NextBatch
@@ -946,6 +950,28 @@ func (m *MatrixAdapter) processToDeviceEvents(events []json.RawMessage) {
 	}
 }
 
+func (m *MatrixAdapter) processKeyExchange(syncResp *SyncResponse) {
+	m.mu.RLock()
+	kx := m.keyExchange
+	m.mu.RUnlock()
+
+	if kx == nil {
+		return
+	}
+
+	if syncResp.DeviceLists != nil && len(syncResp.DeviceLists.Changed) > 0 {
+		if err := kx.ProcessDeviceListChanges(m.ctx, syncResp.DeviceLists.Changed, syncResp.DeviceLists.Left); err != nil {
+			fmt.Printf("[matrix] processKeyExchange: device list change error: %v\n", err)
+		}
+	}
+
+	if len(syncResp.DeviceOneTimeKeysCount) > 0 {
+		if err := kx.UploadKeys(m.ctx); err != nil {
+			fmt.Printf("[matrix] processKeyExchange: key upload error: %v\n", err)
+		}
+	}
+}
+
 func (m *MatrixAdapter) publishCustomEvent(event *MatrixEvent, roomID string) {
 	m.mu.RLock()
 	bus := m.eventBus
@@ -1279,6 +1305,13 @@ func (m *MatrixAdapter) SetEncryptionService(svc *crypto.EncryptionService) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.encryptionService = svc
+}
+
+// SetKeyExchangeService sets the E2EE key exchange service for device key operations.
+func (m *MatrixAdapter) SetKeyExchangeService(svc *crypto.KeyExchangeService) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.keyExchange = svc
 }
 
 // sendEncryptedEvent sends an m.room.encrypted event to a room.
