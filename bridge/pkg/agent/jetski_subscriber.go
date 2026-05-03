@@ -299,6 +299,28 @@ func (s *JetskiStateEventSubscriber) handleCDPEvent(data string) error {
 		if changed {
 			log.Printf("[JETSKI SUBSCRIBER]: agent %s state changed via CDP event %s",
 				status.AgentID, cdpEvt.Method)
+
+			newStatus := integration.stateMachine.Current()
+			lastEvent := integration.stateMachine.LastEvent()
+			previousStatus := status.Status
+			if lastEvent != nil {
+				previousStatus = lastEvent.Previous
+			}
+
+			broadcastEvent := StatusEvent{
+				AgentID:   status.AgentID,
+				Status:    newStatus,
+				Previous:  previousStatus,
+				Timestamp: time.Now().UnixMilli(),
+				Metadata: StatusMetadata{
+					InferredFrom: "CDP",
+				},
+			}
+
+			if err := s.cfg.Coordinator.BroadcastStatus(context.Background(), broadcastEvent); err != nil {
+				log.Printf("[JETSKI SUBSCRIBER]: failed to broadcast status for agent %s: %v",
+					status.AgentID, err)
+			}
 		}
 	}
 
