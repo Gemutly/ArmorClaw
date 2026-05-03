@@ -1,0 +1,34 @@
+UIAA Requirement for Cross-Signing Upload
+========================================
+
+Matrix Endpoint: POST /_matrix/client/v3/keys/device_signing/upload
+
+Conduit requires User-Interactive Authentication (UIAA) for cross-signing key upload.
+Without valid UIAA auth, the server returns HTTP 401 with flow information.
+
+Expected UIAA Response (401 Unauthorized):
+{
+  "errcode": "M_UNAUTHORIZED",
+  "error": "User-interactive authentication required",
+  "flows": [
+    { "stages": ["m.login.password"] }
+  ],
+  "session": "<server-generated-session-id>"
+}
+
+ArmorClaw Bridge Impact:
+- MatrixAdapter currently has NO UIAA handler
+- Cross-signing upload will fail with 401 until UIAA is implemented
+- UIAA requires storing user credentials or using appservice-based auth
+- Recommendation: use mautrix-go's built-in UIAA support via CryptoHelper
+
+UIAA Flow Steps:
+1. POST cross-signing upload WITHOUT auth -> receive 401 + session + flows
+2. Select first supported flow (e.g., m.login.password)
+3. POST same endpoint WITH auth: { "auth": { "type": "m.login.password", "session": "...", "user": "...", "password": "..." } }
+4. Server validates and completes the upload
+
+Security Note:
+- UIAA for cross-signing is CRITICAL — it prevents unauthorized key uploads
+- Do NOT bypass UIAA even if technically possible
+- Store UIAA credentials in SQLCipher keystore, never in plaintext
