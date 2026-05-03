@@ -1,22 +1,25 @@
+# Learnings — ArmorClaw Risk Remediation
 
-## Task 1: Conduit E2EE Validation Spike (2026-05-03)
+## 2026-05-03: Task 2 — Jetski CDP Event Access Validation
 
-### Finding: HANDOFF_E2EE.md is stale
-- Claims mautrix-go v0.26.4 is in go.mod — it is NOT
-- Claims bridge/pkg/crypto/e2ee.go exists — it does NOT
-- Takeaway: Always verify handoff docs against actual source tree before planning
+- Jetski RPC (port 9223) has only 4 endpoints: status, session/create, session/close, health. NO event subscription endpoint exists.
+- CDP events flow bidirectionally through proxy.go but are only recorded into an in-memory Sonar circular buffer (1000 frames).
+- Sonar buffer is consumed only by WreckageReport (post-mortem flight recorder), never exposed via RPC.
+- The `MessageRecorder` callback pattern (`func(method string, params json.RawMessage)`) already fires on every CDP message in both directions — good hook point for a future subscriber.
+- Bridge's `InferAgentState()` expects `[]CDPEvent{Method string, Params map[string]interface{}}` but Jetski stores `json.RawMessage` — type conversion needed at the boundary.
+- Task 2.5 IS needed: must add `/rpc/events/stream` WebSocket endpoint or SSE to Jetski RPC server, wired to a broadcast channel from the existing recorder callback.
+- Method router (router.go) only handles outbound commands, NOT events — no event interception there.
+- Approval handlers are conditionally registered via `approval.RegisterApprovalHandlers(mux, ac)` — separate from the 4 core RPC endpoints.
 
-### Finding: SyncResponse is too minimal for E2EE
-- Lacks ToDevice, DeviceLists, DeviceOneTimeKeysCount fields
-- Sync filter explicitly excludes m.room.encrypted
-- Both must be fixed before any E2EE implementation
+## Task: TLS signConfig HMAC Security Bug Fix (2026-05-03)
 
-### Finding: mautrix-go CryptoHelper is the right abstraction
-- crypto/cryptohelper.NewCryptoHelper handles login, OTK upload, encrypt/decrypt
-- Attach to client.Crypto for automatic E2EE
-- goolm backend (pure Go) preferred — no CGO
+### Finding: signConfig v2 HMAC omitted TLSTrustHint and CertExpiresAt
+- Bug: v2 HMAC included TLSMode + TLSFingerprintSHA256 but missed TLSTrustHint and CertExpiresAt
+- Impact: Attacker could modify TLS trust hint without invalidating QR config signature
+- Fix: Added both fields to the Sprintf format string in the v2 branch
+- ValidateConfig auto-fixed since it delegates to signConfig
 
-### Finding: Conduit E2EE support needs live validation
-- All 6 endpoints (ToDevice, keys/upload, keys/query, keys/claim, cross-signing, UIAA) need live Conduit to confirm
-- Tests skip gracefully without CONDUIT_TEST_TOKEN env var
-- Mock server tests validate infrastructure without Conduit
+### Pattern: HMAC field coverage must match all signed config fields
+- When adding fields to ConfigPayload, always check signConfig includes them
+- v1/v2 branch separation means each branch needs independent audit
+- Test strategy: sign → tamper single field → verify rejection catches omissions
