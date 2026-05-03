@@ -16,6 +16,7 @@ import (
 
 	"github.com/armorclaw/bridge/internal/events"
 	"github.com/armorclaw/bridge/pkg/audit"
+	"github.com/armorclaw/bridge/pkg/crypto"
 	errsys "github.com/armorclaw/bridge/pkg/errors"
 	"github.com/armorclaw/bridge/pkg/logger"
 	"github.com/armorclaw/bridge/pkg/pii"
@@ -53,8 +54,9 @@ type MatrixAdapter struct {
 	minTrustLevel    trust.TrustScore        // Minimum trust level required
 	syncFilterID     string                  // Server-side sync filter ID for performance
 	syncMetrics      SyncMetrics             // Sync performance metrics
-	eventBus         *events.MatrixEventBus  // High-throughput event bus for agent streaming
-	keyIngestion     *KeyIngestionManager    // E2EE key ingestion for to_device events
+	eventBus          *events.MatrixEventBus    // High-throughput event bus for agent streaming
+	keyIngestion      *KeyIngestionManager      // E2EE key ingestion for to_device events
+	encryptionService *crypto.EncryptionService // E2EE encrypt/decrypt service (nil when disabled)
 }
 
 // StudioCommandHandler handles Agent Studio commands via Matrix
@@ -343,6 +345,22 @@ func (m *MatrixAdapter) SendMessage(roomID, message, msgType string) (string, er
 			"redaction_count", len(redactions),
 		)
 	}
+
+	// E2EE: encrypt if room requires it
+	m.mu.RLock()
+	encSvc := m.encryptionService
+	m.mu.RUnlock()
+
+		if encSvc != nil && encSvc.ShouldEncrypt(roomID) {
+			encrypted, err := encSvc.EncryptMessage(m.ctx, roomID, scrubbedMessage)
+			if err != nil {
+				logger.Global().Warn("encryption failed, falling back to plaintext",
+					"room", roomID, "error", err)
+				// Fall through to plaintext path
+			} else {
+				return m.sendEncryptedEvent(roomID, encrypted)
+			}
+		}
 
 	payload := map[string]interface{}{
 		"msgtype": msgType,
@@ -761,6 +779,103 @@ func (m *MatrixAdapter) processEvents(syncResp *SyncResponse) int {
 				}
 			}
 
+			// Handle incoming encrypted events: decrypt and process as message
+			if event.Type == "m.room.encrypted" {
+				m.mu.RLock()
+				encSvc := m.encryptionService
+				m.mu.RUnlock()
+
+				if encSvc == nil {
+					continue
+				}
+
+				// Track room encryption status
+				encSvc.OnRoomEncryptionEvent(roomID)
+
+				// Validate sender before attempting decryption
+				if !m.isTrustedSender(event.Sender) {
+					continue
+				}
+				if !m.isTrustedRoom(roomID) {
+					continue
+				}
+
+				rawContent, err := json.Marshal(event.Content)
+				if err != nil {
+					fmt.Printf("[matrix] processEvents: marshal encrypted content error: %v\n", err)
+					continue
+				}
+
+				plaintext, err := encSvc.DecryptEvent(m.ctx, rawContent)
+				if err != nil {
+					placeholder := encSvc.HandleDecryptionFailure(
+						m.ctx, roomID, event.EventID, event.Sender, rawContent)
+					fmt.Printf("[matrix] processEvents: decryption failed event_id=%s: %v\n", event.EventID, err)
+
+					// Queue placeholder so downstream sees something
+					placeholderEvt := &MatrixEvent{
+						Type:    "m.room.message",
+						RoomID:  roomID,
+						Sender:  event.Sender,
+						EventID: event.EventID,
+						Content: map[string]interface{}{
+							"msgtype": "m.notice",
+							"body":    placeholder,
+						},
+					}
+					select {
+					case m.eventQueue <- placeholderEvt:
+					default:
+					}
+					continue
+				}
+
+				// Process decrypted content as a regular message
+				decryptedEvt := &MatrixEvent{
+					Type:    "m.room.message",
+					RoomID:  roomID,
+					Sender:  event.Sender,
+					EventID: event.EventID,
+					Content: map[string]interface{}{
+						"msgtype": "m.text",
+						"body":    plaintext,
+					},
+				}
+
+				decryptedEvt.Content = m.piiScrubber.ScrubMap(decryptedEvt.Content)
+
+				// Check studio handler
+				m.mu.RLock()
+				handler := m.studioCmdHandler
+				m.mu.RUnlock()
+
+				if handler != nil {
+					if body, ok := decryptedEvt.Content["body"].(string); ok {
+						if handler.HandleMatrixMessage(context.Background(), roomID, event.Sender, event.EventID, body) {
+							continue
+						}
+					}
+				}
+
+				select {
+				case m.eventQueue <- decryptedEvt:
+				default:
+				}
+
+				m.mu.RLock()
+				bus := m.eventBus
+				m.mu.RUnlock()
+				if bus != nil {
+					bus.Publish(events.MatrixEvent{
+						ID:      event.EventID,
+						RoomID:  roomID,
+						Sender:  event.Sender,
+						Type:    decryptedEvt.Type,
+						Content: decryptedEvt.Content,
+					})
+				}
+			}
+
 			// Handle custom ArmorClaw event types (workflow.*, agent.*, blocker.*)
 			switch {
 			case strings.HasPrefix(event.Type, "workflow."):
@@ -1157,6 +1272,83 @@ func (m *MatrixAdapter) GetRoomMembers(ctx context.Context, roomID string) ([]er
 func (m *MatrixAdapter) Close() error {
 	m.cancel()
 	return nil
+}
+
+// SetEncryptionService sets the E2EE encryption service for dual-mode messaging.
+func (m *MatrixAdapter) SetEncryptionService(svc *crypto.EncryptionService) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.encryptionService = svc
+}
+
+// sendEncryptedEvent sends an m.room.encrypted event to a room.
+func (m *MatrixAdapter) sendEncryptedEvent(roomID string, encryptedContent map[string]interface{}) (string, error) {
+	body, err := json.Marshal(encryptedContent)
+	if err != nil {
+		return "", errsys.NewBuilder("MAT-021").
+			Wrap(fmt.Errorf("failed to marshal encrypted content: %w", err)).
+			WithFunction("sendEncryptedEvent").
+			WithInputs(map[string]any{"room_id": roomID}).
+			Build()
+	}
+
+	txnID := fmt.Sprintf("m%d", time.Now().UnixNano())
+
+	u, err := url.Parse(m.homeserverURL)
+	if err != nil {
+		return "", errsys.NewBuilder("MAT-001").
+			Wrap(fmt.Errorf("failed to parse homeserver URL: %w", err)).
+			WithFunction("sendEncryptedEvent").
+			Build()
+	}
+
+	u.Path = fmt.Sprintf("/_matrix/client/v3/rooms/%s/send/m.room.encrypted/%s",
+		roomID, txnID)
+
+	req, err := http.NewRequestWithContext(m.ctx, "PUT", u.String(), bytes.NewReader(body))
+	if err != nil {
+		return "", errsys.NewBuilder("MAT-021").
+			Wrap(fmt.Errorf("failed to create request: %w", err)).
+			WithFunction("sendEncryptedEvent").
+			Build()
+	}
+
+	m.mu.RLock()
+	token := m.accessToken
+	m.mu.RUnlock()
+
+	req.Header.Set("Authorization", "Bearer "+token)
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := m.httpClient.Do(req)
+	if err != nil {
+		return "", errsys.NewBuilder("MAT-021").
+			Wrap(fmt.Errorf("encrypted send request failed: %w", err)).
+			WithFunction("sendEncryptedEvent").
+			Build()
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		respBody, _ := io.ReadAll(resp.Body)
+		return "", errsys.NewBuilder("MAT-021").
+			Wrap(fmt.Errorf("encrypted send failed: status %d, response: %s", resp.StatusCode, string(respBody))).
+			WithFunction("sendEncryptedEvent").
+			WithInputs(map[string]any{"room_id": roomID, "status": resp.StatusCode}).
+			Build()
+	}
+
+	var result struct {
+		EventID string `json:"event_id"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return "", errsys.NewBuilder("MAT-021").
+			Wrap(fmt.Errorf("failed to decode encrypted send response: %w", err)).
+			WithFunction("sendEncryptedEvent").
+			Build()
+	}
+
+	return result.EventID, nil
 }
 
 // isRetryableHTTPError checks if an HTTP error is retryable
