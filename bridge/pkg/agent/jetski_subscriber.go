@@ -36,6 +36,11 @@ type JetskiSubscriberConfig struct {
 	// Coordinator is the AgentCoordinator that manages agent state machines.
 	// Events are routed to the appropriate agent's state machine.
 	Coordinator *AgentCoordinator
+
+	// DisconnectTimeout is how long the subscriber will attempt reconnection
+	// before emitting an "offline" signal to all registered agents.
+	// Defaults to 60 seconds if zero.
+	DisconnectTimeout time.Duration
 }
 
 // JetskiStateEventSubscriber connects to a Jetski CDP event SSE stream,
@@ -54,6 +59,13 @@ type JetskiStateEventSubscriber struct {
 
 	// reconnectBackoff tracks the current backoff duration.
 	reconnectBackoff time.Duration
+
+	// disconnectStartedAt tracks when the current disconnect began (zero if connected).
+	disconnectStartedAt time.Time
+
+	// offlineEmitted tracks whether the offline signal has already been emitted
+	// for the current disconnect period (prevents duplicate emissions).
+	offlineEmitted bool
 }
 
 // NewJetskiStateEventSubscriber creates a new subscriber with the given config.
@@ -68,9 +80,13 @@ func NewJetskiStateEventSubscriber(cfg JetskiSubscriberConfig) (*JetskiStateEven
 		return nil, fmt.Errorf("jetski_subscriber: Coordinator is required")
 	}
 
+	if cfg.DisconnectTimeout <= 0 {
+		cfg.DisconnectTimeout = 60 * time.Second
+	}
+
 	return &JetskiStateEventSubscriber{
-		cfg:             cfg,
-		HTTPClient:      &http.Client{Timeout: 0}, // no timeout for SSE
+		cfg:              cfg,
+		HTTPClient:       &http.Client{Timeout: 0}, // no timeout for SSE
 		reconnectBackoff: time.Second,
 	}, nil
 }
@@ -128,7 +144,13 @@ func (s *JetskiStateEventSubscriber) Start(ctx context.Context) error {
 		backoff := s.reconnectBackoff
 		s.reconnectBackoff = time.Duration(math.Min(float64(s.reconnectBackoff*2), float64(30*time.Second)))
 		s.connected = false
+		if s.disconnectStartedAt.IsZero() {
+			s.disconnectStartedAt = time.Now()
+			s.offlineEmitted = false
+		}
 		s.mu.Unlock()
+
+		s.maybeEmitOffline()
 
 		log.Printf("[JETSKI SUBSCRIBER]: reconnecting in %v...", backoff)
 
@@ -137,6 +159,39 @@ func (s *JetskiStateEventSubscriber) Start(ctx context.Context) error {
 			return s.ctx.Err()
 		case <-time.After(backoff):
 			// Continue to reconnect
+		}
+	}
+}
+
+// maybeEmitOffline checks if the disconnect has persisted beyond DisconnectTimeout
+// and emits an "offline" signal to all registered agents if so.
+func (s *JetskiStateEventSubscriber) maybeEmitOffline() {
+	s.mu.Lock()
+	if s.disconnectStartedAt.IsZero() || s.offlineEmitted {
+		s.mu.Unlock()
+		return
+	}
+	elapsed := time.Since(s.disconnectStartedAt)
+	timeout := s.cfg.DisconnectTimeout
+	s.mu.Unlock()
+
+	if elapsed < timeout {
+		return
+	}
+
+	s.mu.Lock()
+	s.offlineEmitted = true
+	s.mu.Unlock()
+
+	statuses := s.cfg.Coordinator.GetAllStatuses()
+	for _, status := range statuses {
+		changed, err := s.cfg.Coordinator.EmitSideChannelSignal(context.Background(), status.AgentID, "offline")
+		if err != nil {
+			log.Printf("[JETSKI SUBSCRIBER]: failed to emit offline signal for agent %s: %v", status.AgentID, err)
+			continue
+		}
+		if changed {
+			log.Printf("[JETSKI SUBSCRIBER]: agent %s transitioned to OFFLINE (Jetski disconnect timeout)", status.AgentID)
 		}
 	}
 }
@@ -197,9 +252,16 @@ func (s *JetskiStateEventSubscriber) connectAndServe() error {
 	s.mu.Lock()
 	s.connected = true
 	s.reconnectBackoff = time.Second // reset backoff on successful connect
+	wasDisconnected := !s.disconnectStartedAt.IsZero()
+	s.disconnectStartedAt = time.Time{}
+	s.offlineEmitted = false
 	s.mu.Unlock()
 
-	log.Printf("[JETSKI SUBSCRIBER]: connected to %s as device %s", endpoint, s.cfg.DeviceID)
+	if wasDisconnected {
+		log.Printf("[JETSKI SUBSCRIBER]: reconnected to %s as device %s", endpoint, s.cfg.DeviceID)
+	} else {
+		log.Printf("[JETSKI SUBSCRIBER]: connected to %s as device %s", endpoint, s.cfg.DeviceID)
+	}
 
 	// Process SSE stream.
 	return s.processSSEStream(resp.Body)

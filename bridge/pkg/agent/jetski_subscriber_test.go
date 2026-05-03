@@ -481,3 +481,182 @@ func TestJetskiSubscriberStop(t *testing.T) {
 		t.Error("expected subscriber to be disconnected after stop")
 	}
 }
+
+func TestJetskiDisconnect_OfflineSignalAfterTimeout(t *testing.T) {
+	accepting := int32(1)
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if atomic.LoadInt32(&accepting) == 0 {
+			w.WriteHeader(http.StatusServiceUnavailable)
+			return
+		}
+
+		w.Header().Set("Content-Type", "text/event-stream")
+		w.WriteHeader(http.StatusOK)
+		fmt.Fprintf(w, "event: registered\ndata: {\"device_id\":\"bridge\"}\n\n")
+		w.(http.Flusher).Flush()
+		<-r.Context().Done()
+	}))
+	defer server.Close()
+
+	coord := NewAgentCoordinator()
+	sm := NewStateMachine(StateMachineConfig{AgentID: "test-agent"})
+	sm.ForceTransition(StatusBrowsing)
+	coord.RegisterAgent("test-agent", sm)
+
+	sub, err := NewJetskiStateEventSubscriber(JetskiSubscriberConfig{
+		JetskiURL:         server.URL,
+		DeviceID:          "bridge",
+		Coordinator:       coord,
+		DisconnectTimeout: 500 * time.Millisecond,
+	})
+	if err != nil {
+		t.Fatalf("NewJetskiStateEventSubscriber: %v", err)
+	}
+	sub.reconnectBackoff = 50 * time.Millisecond
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	done := make(chan error, 1)
+	go func() {
+		done <- sub.Start(ctx)
+	}()
+
+	time.Sleep(200 * time.Millisecond)
+	if !sub.Connected() {
+		t.Fatal("expected initial connection")
+	}
+
+	atomic.StoreInt32(&accepting, 0)
+	server.CloseClientConnections()
+
+	time.Sleep(2 * time.Second)
+
+	currentState := sm.Current()
+	if currentState != StatusOffline {
+		t.Errorf("expected OFFLINE after disconnect timeout, got %v", currentState)
+	}
+
+	cancel()
+	<-done
+}
+
+func TestJetskiDisconnect_ReconnectRestoresConnection(t *testing.T) {
+	var connectCount int32
+	allowData := int32(0)
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		count := atomic.AddInt32(&connectCount, 1)
+
+		w.Header().Set("Content-Type", "text/event-stream")
+		w.WriteHeader(http.StatusOK)
+		fmt.Fprintf(w, "event: registered\ndata: {\"device_id\":\"bridge\"}\n\n")
+		w.(http.Flusher).Flush()
+
+		if atomic.LoadInt32(&allowData) == 1 && count >= 2 {
+			fmt.Fprintf(w, "event: cdp\ndata: {\"method\":\"Page.frameNavigated\",\"params\":{\"url\":\"https://example.com\"}}\n\n")
+			w.(http.Flusher).Flush()
+		}
+
+		<-r.Context().Done()
+	}))
+	defer server.Close()
+
+	coord := NewAgentCoordinator()
+	sm := NewStateMachine(StateMachineConfig{AgentID: "test-agent"})
+	sm.ForceTransition(StatusIdle)
+	coord.RegisterAgent("test-agent", sm)
+
+	sub, err := NewJetskiStateEventSubscriber(JetskiSubscriberConfig{
+		JetskiURL:         server.URL,
+		DeviceID:          "bridge",
+		Coordinator:       coord,
+		DisconnectTimeout: 10 * time.Second,
+	})
+	if err != nil {
+		t.Fatalf("NewJetskiStateEventSubscriber: %v", err)
+	}
+	sub.reconnectBackoff = 50 * time.Millisecond
+
+	ctx, cancel := context.WithTimeout(context.Background(), 8*time.Second)
+	defer cancel()
+
+	done := make(chan error, 1)
+	go func() {
+		done <- sub.Start(ctx)
+	}()
+
+	time.Sleep(200 * time.Millisecond)
+
+	atomic.StoreInt32(&allowData, 1)
+	server.CloseClientConnections()
+
+	time.Sleep(2 * time.Second)
+
+	if !sub.Connected() {
+		t.Error("expected subscriber to reconnect after server disconnect")
+	}
+
+	count := atomic.LoadInt32(&connectCount)
+	if count < 2 {
+		t.Errorf("expected at least 2 connections, got %d", count)
+	}
+
+	cancel()
+	<-done
+}
+
+func TestJetskiDisconnect_NoOfflineSignalOnQuickReconnect(t *testing.T) {
+	var connectCount int32
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		count := atomic.AddInt32(&connectCount, 1)
+
+		w.Header().Set("Content-Type", "text/event-stream")
+		w.WriteHeader(http.StatusOK)
+		fmt.Fprintf(w, "event: registered\ndata: {\"device_id\":\"bridge\"}\n\n")
+		w.(http.Flusher).Flush()
+
+		if count == 1 {
+			return
+		}
+
+		<-r.Context().Done()
+	}))
+	defer server.Close()
+
+	coord := NewAgentCoordinator()
+	sm := NewStateMachine(StateMachineConfig{AgentID: "test-agent"})
+	sm.ForceTransition(StatusBrowsing)
+	coord.RegisterAgent("test-agent", sm)
+
+	sub, err := NewJetskiStateEventSubscriber(JetskiSubscriberConfig{
+		JetskiURL:         server.URL,
+		DeviceID:          "bridge",
+		Coordinator:       coord,
+		DisconnectTimeout: 5 * time.Second,
+	})
+	if err != nil {
+		t.Fatalf("NewJetskiStateEventSubscriber: %v", err)
+	}
+	sub.reconnectBackoff = 50 * time.Millisecond
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	done := make(chan error, 1)
+	go func() {
+		done <- sub.Start(ctx)
+	}()
+
+	time.Sleep(500 * time.Millisecond)
+
+	currentState := sm.Current()
+	if currentState != StatusBrowsing {
+		t.Errorf("expected BROWSING (no offline signal on quick reconnect), got %v", currentState)
+	}
+
+	cancel()
+	<-done
+}

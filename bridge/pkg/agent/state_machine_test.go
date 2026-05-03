@@ -1,6 +1,8 @@
 package agent
 
 import (
+	"bytes"
+	"log/slog"
 	"sync"
 	"testing"
 	"time"
@@ -512,5 +514,183 @@ func TestNewStatusEvent(t *testing.T) {
 	}
 	if event.Timestamp == 0 {
 		t.Error("expected non-zero timestamp")
+	}
+}
+
+func TestTransitionLog_ForceTransition(t *testing.T) {
+	var buf bytes.Buffer
+	logger := slog.New(slog.NewTextHandler(&buf, nil))
+	slog.SetDefault(logger)
+
+	sm := NewStateMachine(StateMachineConfig{AgentID: "test-agent-log"})
+
+	sm.ForceTransition(StatusBrowsing, StatusMetadata{InferredFrom: "CDP"})
+
+	logOutput := buf.String()
+	if logOutput == "" {
+		t.Fatal("expected log output from ForceTransition, got empty")
+	}
+
+	agentID := "agent_id=test-agent-log"
+	from := "from=OFFLINE"
+	to := "to=BROWSING"
+	inferredFrom := "inferred_from=CDP"
+
+	for _, field := range []string{agentID, from, to, inferredFrom} {
+		if !bytes.Contains(buf.Bytes(), []byte(field)) {
+			t.Errorf("expected log to contain %q, got: %s", field, logOutput)
+		}
+	}
+}
+
+func TestTransitionLog_ForceTransitionDefaultManual(t *testing.T) {
+	var buf bytes.Buffer
+	logger := slog.New(slog.NewTextHandler(&buf, nil))
+	slog.SetDefault(logger)
+
+	sm := NewStateMachine(StateMachineConfig{AgentID: "test-manual"})
+	sm.ForceTransition(StatusInitializing)
+
+	if !bytes.Contains(buf.Bytes(), []byte("inferred_from=manual")) {
+		t.Errorf("expected inferred_from=manual when no metadata provided, got: %s", buf.String())
+	}
+}
+
+func TestTransitionLog_RecentTransitions(t *testing.T) {
+	sm := NewStateMachine(StateMachineConfig{AgentID: "test"})
+
+	sm.ForceTransition(StatusInitializing)
+	sm.ForceTransition(StatusBrowsing, StatusMetadata{InferredFrom: "CDP"})
+	sm.ForceTransition(StatusFormFilling, StatusMetadata{InferredFrom: "workflow"})
+
+	records := sm.RecentTransitions(10)
+	if len(records) != 3 {
+		t.Fatalf("expected 3 transition records, got %d", len(records))
+	}
+
+	if records[0].From != StatusOffline || records[0].To != StatusInitializing {
+		t.Errorf("first record: expected OFFLINE -> INITIALIZING, got %s -> %s", records[0].From, records[0].To)
+	}
+	if records[0].InferredFrom != "manual" {
+		t.Errorf("first record: expected inferred_from=manual, got %s", records[0].InferredFrom)
+	}
+
+	if records[1].From != StatusInitializing || records[1].To != StatusBrowsing {
+		t.Errorf("second record: expected INITIALIZING -> BROWSING, got %s -> %s", records[1].From, records[1].To)
+	}
+	if records[1].InferredFrom != "CDP" {
+		t.Errorf("second record: expected inferred_from=CDP, got %s", records[1].InferredFrom)
+	}
+
+	if records[2].From != StatusBrowsing || records[2].To != StatusFormFilling {
+		t.Errorf("third record: expected BROWSING -> FORM_FILLING, got %s -> %s", records[2].From, records[2].To)
+	}
+	if records[2].InferredFrom != "workflow" {
+		t.Errorf("third record: expected inferred_from=workflow, got %s", records[2].InferredFrom)
+	}
+
+	for i, r := range records {
+		if r.Timestamp == 0 {
+			t.Errorf("record %d: expected non-zero timestamp", i)
+		}
+	}
+}
+
+func TestTransitionLog_RecentTransitionsLimit(t *testing.T) {
+	sm := NewStateMachine(StateMachineConfig{AgentID: "test"})
+
+	sm.ForceTransition(StatusInitializing)
+	sm.ForceTransition(StatusBrowsing)
+	sm.ForceTransition(StatusFormFilling)
+
+	records := sm.RecentTransitions(2)
+	if len(records) != 2 {
+		t.Fatalf("expected 2 records when limit=2, got %d", len(records))
+	}
+	if records[0].To != StatusBrowsing {
+		t.Errorf("expected first limited record to=BROWSING, got %s", records[0].To)
+	}
+	if records[1].To != StatusFormFilling {
+		t.Errorf("expected second limited record to=FORM_FILLING, got %s", records[1].To)
+	}
+}
+
+func TestTransitionLog_RingBuffer(t *testing.T) {
+	sm := NewStateMachine(StateMachineConfig{AgentID: "test"})
+
+	for i := 0; i < 150; i++ {
+		sm.ForceTransition(StatusBrowsing)
+		sm.ForceTransition(StatusFormFilling)
+	}
+
+	records := sm.RecentTransitions(0)
+	if len(records) > transitionLogMaxSize {
+		t.Errorf("expected max %d transition records (ring buffer), got %d", transitionLogMaxSize, len(records))
+	}
+
+	if len(records) != transitionLogMaxSize {
+		t.Errorf("expected exactly %d records after overflow, got %d", transitionLogMaxSize, len(records))
+	}
+
+	lastRecord := records[len(records)-1]
+	if lastRecord.To != StatusFormFilling {
+		t.Errorf("expected last record to=FORM_FILLING, got %s", lastRecord.To)
+	}
+}
+
+func TestTransitionLog_TransitionPath(t *testing.T) {
+	var buf bytes.Buffer
+	logger := slog.New(slog.NewTextHandler(&buf, nil))
+	slog.SetDefault(logger)
+
+	sm := NewStateMachine(StateMachineConfig{AgentID: "transition-path"})
+
+	err := sm.Transition(StatusInitializing)
+	if err != nil {
+		t.Fatalf("Transition failed: %v", err)
+	}
+
+	logOutput := buf.String()
+	if logOutput == "" {
+		t.Fatal("expected log output from Transition, got empty")
+	}
+
+	if !bytes.Contains(buf.Bytes(), []byte("agent_id=transition-path")) {
+		t.Errorf("expected log to contain agent_id, got: %s", logOutput)
+	}
+	if !bytes.Contains(buf.Bytes(), []byte("from=OFFLINE")) {
+		t.Errorf("expected log to contain from=OFFLINE, got: %s", logOutput)
+	}
+	if !bytes.Contains(buf.Bytes(), []byte("to=INITIALIZING")) {
+		t.Errorf("expected log to contain to=INITIALIZING, got: %s", logOutput)
+	}
+
+	records := sm.RecentTransitions(10)
+	if len(records) != 1 {
+		t.Fatalf("expected 1 transition record, got %d", len(records))
+	}
+	if records[0].InferredFrom != "manual" {
+		t.Errorf("expected inferred_from=manual, got %s", records[0].InferredFrom)
+	}
+}
+
+func TestTransitionLog_ConcurrentTransitions(t *testing.T) {
+	sm := NewStateMachine(StateMachineConfig{AgentID: "concurrent"})
+	sm.ForceTransition(StatusBrowsing)
+
+	var wg sync.WaitGroup
+	for i := 0; i < 50; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			sm.ForceTransition(StatusFormFilling)
+			sm.ForceTransition(StatusBrowsing)
+		}()
+	}
+	wg.Wait()
+
+	records := sm.RecentTransitions(0)
+	if len(records) != transitionLogMaxSize {
+		t.Errorf("expected exactly %d records after concurrent writes, got %d", transitionLogMaxSize, len(records))
 	}
 }

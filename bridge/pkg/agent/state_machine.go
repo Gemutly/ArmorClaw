@@ -3,9 +3,21 @@ package agent
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"sync"
 	"time"
 )
+
+// TransitionRecord captures a single state transition for observability.
+type TransitionRecord struct {
+	From         AgentStatus `json:"from"`
+	To           AgentStatus `json:"to"`
+	Timestamp    int64       `json:"timestamp"`
+	Reason       string      `json:"reason,omitempty"`
+	InferredFrom string      `json:"inferred_from,omitempty"` // "CDP", "workflow", "manual", or ""
+}
+
+const transitionLogMaxSize = 100
 
 // StateMachine manages agent state transitions with validation and event emission.
 // It is safe for concurrent use.
@@ -23,6 +35,9 @@ type StateMachine struct {
 	// History for reconnection support
 	history     []StatusEvent
 	historySize int
+
+	// Transition log for observability (ring buffer of last 100)
+	transitionLog []TransitionRecord
 
 	// Context for shutdown
 	ctx    context.Context
@@ -68,8 +83,10 @@ func (sm *StateMachine) Transition(newStatus AgentStatus, metadata ...StatusMeta
 	// Record transition
 	prev := sm.current
 	sm.current = newStatus
+	var meta StatusMetadata
 	if len(metadata) > 0 {
-		sm.metadata = metadata[0]
+		meta = metadata[0]
+		sm.metadata = meta
 	} else {
 		// Clear sensitive metadata on terminal states
 		if newStatus.IsTerminal() || newStatus == StatusIdle || newStatus == StatusComplete {
@@ -91,6 +108,29 @@ func (sm *StateMachine) Transition(newStatus AgentStatus, metadata ...StatusMeta
 	if len(sm.history) > sm.historySize {
 		sm.history = sm.history[1:]
 	}
+
+	inferredFrom := meta.InferredFrom
+	if inferredFrom == "" {
+		inferredFrom = "manual"
+	}
+
+	sm.transitionLog = append(sm.transitionLog, TransitionRecord{
+		From:         prev,
+		To:           newStatus,
+		Timestamp:    event.Timestamp,
+		InferredFrom: inferredFrom,
+	})
+	if len(sm.transitionLog) > transitionLogMaxSize {
+		sm.transitionLog = sm.transitionLog[len(sm.transitionLog)-transitionLogMaxSize:]
+	}
+
+	slog.Info("[STATE TRANSITION]",
+		"agent_id", sm.agentID,
+		"from", string(prev),
+		"to", string(newStatus),
+		"inferred_from", inferredFrom,
+		"timestamp", event.Timestamp,
+	)
 
 	// Emit to channel (non-blocking)
 	select {
@@ -190,6 +230,21 @@ func (sm *StateMachine) LastEvent() *StatusEvent {
 	return &event
 }
 
+// RecentTransitions returns the last n transition records for debugging.
+// If n > available records, all records are returned.
+func (sm *StateMachine) RecentTransitions(n int) []TransitionRecord {
+	sm.mu.RLock()
+	defer sm.mu.RUnlock()
+
+	if n <= 0 || n > len(sm.transitionLog) {
+		n = len(sm.transitionLog)
+	}
+
+	result := make([]TransitionRecord, n)
+	copy(result, sm.transitionLog[len(sm.transitionLog)-n:])
+	return result
+}
+
 // ForceTransition bypasses validation (for recovery scenarios).
 // Use with caution - prefer Transition() for normal operations.
 func (sm *StateMachine) ForceTransition(newStatus AgentStatus, metadata ...StatusMetadata) {
@@ -198,8 +253,10 @@ func (sm *StateMachine) ForceTransition(newStatus AgentStatus, metadata ...Statu
 
 	prev := sm.current
 	sm.current = newStatus
+	var meta StatusMetadata
 	if len(metadata) > 0 {
-		sm.metadata = metadata[0]
+		meta = metadata[0]
+		sm.metadata = meta
 	}
 
 	event := StatusEvent{
@@ -214,6 +271,29 @@ func (sm *StateMachine) ForceTransition(newStatus AgentStatus, metadata ...Statu
 	if len(sm.history) > sm.historySize {
 		sm.history = sm.history[1:]
 	}
+
+	inferredFrom := meta.InferredFrom
+	if inferredFrom == "" {
+		inferredFrom = "manual"
+	}
+
+	sm.transitionLog = append(sm.transitionLog, TransitionRecord{
+		From:         prev,
+		To:           newStatus,
+		Timestamp:    event.Timestamp,
+		InferredFrom: inferredFrom,
+	})
+	if len(sm.transitionLog) > transitionLogMaxSize {
+		sm.transitionLog = sm.transitionLog[len(sm.transitionLog)-transitionLogMaxSize:]
+	}
+
+	slog.Info("[STATE TRANSITION]",
+		"agent_id", sm.agentID,
+		"from", string(prev),
+		"to", string(newStatus),
+		"inferred_from", inferredFrom,
+		"timestamp", event.Timestamp,
+	)
 
 	// Emit non-blocking
 	select {
