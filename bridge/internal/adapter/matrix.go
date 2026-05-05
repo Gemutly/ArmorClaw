@@ -35,6 +35,14 @@ var (
 	ErrTokenInvalidated = errors.New("matrix token invalidated: M_UNKNOWN_TOKEN")
 )
 
+const (
+	syncInitialBackoff          = 1 * time.Second  // Initial backoff after first sync failure
+	syncMaxBackoff              = 30 * time.Second // Maximum backoff duration
+	syncBackoffFactor           = 2.0              // Multiplier for exponential backoff
+	syncHappyInterval           = 5 * time.Second  // Normal polling interval when connected
+	syncMaxFailuresBeforeRelogin = 3               // Trigger ensureValidToken after this many consecutive failures
+)
+
 // MatrixAdapter implements Matrix client protocol
 type MatrixAdapter struct {
 	homeserverURL    string
@@ -68,6 +76,7 @@ type MatrixAdapter struct {
 	encryptionService *crypto.EncryptionService // E2EE encrypt/decrypt service (nil when disabled)
 	keyExchange       *crypto.KeyExchangeService // E2EE key upload/query/claim (nil when disabled)
 	keystore          *keystore.Keystore          // Encrypted keystore for refresh token persistence (may be nil)
+	statusCallback    func(string)                // Optional callback for sync state transitions
 }
 
 // StudioCommandHandler handles Agent Studio commands via Matrix
@@ -231,6 +240,16 @@ func (m *MatrixAdapter) SetRefreshToken(token string) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.refreshToken = token
+}
+
+func (m *MatrixAdapter) SetStatusCallback(fn func(string)) {
+	m.statusCallback = fn
+}
+
+func (m *MatrixAdapter) notifyStatus(status string) {
+	if m.statusCallback != nil {
+		m.statusCallback(status)
+	}
 }
 
 // Login authenticates with the Matrix homeserver
@@ -497,12 +516,12 @@ func (m *MatrixAdapter) SendMessage(roomID, message, msgType string) (string, er
 
 // Sync performs a long-poll sync with the homeserver
 func (m *MatrixAdapter) Sync(timeout int) error {
-	fmt.Printf("[matrix] Sync: starting sync timeout=%d\n", timeout)
+	logger.Global().Debug("matrix sync starting", "timeout", timeout)
 	matrixTracker.Event("sync", map[string]any{"timeout": timeout})
 
 	// P1-HIGH-1: Ensure token is valid before syncing
 	if err := m.ensureValidToken(); err != nil {
-		fmt.Printf("[matrix] Sync: token validation failed: %v\n", err)
+		logger.Global().Warn("matrix sync token validation failed", "error", err)
 		err := errsys.NewBuilder("MAT-002").
 			Wrap(fmt.Errorf("token validation failed: %w", err)).
 			WithFunction("Sync").
@@ -646,7 +665,10 @@ func (m *MatrixAdapter) Sync(timeout int) error {
 		return err
 	}
 
-	fmt.Printf("[matrix] Sync: decoded response next_batch=%s rooms_count=%d\n", syncResp.NextBatch, len(syncResp.Rooms.Join))
+	logger.Global().Debug("matrix sync response decoded",
+		"next_batch", syncResp.NextBatch,
+		"rooms_count", len(syncResp.Rooms.Join),
+	)
 
 	// Process events and queue them
 	eventsProcessed := m.processEvents(&syncResp)
@@ -675,7 +697,11 @@ func (m *MatrixAdapter) Sync(timeout int) error {
 		"events_processed": eventsProcessed,
 		"rooms_active":     len(syncResp.Rooms.Join),
 	})
-	fmt.Printf("[matrix] Sync: complete next_batch=%s events=%d rooms=%d\n", syncResp.NextBatch, eventsProcessed, len(syncResp.Rooms.Join))
+	logger.Global().Debug("matrix sync complete",
+		"next_batch", syncResp.NextBatch,
+		"events", eventsProcessed,
+		"rooms", len(syncResp.Rooms.Join),
+	)
 	return nil
 }
 
@@ -1136,18 +1162,95 @@ func (m *MatrixAdapter) StartSync() {
 
 // syncLoop runs the continuous sync loop
 func (m *MatrixAdapter) syncLoop() {
-	ticker := time.NewTicker(5 * time.Second)
-	defer ticker.Stop()
+	backoff := syncInitialBackoff
+	consecutiveFailures := 0
 
 	for {
 		select {
 		case <-m.ctx.Done():
 			return
-		case <-ticker.C:
-			if err := m.Sync(30); err != nil {
-				// Log error but continue
+		default:
+		}
+
+		err := m.SyncWithRetry(30)
+		if err == nil {
+			if consecutiveFailures > 0 {
+				logger.Global().Info("matrix sync recovered",
+					"previous_failures", consecutiveFailures,
+				)
+			}
+			backoff = syncInitialBackoff
+			consecutiveFailures = 0
+			m.notifyStatus("Matrix: connected")
+
+			timer := time.NewTimer(syncHappyInterval)
+			select {
+			case <-m.ctx.Done():
+				timer.Stop()
+				return
+			case <-timer.C:
+				continue
 			}
 		}
+
+		consecutiveFailures++
+
+		if errors.Is(err, ErrTokenInvalidated) {
+			logger.Global().Warn("matrix token invalidated, triggering immediate re-login",
+				"error", err,
+			)
+			m.notifyStatus("Matrix: reconnecting (token invalidated)")
+			m.attemptRelogin()
+			consecutiveFailures = 0
+		} else if consecutiveFailures%syncMaxFailuresBeforeRelogin == 0 {
+			logger.Global().Warn("matrix sync consecutive failures, triggering re-login",
+				"consecutive_failures", consecutiveFailures,
+				"error", err,
+			)
+			m.attemptRelogin()
+		}
+
+		if consecutiveFailures <= 10 || consecutiveFailures%10 == 0 {
+			if consecutiveFailures >= 10 {
+				logger.Global().Error("matrix sync extended failure",
+					"consecutive_failures", consecutiveFailures,
+					"backoff", backoff,
+					"error", err,
+					"suggestion", "check Matrix server status and credentials",
+				)
+			} else {
+				logger.Global().Warn("matrix sync error",
+					"consecutive_failures", consecutiveFailures,
+					"backoff", backoff,
+					"error", err,
+				)
+			}
+		}
+
+		m.notifyStatus(fmt.Sprintf("Matrix: reconnecting (backoff: %s)", backoff))
+
+		timer := time.NewTimer(backoff)
+		select {
+		case <-m.ctx.Done():
+			timer.Stop()
+			return
+		case <-timer.C:
+		}
+
+		backoff = time.Duration(float64(backoff) * syncBackoffFactor)
+		if backoff > syncMaxBackoff {
+			backoff = syncMaxBackoff
+		}
+	}
+}
+
+func (m *MatrixAdapter) attemptRelogin() {
+	if err := m.ensureValidToken(); err != nil {
+		logger.Global().Warn("matrix re-login attempt failed",
+			"error", err,
+		)
+	} else {
+		logger.Global().Info("matrix re-login successful")
 	}
 }
 
