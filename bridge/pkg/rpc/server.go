@@ -8,7 +8,6 @@ import (
 	"log/slog"
 	"net"
 	"os"
-	"os/signal"
 	"path/filepath"
 	"reflect"
 	"runtime"
@@ -16,7 +15,6 @@ import (
 	"strings"
 	"sync"
 	"sync/atomic"
-	"syscall"
 	"time"
 
 	"github.com/armorclaw/bridge/internal/adapter"
@@ -1108,14 +1106,9 @@ func (s *Server) Run(socketPath string) error {
 
 	s.listener = listener
 
+	// Note: Signal handling is consolidated in main.go.
+	// main.go calls server.Stop() on SIGINT/SIGTERM, which closes the listener.
 	shutdown := make(chan struct{})
-	go func() {
-		sigint := make(chan os.Signal, 1)
-		signal.Notify(sigint, syscall.SIGINT, syscall.SIGTERM)
-		<-sigint
-		slog.Info("shutting down rpc server")
-		close(shutdown)
-	}()
 
 	for {
 		select {
