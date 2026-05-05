@@ -19,6 +19,7 @@ import (
 	"github.com/armorclaw/bridge/pkg/audit"
 	"github.com/armorclaw/bridge/pkg/crypto"
 	errsys "github.com/armorclaw/bridge/pkg/errors"
+	"github.com/armorclaw/bridge/pkg/keystore"
 	"github.com/armorclaw/bridge/pkg/logger"
 	"github.com/armorclaw/bridge/pkg/pii"
 	"github.com/armorclaw/bridge/pkg/trust"
@@ -66,6 +67,7 @@ type MatrixAdapter struct {
 	keyIngestion      *KeyIngestionManager      // E2EE key ingestion for to_device events
 	encryptionService *crypto.EncryptionService // E2EE encrypt/decrypt service (nil when disabled)
 	keyExchange       *crypto.KeyExchangeService // E2EE key upload/query/claim (nil when disabled)
+	keystore          *keystore.Keystore          // Encrypted keystore for refresh token persistence (may be nil)
 }
 
 // StudioCommandHandler handles Agent Studio commands via Matrix
@@ -221,6 +223,16 @@ func New(cfg Config) (*MatrixAdapter, error) {
 	}, nil
 }
 
+func (m *MatrixAdapter) SetKeystore(ks *keystore.Keystore) {
+	m.keystore = ks
+}
+
+func (m *MatrixAdapter) SetRefreshToken(token string) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.refreshToken = token
+}
+
 // Login authenticates with the Matrix homeserver
 func (m *MatrixAdapter) Login(username, password string) error {
 	matrixTracker.Event("login", map[string]any{"user": username})
@@ -314,6 +326,23 @@ func (m *MatrixAdapter) Login(username, password string) error {
 	m.mu.Unlock()
 
 	matrixTracker.Success("login", map[string]any{"user_id": result.UserID})
+
+	if result.RefreshToken != "" {
+		if m.keystore != nil {
+			if err := m.keystore.StoreMatrixRefreshToken(keystore.MatrixRefreshToken{
+				ID:            "matrix-refresh-token",
+				Token:         result.RefreshToken,
+				HomeserverURL: m.homeserverURL,
+				UserID:        result.UserID,
+				CreatedAt:     time.Now().Unix(),
+			}); err != nil {
+				logger.Global().Warn("failed to persist refresh token to keystore", "error", err)
+			}
+		} else {
+			logger.Global().Warn("keystore not available, refresh token stored in memory only")
+		}
+	}
+
 	return nil
 }
 
@@ -1784,6 +1813,22 @@ func (m *MatrixAdapter) RefreshAccessToken() error {
 	}
 	m.lastExpiryCheck = time.Now() // Reset expiry check timer
 	m.mu.Unlock()
+
+	if result.RefreshToken != "" && m.keystore != nil {
+		m.mu.RLock()
+		hsURL := m.homeserverURL
+		uID := m.userID
+		m.mu.RUnlock()
+		if err := m.keystore.StoreMatrixRefreshToken(keystore.MatrixRefreshToken{
+			ID:            "matrix-refresh-token",
+			Token:         result.RefreshToken,
+			HomeserverURL: hsURL,
+			UserID:        uID,
+			CreatedAt:     time.Now().Unix(),
+		}); err != nil {
+			logger.Global().Warn("failed to persist rotated refresh token to keystore", "error", err)
+		}
+	}
 
 	logger.Global().Info("Matrix access token refreshed via refresh_token",
 		"expires_in_ms", result.ExpiresIn,

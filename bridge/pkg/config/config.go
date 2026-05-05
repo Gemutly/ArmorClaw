@@ -1236,6 +1236,7 @@ func (c *Config) ToMatrixConfig() adapter.Config {
 		TrustedSenders:  c.Matrix.ZeroTrust.TrustedSenders,
 		TrustedRooms:    c.Matrix.ZeroTrust.TrustedRooms,
 		RejectUntrusted: c.Matrix.ZeroTrust.RejectUntrusted,
+		Username:        c.Matrix.Username,
 	}
 }
 

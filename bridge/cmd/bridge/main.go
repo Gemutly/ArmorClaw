@@ -2277,7 +2277,7 @@ func runBridgeServer(cliCfg cliConfig) {
 		matrixBus = events.NewMatrixEventBus(bufferSize)
 		log.Printf("Matrix event bus initialized with buffer size: %d", bufferSize)
 
-		// Create basic MatrixAdapter
+		// Create MatrixAdapter
 		var err error
 		matrixAdapter, err = adapter.New(adapter.Config{
 			HomeserverURL: cfg.Matrix.HomeserverURL,
@@ -2288,16 +2288,40 @@ func runBridgeServer(cliCfg cliConfig) {
 			log.Printf("Warning: Failed to create matrix adapter: %v", err)
 			matrixAdapter = nil
 		} else {
+			// Inject keystore for refresh token persistence
+			matrixAdapter.SetKeystore(ks)
+
 			// Set the event bus
 			matrixAdapter.SetEventBus(matrixBus)
 
-			// Initialize the Matrix adapter
-			if err := matrixAdapter.Login(cfg.Matrix.Username, cfg.Matrix.Password); err != nil {
-				log.Printf("Warning: Matrix login failed (will use anonymous mode): %v", err)
-			} else {
-				matrixAdapter.StartSync()
-				log.Println("Matrix sync loop started")
+			// Try refresh-before-login at startup
+			loggedIn := false
+			if ks != nil {
+				storedToken, err := ks.RetrieveMatrixRefreshToken("matrix-refresh-token")
+				if err == nil && storedToken != nil && storedToken.Token != "" {
+					log.Println("Found stored refresh token, attempting refresh...")
+					matrixAdapter.SetRefreshToken(storedToken.Token)
+					if err := matrixAdapter.RefreshAccessToken(); err != nil {
+						log.Printf("Warning: Refresh token failed (expired/invalid), falling back to password login: %v", err)
+						_ = ks.DeleteMatrixRefreshToken("matrix-refresh-token")
+					} else {
+						log.Println("Matrix session restored via refresh token")
+						loggedIn = true
+					}
+				}
 			}
+
+			// Fall back to password login if refresh failed or no stored token
+			if !loggedIn {
+				if err := matrixAdapter.Login(cfg.Matrix.Username, cfg.Matrix.Password); err != nil {
+					log.Printf("Warning: Matrix login failed (will use anonymous mode): %v", err)
+				} else {
+					log.Println("Matrix login successful via password")
+				}
+			}
+
+			matrixAdapter.StartSync()
+			log.Println("Matrix sync loop started")
 			log.Printf("Matrix adapter initialized: %s", matrixAdapter.GetUserID())
 		}
 	}
