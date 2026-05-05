@@ -557,9 +557,10 @@ configure_monitoring() {
     print_step "Monitoring Setup (Optional)"
 
     cat <<'EOF'
-  Basic monitoring setup includes:
-  • systemd watchdog for bridge service
-  • Health check cron job
+  Monitoring is handled by systemd watchdog:
+  • Bridge sends WATCHDOG=1 every 30s via sd_notify
+  • systemd restarts the bridge if stuck for 60s (WatchdogSec=60)
+  • Status visible via: systemctl status armorclaw-bridge
   • Optional: Prometheus node exporter
 
   For advanced monitoring, consider:
@@ -575,17 +576,11 @@ EOF
         return 0
     fi
 
-    # Add health check cron
-    local cron_file="/etc/cron.d/armorclaw-health"
-
-    cat > "$cron_file" <<EOF
-# ArmorClaw Health Check
-# Runs every 5 minutes
-*/5 * * * * root [ -S /run/armorclaw/bridge.sock ] && echo '{"jsonrpc":"2.0","method":"health","id":1}' | socat - UNIX-CONNECT:/run/armorclaw/bridge.sock > /dev/null 2>&1 || systemctl restart armorclaw-bridge
-EOF
-
-    chmod 644 "$cron_file"
-    print_success "Health check cron configured"
+    # Note: Health monitoring is now handled by systemd watchdog.
+    # The bridge sends WATCHDOG=1 every 30s via sd_notify (Type=notify service).
+    # If the bridge is stuck for 60s, systemd automatically restarts it.
+    # The cron-based health check is no longer needed.
+    print_info "Health monitoring: systemd watchdog (WatchdogSec=60, bridge pings every 30s)"
 
     # Ask about node exporter
     if prompt_yes_no "Install Prometheus node exporter?" "n"; then

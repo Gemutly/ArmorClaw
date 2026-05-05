@@ -403,7 +403,8 @@ StartLimitIntervalSec=60
 StartLimitBurst=5
 
 [Service]
-Type=simple
+Type=notify
+NotifyAccess=main
 User=$USER
 Group=$GROUP
 
@@ -435,6 +436,9 @@ ReadWritePaths=$DATA_DIR
 # Process management
 Restart=always
 RestartSec=5s
+# Watchdog: bridge sends WATCHDOG=1 every 30s via sd_notify
+# If stuck for 60s, systemd restarts it automatically
+WatchdogSec=60
 TimeoutStopSec=30s
 
 StandardOutput=journal
