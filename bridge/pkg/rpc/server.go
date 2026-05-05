@@ -1107,29 +1107,18 @@ func (s *Server) Run(socketPath string) error {
 	s.listener = listener
 
 	// Note: Signal handling is consolidated in main.go.
-	// main.go calls server.Stop() on SIGINT/SIGTERM, which closes the listener.
-	shutdown := make(chan struct{})
-
+	// When main.go's signal handler fires, the process exits and the
+	// listener is closed by the OS, causing Accept() to return an error.
 	for {
-		select {
-		case <-shutdown:
-			return nil
-		default:
-			conn, err := listener.Accept()
-			if err != nil {
-				select {
-				case <-shutdown:
-					return nil
-				default:
-					if os.IsTimeout(err) {
-						continue
-					}
-					return fmt.Errorf("accept error: %w", err)
-				}
+		conn, err := listener.Accept()
+		if err != nil {
+			if os.IsTimeout(err) {
+				continue
 			}
-
-			go s.handleConnection(conn)
+			return fmt.Errorf("accept error: %w", err)
 		}
+
+		go s.handleConnection(conn)
 	}
 }
 
