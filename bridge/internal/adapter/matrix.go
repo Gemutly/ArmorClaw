@@ -613,6 +613,10 @@ func (m *MatrixAdapter) Sync(timeout int) error {
 		body, _ := io.ReadAll(resp.Body)
 
 		if strings.Contains(string(body), "M_UNKNOWN_TOKEN") {
+			logger.Global().Debug("M_UNKNOWN_TOKEN detected in sync response, clearing tokens",
+				"sync_token", m.syncToken,
+				"http_status", resp.StatusCode,
+			)
 			m.mu.Lock()
 			m.accessToken = ""
 			m.syncToken = ""
@@ -647,6 +651,10 @@ func (m *MatrixAdapter) Sync(timeout int) error {
 	}
 
 	if strings.Contains(string(bodyBytes), "M_UNKNOWN_TOKEN") {
+		logger.Global().Debug("M_UNKNOWN_TOKEN detected in sync response, clearing tokens",
+			"sync_token", m.syncToken,
+			"http_status", resp.StatusCode,
+		)
 		m.mu.Lock()
 		m.accessToken = ""
 		m.syncToken = ""
@@ -1573,6 +1581,21 @@ func isRetryableHTTPError(err error) bool {
 	return false
 }
 
+// extractHTTPStatus extracts the HTTP status code from an errsys.TracedError if present.
+// Returns 0 if the error is not a TracedError or has no "status" input.
+func extractHTTPStatus(err error) int {
+	if err == nil {
+		return 0
+	}
+	var traced *errsys.TracedError
+	if errors.As(err, &traced) && traced.Inputs != nil {
+		if sc, ok := traced.Inputs["status"].(int); ok {
+			return sc
+		}
+	}
+	return 0
+}
+
 // isRetryableHTTPErrorWithStatus checks if an HTTP error is retryable,
 // considering both the Go transport error and the HTTP response status code.
 // statusCode=0 means no HTTP response was received.
@@ -1611,7 +1634,7 @@ func (m *MatrixAdapter) SendMessageWithRetry(roomID, message, msgType string) (s
 		}
 
 		// Check if error is retryable
-		if !isRetryableHTTPErrorWithStatus(err, 0) {
+		if !isRetryableHTTPErrorWithStatus(err, extractHTTPStatus(err)) {
 			return "", err // Non-retryable error
 		}
 
@@ -1753,8 +1776,14 @@ func (m *MatrixAdapter) SyncWithRetry(timeout int) error {
 		}
 
 		// Check if error is retryable
-		if !isRetryableHTTPErrorWithStatus(err, 0) {
+		statusCode := extractHTTPStatus(err)
+		if !isRetryableHTTPErrorWithStatus(err, statusCode) {
 			return err // Non-retryable error
+		}
+
+		// Don't internally retry rate limits — caller's syncLoop owns backoff
+		if statusCode == http.StatusTooManyRequests {
+			return err
 		}
 
 		lastErr = err
