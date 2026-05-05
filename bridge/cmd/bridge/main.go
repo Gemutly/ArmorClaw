@@ -43,6 +43,7 @@ import (
 	"github.com/armorclaw/bridge/pkg/secretary"
 	"github.com/armorclaw/bridge/pkg/setup"
 	"github.com/armorclaw/bridge/pkg/studio"
+	"github.com/armorclaw/bridge/pkg/systemd"
 	"github.com/armorclaw/bridge/pkg/trust"
 	"github.com/armorclaw/bridge/pkg/invite"
 	"github.com/armorclaw/bridge/pkg/turn"
@@ -2323,6 +2324,11 @@ func runBridgeServer(cliCfg cliConfig) {
 			matrixAdapter.StartSync()
 			log.Println("Matrix sync loop started")
 			log.Printf("Matrix adapter initialized: %s", matrixAdapter.GetUserID())
+
+			// Wire MatrixAdapter status callback to systemd NotifyStatus
+			matrixAdapter.SetStatusCallback(func(status string) {
+				systemd.NotifyStatus(status)
+			})
 		}
 	}
 
@@ -2742,6 +2748,27 @@ func runBridgeServer(cliCfg cliConfig) {
 	log.Println("Press Ctrl+C to stop")
 	log.Println("")
 
+	// Notify systemd that the bridge is ready (no-op if not under systemd)
+	systemd.NotifyReady()
+	systemd.NotifyStatus("Matrix: initializing...")
+
+	// Start watchdog ticker (only active when running under systemd)
+	if systemd.IsRunningSystemd() {
+		go func() {
+			ticker := time.NewTicker(30 * time.Second)
+			defer ticker.Stop()
+			for {
+				select {
+				case <-ticker.C:
+					systemd.NotifyWatchdog()
+				case <-shutdownCtx.Done():
+					return
+				}
+			}
+		}()
+		log.Println("Systemd watchdog enabled (ping every 30s)")
+	}
+
 	// Show connection guidance for ArmorChat
 	printConnectionGuidance(cfg)
 
@@ -2751,6 +2778,10 @@ func runBridgeServer(cliCfg cliConfig) {
 
 	go func() {
 		<-sigCh
+
+		// Notify systemd FIRST to disable watchdog during shutdown
+		systemd.NotifyStopping()
+
 		log.Println("\nShutting down...")
 
 		// Stop HTTP discovery server
