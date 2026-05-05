@@ -6,6 +6,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -25,6 +26,13 @@ import (
 
 // matrixTracker tracks component events for the Matrix adapter
 var matrixTracker = errsys.GetComponentTracker("matrix")
+
+var (
+	// ErrTokenInvalidated indicates the Matrix access token is no longer valid
+	// and re-login is required. This can happen when the server invalidates
+	// tokens (e.g., password change, admin action, or token expiry).
+	ErrTokenInvalidated = errors.New("matrix token invalidated: M_UNKNOWN_TOKEN")
+)
 
 // MatrixAdapter implements Matrix client protocol
 type MatrixAdapter struct {
@@ -555,9 +563,19 @@ func (m *MatrixAdapter) Sync(timeout int) error {
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
+
+		if strings.Contains(string(body), "M_UNKNOWN_TOKEN") {
+			m.mu.Lock()
+			m.accessToken = ""
+			m.syncToken = ""
+			m.mu.Unlock()
+			return ErrTokenInvalidated
+		}
+
 		if resp.StatusCode == http.StatusUnauthorized {
 			m.mu.Lock()
 			m.syncToken = ""
+			m.accessToken = ""
 			m.mu.Unlock()
 		}
 		err := errsys.NewBuilder("MAT-003").
@@ -569,8 +587,27 @@ func (m *MatrixAdapter) Sync(timeout int) error {
 		return err
 	}
 
+	bodyBytes, err := io.ReadAll(resp.Body)
+	if err != nil {
+		err := errsys.NewBuilder("MAT-003").
+			Wrap(fmt.Errorf("failed to read sync response body: %w", err)).
+			WithFunction("Sync").
+			WithInputs(map[string]any{"timeout": timeout}).
+			Build()
+		matrixTracker.Failure("sync", err, map[string]any{"reason": "read_body_failed"})
+		return err
+	}
+
+	if strings.Contains(string(bodyBytes), "M_UNKNOWN_TOKEN") {
+		m.mu.Lock()
+		m.accessToken = ""
+		m.syncToken = ""
+		m.mu.Unlock()
+		return ErrTokenInvalidated
+	}
+
 	var syncResp SyncResponse
-	if err := json.NewDecoder(resp.Body).Decode(&syncResp); err != nil {
+	if err := json.Unmarshal(bodyBytes, &syncResp); err != nil {
 		err := errsys.NewBuilder("MAT-003").
 			Wrap(fmt.Errorf("failed to decode sync response: %w", err)).
 			WithFunction("Sync").
@@ -1404,8 +1441,24 @@ func isRetryableHTTPError(err error) bool {
 	return false
 }
 
+// isRetryableHTTPErrorWithStatus checks if an HTTP error is retryable,
+// considering both the Go transport error and the HTTP response status code.
+// statusCode=0 means no HTTP response was received.
+func isRetryableHTTPErrorWithStatus(err error, statusCode int) bool {
+	if isRetryableHTTPError(err) {
+		return true
+	}
+	if statusCode > 0 && isRetryableStatusCode(statusCode) {
+		return true
+	}
+	return false
+}
+
 // isRetryableStatusCode checks if an HTTP status code is retryable
 func isRetryableStatusCode(statusCode int) bool {
+	if statusCode == 429 {
+		return true
+	}
 	// 5xx server errors are typically retryable
 	return statusCode >= 500 && statusCode < 600
 }
@@ -1426,7 +1479,7 @@ func (m *MatrixAdapter) SendMessageWithRetry(roomID, message, msgType string) (s
 		}
 
 		// Check if error is retryable
-		if !isRetryableHTTPError(err) {
+		if !isRetryableHTTPErrorWithStatus(err, 0) {
 			return "", err // Non-retryable error
 		}
 
@@ -1568,7 +1621,7 @@ func (m *MatrixAdapter) SyncWithRetry(timeout int) error {
 		}
 
 		// Check if error is retryable
-		if !isRetryableHTTPError(err) {
+		if !isRetryableHTTPErrorWithStatus(err, 0) {
 			return err // Non-retryable error
 		}
 
