@@ -2,9 +2,12 @@ package adapter
 
 import (
 	"encoding/json"
+	"errors"
 	"testing"
+	"time"
 
 	"github.com/armorclaw/bridge/internal/events"
+	errsys "github.com/armorclaw/bridge/pkg/errors"
 )
 
 func buildTestSyncResponse(roomID string, eventMaps []map[string]interface{}) *SyncResponse {
@@ -254,5 +257,161 @@ func TestProcessEvents_MatrixStateEventNotCustom(t *testing.T) {
 	processed := m.processEvents(syncResp)
 	if processed != 1 {
 		t.Errorf("expected 1 event processed, got %d", processed)
+	}
+}
+
+func TestProcessSyncResult(t *testing.T) {
+	tests := []struct {
+		name                string
+		err                 error
+		consecutiveFailures int
+		backoff             time.Duration
+		wantFailures        int
+		wantBackoff         time.Duration
+		wantAction          syncAction
+	}{
+		{
+			name:                "nil error resets backoff",
+			err:                 nil,
+			consecutiveFailures: 5,
+			backoff:             8 * time.Second,
+			wantFailures:        0,
+			wantBackoff:         syncInitialBackoff,
+			wantAction:          actionResetBackoff,
+		},
+		{
+			name:                "generic error first failure continues",
+			err:                 errors.New("connection refused"),
+			consecutiveFailures: 0,
+			backoff:             syncInitialBackoff,
+			wantFailures:        1,
+			wantBackoff:         2 * time.Second,
+			wantAction:          actionContinue,
+		},
+		{
+			name:                "third failure triggers relogin",
+			err:                 errors.New("server error"),
+			consecutiveFailures: 2,
+			backoff:             4 * time.Second,
+			wantFailures:        3,
+			wantBackoff:         8 * time.Second,
+			wantAction:          actionRelogin,
+		},
+		{
+			name:                "ErrTokenInvalidated triggers immediate relogin",
+			err:                 ErrTokenInvalidated,
+			consecutiveFailures: 0,
+			backoff:             syncInitialBackoff,
+			wantFailures:        1,
+			wantBackoff:         syncInitialBackoff,
+			wantAction:          actionRelogin,
+		},
+		{
+			name:                "success after failures resets everything",
+			err:                 nil,
+			consecutiveFailures: 7,
+			backoff:             30 * time.Second,
+			wantFailures:        0,
+			wantBackoff:         syncInitialBackoff,
+			wantAction:          actionResetBackoff,
+		},
+		{
+			name:                "backoff caps at syncMaxBackoff",
+			err:                 errors.New("slow down"),
+			consecutiveFailures: 1,
+			backoff:             20 * time.Second,
+			wantFailures:        2,
+			wantBackoff:         30 * time.Second,
+			wantAction:          actionContinue,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			gotFailures, gotBackoff, gotAction := processSyncResult(tt.err, tt.consecutiveFailures, tt.backoff)
+			if gotFailures != tt.wantFailures {
+				t.Errorf("failures = %d, want %d", gotFailures, tt.wantFailures)
+			}
+			if gotBackoff != tt.wantBackoff {
+				t.Errorf("backoff = %v, want %v", gotBackoff, tt.wantBackoff)
+			}
+			if gotAction != tt.wantAction {
+				t.Errorf("action = %v, want %v", gotAction, tt.wantAction)
+			}
+		})
+	}
+}
+
+func TestExtractHTTPStatus(t *testing.T) {
+	tests := []struct {
+		name     string
+		err      error
+		wantCode int
+	}{
+		{
+			name:     "nil error returns 0",
+			err:      nil,
+			wantCode: 0,
+		},
+		{
+			name:     "plain error returns 0",
+			err:      errors.New("something failed"),
+			wantCode: 0,
+		},
+		{
+			name: "TracedError with status 502",
+			err: &errsys.TracedError{
+				Code:    "SYNC_502",
+				Message: "bad gateway",
+				Inputs:  map[string]interface{}{"status": 502},
+			},
+			wantCode: 502,
+		},
+		{
+			name: "TracedError with status 429",
+			err: &errsys.TracedError{
+				Code:    "SYNC_429",
+				Message: "rate limited",
+				Inputs:  map[string]interface{}{"status": 429},
+			},
+			wantCode: 429,
+		},
+		{
+			name: "TracedError with nil Inputs returns 0",
+			err: &errsys.TracedError{
+				Code:    "SYNC_ERR",
+				Message: "no inputs",
+			},
+			wantCode: 0,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := extractHTTPStatus(tt.err)
+			if got != tt.wantCode {
+				t.Errorf("extractHTTPStatus() = %d, want %d", got, tt.wantCode)
+			}
+		})
+	}
+}
+
+func TestGetStatus(t *testing.T) {
+	// Test the initial empty state
+	ma := &MatrixAdapter{}
+	if got := ma.GetStatus(); got != "" {
+		t.Errorf("initial GetStatus() = %q, want empty string", got)
+	}
+
+	// Test after notifyStatus
+	ma.notifyStatus("connected")
+	if got := ma.GetStatus(); got != "connected" {
+		t.Errorf("after notifyStatus, GetStatus() = %q, want %q", got, "connected")
+	}
+
+	// Test status update
+	ma.notifyStatus("reconnecting")
+	if got := ma.GetStatus(); got != "reconnecting" {
+		t.Errorf("after update, GetStatus() = %q, want %q", got, "reconnecting")
 	}
 }
