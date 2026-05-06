@@ -453,6 +453,30 @@ func NewPlatformDisconnectedEvent(platform, reason string) *PlatformDisconnected
 }
 
 // ============================================================================
+// Bridge Status Events
+// ============================================================================
+
+// BridgeStatusEvent is emitted when a bridge component changes status
+// (e.g., Matrix reconnection, subsystem health changes)
+type BridgeStatusEvent struct {
+	BaseEvent
+	Component string `json:"component"`
+	Status    string `json:"status"`
+}
+
+// NewBridgeStatusEvent creates a new bridge status event
+func NewBridgeStatusEvent(component, status string) *BridgeStatusEvent {
+	return &BridgeStatusEvent{
+		BaseEvent: BaseEvent{
+			Type: EventTypeBridgeStatus,
+			Ts:   time.Now(),
+		},
+		Component: component,
+		Status:    status,
+	}
+}
+
+// ============================================================================
 // Event Wrapper for WebSocket Transmission
 // ============================================================================
 

@@ -40,6 +40,10 @@ func (m *mockMatrixAdapter) GetHomeserver() string {
 	return m.homeserver
 }
 
+func (m *mockMatrixAdapter) GetStatus() string {
+	return "connected"
+}
+
 func TestHandleMatrixStatus(t *testing.T) {
 	tests := []struct {
 		name           string

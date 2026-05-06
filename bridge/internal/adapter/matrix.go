@@ -43,6 +43,15 @@ const (
 	syncMaxFailuresBeforeRelogin = 3               // Trigger ensureValidToken after this many consecutive failures
 )
 
+// syncAction represents the action the syncLoop should take after processing a sync result
+type syncAction int
+
+const (
+	actionContinue    syncAction = iota // Backoff and continue
+	actionRelogin                        // Trigger ensureValidToken
+	actionResetBackoff                   // Success, reset backoff
+)
+
 // MatrixAdapter implements Matrix client protocol
 type MatrixAdapter struct {
 	homeserverURL    string
@@ -77,6 +86,7 @@ type MatrixAdapter struct {
 	keyExchange       *crypto.KeyExchangeService // E2EE key upload/query/claim (nil when disabled)
 	keystore          *keystore.Keystore          // Encrypted keystore for refresh token persistence (may be nil)
 	statusCallback    func(string)                // Optional callback for sync state transitions
+	matrixStatus      string                      // Current connection status for health checks
 }
 
 // StudioCommandHandler handles Agent Studio commands via Matrix
@@ -247,9 +257,19 @@ func (m *MatrixAdapter) SetStatusCallback(fn func(string)) {
 }
 
 func (m *MatrixAdapter) notifyStatus(status string) {
+	m.mu.Lock()
+	m.matrixStatus = status
+	m.mu.Unlock()
 	if m.statusCallback != nil {
 		m.statusCallback(status)
 	}
+}
+
+// GetStatus returns the current Matrix connection status
+func (m *MatrixAdapter) GetStatus() string {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	return m.matrixStatus
 }
 
 // Login authenticates with the Matrix homeserver
@@ -1168,6 +1188,29 @@ func (m *MatrixAdapter) StartSync() {
 	go m.syncLoop()
 }
 
+func processSyncResult(err error, consecutiveFailures int, backoff time.Duration) (newFailures int, newBackoff time.Duration, action syncAction) {
+	if err == nil {
+		return 0, syncInitialBackoff, actionResetBackoff
+	}
+
+	newFailures = consecutiveFailures + 1
+
+	if errors.Is(err, ErrTokenInvalidated) {
+		return newFailures, backoff, actionRelogin
+	}
+
+	newBackoff = time.Duration(float64(backoff) * syncBackoffFactor)
+	if newBackoff > syncMaxBackoff {
+		newBackoff = syncMaxBackoff
+	}
+
+	if newFailures%syncMaxFailuresBeforeRelogin == 0 {
+		return newFailures, newBackoff, actionRelogin
+	}
+
+	return newFailures, newBackoff, actionContinue
+}
+
 // syncLoop runs the continuous sync loop
 func (m *MatrixAdapter) syncLoop() {
 	backoff := syncInitialBackoff
@@ -1181,16 +1224,13 @@ func (m *MatrixAdapter) syncLoop() {
 		}
 
 		err := m.SyncWithRetry(30)
-		if err == nil {
-			if consecutiveFailures > 0 {
-				logger.Global().Info("matrix sync recovered",
-					"previous_failures", consecutiveFailures,
-				)
-			}
-			backoff = syncInitialBackoff
-			consecutiveFailures = 0
-			m.notifyStatus("Matrix: connected")
+		failures, newBackoff, action := processSyncResult(err, consecutiveFailures, backoff)
+		consecutiveFailures = failures
+		backoff = newBackoff
 
+		switch action {
+		case actionResetBackoff:
+			m.notifyStatus("connected")
 			timer := time.NewTimer(syncHappyInterval)
 			select {
 			case <-m.ctx.Done():
@@ -1199,27 +1239,23 @@ func (m *MatrixAdapter) syncLoop() {
 			case <-timer.C:
 				continue
 			}
-		}
 
-		consecutiveFailures++
-
-		if errors.Is(err, ErrTokenInvalidated) {
-			logger.Global().Warn("matrix token invalidated, triggering immediate re-login",
-				"error", err,
-			)
-			m.notifyStatus("Matrix: reconnecting (token invalidated)")
+		case actionRelogin:
+			if errors.Is(err, ErrTokenInvalidated) {
+				logger.Global().Warn("matrix token invalidated, triggering immediate re-login",
+					"error", err,
+				)
+				m.notifyStatus("reconnecting (token invalidated)")
+			} else {
+				logger.Global().Warn("matrix sync consecutive failures, triggering re-login",
+					"consecutive_failures", consecutiveFailures,
+					"error", err,
+				)
+				m.notifyStatus(fmt.Sprintf("reconnecting (backoff: %s)", backoff))
+			}
 			m.attemptRelogin()
-			consecutiveFailures = 0
-		} else if consecutiveFailures%syncMaxFailuresBeforeRelogin == 0 {
-			logger.Global().Warn("matrix sync consecutive failures, triggering re-login",
-				"consecutive_failures", consecutiveFailures,
-				"error", err,
-			)
-			m.attemptRelogin()
-		}
 
-		if consecutiveFailures <= 10 || consecutiveFailures%10 == 0 {
-			if consecutiveFailures >= 10 {
+			if consecutiveFailures >= 10 && consecutiveFailures%10 == 0 {
 				logger.Global().Error("matrix sync extended failure",
 					"consecutive_failures", consecutiveFailures,
 					"backoff", backoff,
@@ -1233,21 +1269,40 @@ func (m *MatrixAdapter) syncLoop() {
 					"error", err,
 				)
 			}
-		}
 
-		m.notifyStatus(fmt.Sprintf("Matrix: reconnecting (backoff: %s)", backoff))
+			timer := time.NewTimer(backoff)
+			select {
+			case <-m.ctx.Done():
+				timer.Stop()
+				return
+			case <-timer.C:
+			}
 
-		timer := time.NewTimer(backoff)
-		select {
-		case <-m.ctx.Done():
-			timer.Stop()
-			return
-		case <-timer.C:
-		}
+		case actionContinue:
+			m.notifyStatus(fmt.Sprintf("reconnecting (backoff: %s)", backoff))
 
-		backoff = time.Duration(float64(backoff) * syncBackoffFactor)
-		if backoff > syncMaxBackoff {
-			backoff = syncMaxBackoff
+			if consecutiveFailures >= 10 && consecutiveFailures%10 == 0 {
+				logger.Global().Error("matrix sync extended failure",
+					"consecutive_failures", consecutiveFailures,
+					"backoff", backoff,
+					"error", err,
+					"suggestion", "check Matrix server status and credentials",
+				)
+			} else {
+				logger.Global().Warn("matrix sync error",
+					"consecutive_failures", consecutiveFailures,
+					"backoff", backoff,
+					"error", err,
+				)
+			}
+
+			timer := time.NewTimer(backoff)
+			select {
+			case <-m.ctx.Done():
+				timer.Stop()
+				return
+			case <-timer.C:
+			}
 		}
 	}
 }
@@ -1561,28 +1616,10 @@ func (m *MatrixAdapter) sendEncryptedEvent(roomID string, encryptedContent map[s
 	return result.EventID, nil
 }
 
-// isRetryableHTTPError checks if an HTTP error is retryable
 func isRetryableHTTPError(err error) bool {
-	if err == nil {
-		return false
-	}
-
-	// Check for context-related errors
-	if containsAny(err.Error(), "context deadline exceeded", "context canceled") {
-		return true
-	}
-
-	// Check for network-related errors
-	if containsAny(err.Error(), "connection refused", "connection reset",
-		"connection timed out", "temporary failure", "network is unreachable") {
-		return true
-	}
-
-	return false
+	return isRetryableHTTPErrorWithStatus(err, 0)
 }
 
-// extractHTTPStatus extracts the HTTP status code from an errsys.TracedError if present.
-// Returns 0 if the error is not a TracedError or has no "status" input.
 func extractHTTPStatus(err error) int {
 	if err == nil {
 		return 0
@@ -1596,11 +1633,15 @@ func extractHTTPStatus(err error) int {
 	return 0
 }
 
-// isRetryableHTTPErrorWithStatus checks if an HTTP error is retryable,
-// considering both the Go transport error and the HTTP response status code.
-// statusCode=0 means no HTTP response was received.
 func isRetryableHTTPErrorWithStatus(err error, statusCode int) bool {
-	if isRetryableHTTPError(err) {
+	if err == nil {
+		return false
+	}
+	if containsAny(err.Error(), "context deadline exceeded", "context canceled") {
+		return true
+	}
+	if containsAny(err.Error(), "connection refused", "connection reset",
+		"connection timed out", "temporary failure", "network is unreachable") {
 		return true
 	}
 	if statusCode > 0 && isRetryableStatusCode(statusCode) {

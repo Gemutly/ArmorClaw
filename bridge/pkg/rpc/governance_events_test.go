@@ -47,6 +47,7 @@ func (m *mockEventMatrixAdapter) JoinRoom(_ context.Context, _ string, _ []strin
 func (m *mockEventMatrixAdapter) GetUserID() string   { return "@bridge:test.com" }
 func (m *mockEventMatrixAdapter) IsLoggedIn() bool    { return true }
 func (m *mockEventMatrixAdapter) GetHomeserver() string { return "https://test.com" }
+func (m *mockEventMatrixAdapter) GetStatus() string     { return "connected" }
 
 func (m *mockEventMatrixAdapter) getEvents() []mockSentEvent {
 	m.mu.Lock()

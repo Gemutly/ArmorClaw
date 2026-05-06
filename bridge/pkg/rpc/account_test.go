@@ -266,6 +266,7 @@ type mockDeactivatableAdapter struct {
 func (m *mockDeactivatableAdapter) GetUserID() string                                          { return m.userID }
 func (m *mockDeactivatableAdapter) IsLoggedIn() bool                                           { return m.loggedIn }
 func (m *mockDeactivatableAdapter) GetHomeserver() string                                      { return "https://test.server" }
+func (m *mockDeactivatableAdapter) GetStatus() string                                         { return "connected" }
 func (m *mockDeactivatableAdapter) SendMessage(_, _, _ string) (string, error)                 { return "", nil }
 func (m *mockDeactivatableAdapter) SendEvent(_, _ string, _ []byte) error                      { return nil }
 func (m *mockDeactivatableAdapter) Login(_, _ string) error                                    { return nil }

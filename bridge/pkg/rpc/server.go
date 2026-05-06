@@ -119,6 +119,7 @@ type MatrixAdapter interface {
 	GetUserID() string
 	IsLoggedIn() bool
 	GetHomeserver() string
+	GetStatus() string
 }
 
 type MatrixHealthResult struct {
@@ -366,6 +367,7 @@ func (s *Server) handleHealthCheck(ctx context.Context, req *Request) (interface
 		} else {
 			components["matrix"] = "disconnected"
 		}
+		components["matrix_status"] = s.matrix.GetStatus()
 	} else {
 		components["matrix"] = "disconnected"
 	}

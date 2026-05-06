@@ -2325,9 +2325,11 @@ func runBridgeServer(cliCfg cliConfig) {
 			log.Println("Matrix sync loop started")
 			log.Printf("Matrix adapter initialized: %s", matrixAdapter.GetUserID())
 
-			// Wire MatrixAdapter status callback to systemd NotifyStatus
 			matrixAdapter.SetStatusCallback(func(status string) {
-				systemd.NotifyStatus(status)
+				systemd.NotifyStatus("Matrix: " + status)
+				if eventBus != nil {
+					eventBus.PublishBridgeEvent(eventbus.NewBridgeStatusEvent("matrix", status))
+				}
 			})
 		}
 	}
