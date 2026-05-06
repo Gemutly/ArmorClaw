@@ -993,7 +993,8 @@ StartLimitIntervalSec=60
 StartLimitBurst=5
 
 [Service]
-Type=simple
+Type=notify
+NotifyAccess=main
 User=${BRIDGE_USER}
 Group=${BRIDGE_GROUP}
 
@@ -1030,6 +1031,8 @@ ReadWritePaths=${DATA_DIR}
 # Process management
 Restart=always
 RestartSec=5
+# Bridge sends WATCHDOG=1 every 30s. If stuck for 60s, systemd restarts it.
+WatchdogSec=60
 TimeoutStopSec=30s
 
 StandardOutput=journal

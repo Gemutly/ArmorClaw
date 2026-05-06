@@ -1453,7 +1453,8 @@ StartLimitIntervalSec=60
 StartLimitBurst=5
 
 [Service]
-Type=simple
+Type=notify
+NotifyAccess=main
 User=armorclaw
 Group=armorclaw
 
@@ -1461,6 +1462,8 @@ ExecStart=/opt/armorclaw/armorclaw-bridge -config $CONFIG_DIR/config.toml
 
 Restart=always
 RestartSec=5
+# Bridge sends WATCHDOG=1 every 30s. If stuck for 60s, systemd restarts it.
+WatchdogSec=60
 
 RuntimeDirectory=armorclaw
 RuntimeDirectoryMode=0755
