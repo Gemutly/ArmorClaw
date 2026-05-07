@@ -1,0 +1,132 @@
+================================================================================
+Configuration F: All Feature Flags ON
+Flags: zeroTrustKS=true, voicePipeline="cloud", multiTabReplay=true, e2eeBackup=true
+Expected: 109 methods (all registered)
+Actual: 109 methods
+================================================================================
+
+This is the TOTAL count of all registered methods in registerHandlers().
+
+Breakdown:
+  Base methods:                95
+  keystore.* (zeroTrustKS):    7
+  voice.* (voicePipeline):     3
+  browser.replay_diagnostics:  1
+  e2ee.* backup:               3
+                               ---
+  TOTAL:                      109
+
+All methods from configs A-E are included simultaneously.
+
+COUNT: 109 ✓
+
+Full method list:
+1.   account.delete
+2.   ai.chat
+3.   approve_email
+4.   bridge.appservice_status
+5.   bridge.channel
+6.   bridge.e2ee_disable
+7.   bridge.e2ee_enable
+8.   bridge.ghost_list
+9.   bridge.list
+10.  bridge.start
+11.  bridge.status
+12.  bridge.stop
+13.  bridge.unchannel
+14.  browser.cancel
+15.  browser.click
+16.  browser.complete
+17.  browser.fail
+18.  browser.fill
+19.  browser.list
+20.  browser.navigate
+21.  browser.replay_diagnostics   [MULTI-TAB]
+22.  browser.status
+23.  browser.wait_for_2fa
+24.  browser.wait_for_captcha
+25.  browser.wait_for_element
+26.  container.list
+27.  container.terminate
+28.  deny_email
+29.  device.approve
+30.  device.get
+31.  device.list
+32.  device.reject
+33.  e2ee.backup_exists           [E2EE BACKUP]
+34.  e2ee.create_backup           [E2EE BACKUP]
+35.  e2ee.delete_backup           [E2EE BACKUP]
+36.  email.list_pending
+37.  email_approval_status
+38.  events.replay
+39.  events.stream
+40.  hardening.ack
+41.  hardening.rotate_password
+42.  hardening.status
+43.  health.check
+44.  invite.create
+45.  invite.list
+46.  invite.revoke
+47.  invite.validate
+48.  keystore.delete_key          [KEYSTORE]
+49.  keystore.extend_session      [KEYSTORE]
+50.  keystore.list_keys           [KEYSTORE]
+51.  keystore.seal                [KEYSTORE]
+52.  keystore.sealed              [KEYSTORE]
+53.  keystore.session_status      [KEYSTORE]
+54.  keystore.unseal              [KEYSTORE]
+55.  matrix.join_room
+56.  matrix.login
+57.  matrix.receive
+58.  matrix.send
+59.  matrix.status
+60.  mobile.heartbeat
+61.  pii.approve
+62.  pii.cancel
+63.  pii.deny
+64.  pii.fulfill
+65.  pii.list_pending
+66.  pii.request
+67.  pii.stats
+68.  pii.status
+69.  pii.wait_for_approval
+70.  provisioning.claim
+71.  provisioning.start
+72.  resolve_blocker
+73.  secretary.advance_workflow
+74.  secretary.cancel_workflow
+75.  secretary.create_template
+76.  secretary.create_workflow
+77.  secretary.delete_template
+78.  secretary.get_active_count
+79.  secretary.get_template
+80.  secretary.get_workflow
+81.  secretary.is_running
+82.  secretary.list_templates
+83.  secretary.shutdown
+84.  secretary.start_workflow
+85.  secretary.update_template
+86.  skills.allow
+87.  skills.allowlist_add
+88.  skills.allowlist_list
+89.  skills.allowlist_remove
+90.  skills.block
+91.  skills.data_analyze
+92.  skills.email_send
+93.  skills.execute
+94.  skills.file_read
+95.  skills.get_schema
+96.  skills.list
+97.  skills.slack_message
+98.  skills.web_extract
+99.  skills.web_search
+100. store_key
+101. studio.deploy
+102. studio.stats
+103. task.cancel
+104. task.create
+105. task.get
+106. task.list
+107. voice.start_session          [VOICE]
+108. voice.status                 [VOICE]
+109. voice.stop_session           [VOICE]

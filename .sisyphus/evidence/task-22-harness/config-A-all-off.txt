@@ -1,0 +1,112 @@
+================================================================================
+Configuration A: All Feature Flags OFF
+Flags: zeroTrustKS=false, voicePipeline="", multiTabReplay=false, e2eeBackup=false
+Expected: 95 methods (base only)
+Actual: 95 methods
+================================================================================
+
+Feature-flagged methods EXCLUDED from this config:
+  keystore.*              (7 methods) - gated by zeroTrustKS
+  voice.*                 (3 methods) - gated by voicePipeline=="cloud"
+  browser.replay_diagnostics (1 method) - gated by multiTabReplay
+  e2ee.*                  (3 methods) - gated by e2eeBackupEnabled
+
+--- 95 Base Methods (always registered, no feature-flag gate) ---
+
+1.   account.delete
+2.   ai.chat
+3.   approve_email
+4.   bridge.appservice_status
+5.   bridge.channel
+6.   bridge.e2ee_disable
+7.   bridge.e2ee_enable
+8.   bridge.ghost_list
+9.   bridge.list
+10.  bridge.start
+11.  bridge.status
+12.  bridge.stop
+13.  bridge.unchannel
+14.  browser.cancel
+15.  browser.click
+16.  browser.complete
+17.  browser.fail
+18.  browser.fill
+19.  browser.list
+20.  browser.navigate
+21.  browser.status
+22.  browser.wait_for_2fa
+23.  browser.wait_for_captcha
+24.  browser.wait_for_element
+25.  container.list
+26.  container.terminate
+27.  deny_email
+28.  device.approve
+29.  device.get
+30.  device.list
+31.  device.reject
+32.  email.list_pending
+33.  email_approval_status
+34.  events.replay
+35.  events.stream
+36.  hardening.ack
+37.  hardening.rotate_password
+38.  hardening.status
+39.  health.check
+40.  invite.create
+41.  invite.list
+42.  invite.revoke
+43.  invite.validate
+44.  matrix.join_room
+45.  matrix.login
+46.  matrix.receive
+47.  matrix.send
+48.  matrix.status
+49.  mobile.heartbeat
+50.  pii.approve
+51.  pii.cancel
+52.  pii.deny
+53.  pii.fulfill
+54.  pii.list_pending
+55.  pii.request
+56.  pii.stats
+57.  pii.status
+58.  pii.wait_for_approval
+59.  provisioning.claim
+60.  provisioning.start
+61.  resolve_blocker
+62.  secretary.advance_workflow
+63.  secretary.cancel_workflow
+64.  secretary.create_template
+65.  secretary.create_workflow
+66.  secretary.delete_template
+67.  secretary.get_active_count
+68.  secretary.get_template
+69.  secretary.get_workflow
+70.  secretary.is_running
+71.  secretary.list_templates
+72.  secretary.shutdown
+73.  secretary.start_workflow
+74.  secretary.update_template
+75.  skills.allow
+76.  skills.allowlist_add
+77.  skills.allowlist_list
+78.  skills.allowlist_remove
+79.  skills.block
+80.  skills.data_analyze
+81.  skills.email_send
+82.  skills.execute
+83.  skills.file_read
+84.  skills.get_schema
+85.  skills.list
+86.  skills.slack_message
+87.  skills.web_extract
+88.  skills.web_search
+89.  store_key
+90.  studio.deploy
+91.  studio.stats
+92.  task.cancel
+93.  task.create
+94.  task.get
+95.  task.list
+
+COUNT: 95 ✓

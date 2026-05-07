@@ -1,0 +1,65 @@
+================================================================================
+Task 22: Validation Harness — Method Count Summary
+Source: bridge/pkg/rpc/server.go registerHandlers()
+Verified: 2026-05-07
+================================================================================
+
+TOTAL METHODS REGISTERED: 109
+
+FEATURE FLAGS AND GATED METHODS:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Flag                  | Field                | Methods | Count
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Zero-Trust Keystore   | s.zeroTrustKS        | keystore.*                            | 7
+Voice Pipeline        | s.voicePipeline      | voice.*                               | 3
+Multi-Tab Replay      | s.replayFlags.       | browser.replay_diagnostics            | 1
+                      |   MultiTabReplay      |                                       |
+E2EE Backup           | s.e2eeBackupEnabled  | e2ee.create_backup,                   | 3
+                      |                      | e2ee.delete_backup,                   |
+                      |                      | e2ee.backup_exists                    |
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Total gated methods:                                                            14
+Base methods (no gate):                                                         95
+
+CONFIGURATION VERIFICATION:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Config | Flags ON                | Expected | Actual | Status
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+A      | (none)                  | 95       | 95     | ✓ PASS
+B      | keystore                | 102      | 102    | ✓ PASS
+C      | keystore + voice        | 105      | 105    | ✓ PASS
+D      | keystore + multi-tab    | 106      | 103    | ✗ MISMATCH
+E      | keystore + e2ee         | 105      | 105    | ✓ PASS
+F      | all on                  | 109      | 109    | ✓ PASS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+DISCREPANCY DETAIL (Config D):
+  Expected 106 (95 base + 7 keystore + 4 multi-tab)
+  Actual   103 (95 base + 7 keystore + 1 multi-tab)
+  
+  The multiTabReplay flag gates exactly 1 method (browser.replay_diagnostics).
+  Verified by searching all bridge/ source files for MultiTabReplay references.
+  Only bridge/pkg/rpc/browser.go handleBrowserReplayDiagnostics() checks this flag.
+  
+  The expected count of 106 appears to be incorrect. The correct count for
+  Config D (keystore + multi-tab only) is 103.
+
+NOT FEATURE-FLAGGED (common misconception):
+  - bridge.e2ee_enable  → only requires admin auth (no flag gate)
+  - bridge.e2ee_disable → only requires admin auth (no flag gate)
+
+GREP VERIFICATION:
+  keystore.* registrations in registerHandlers:  7  ✓
+  voice.* registrations in registerHandlers:     3  ✓
+  e2ee.* registrations in registerHandlers:      3  ✓
+  browser.replay_diagnostics registrations:      1  ✓
+  restore_backup in bridge/ source:              0  ✓ (test file only)
+
+FILES:
+  config-A-all-off.txt          — 95 base methods
+  config-B-keystore.txt         — 102 methods (95 + 7 keystore)
+  config-C-keystore-voice.txt   — 105 methods (95 + 7 + 3)
+  config-D-keystore-multitab.txt— 103 methods (95 + 7 + 1) ⚠ expected 106
+  config-E-keystore-e2ee.txt    — 105 methods (95 + 7 + 3)
+  config-F-all-on.txt           — 109 methods (all registered)
+  summary.txt                   — this file
