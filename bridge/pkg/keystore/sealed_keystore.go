@@ -7,6 +7,7 @@ import (
 	"context"
 	cryptorand "crypto/rand"
 	"crypto/sha256"
+	"crypto/subtle"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
@@ -15,6 +16,14 @@ import (
 	"time"
 )
 
+// PasswordUnsealError provides structured error information for password-gated unseal.
+type PasswordUnsealError struct {
+	Code    int    `json:"code"`
+	Message string `json:"message"`
+}
+
+func (e *PasswordUnsealError) Error() string { return e.Message }
+
 // Sealed state errors
 var (
 	ErrKeystoreSealed     = errors.New("keystore is sealed - unseal required")
@@ -22,6 +31,11 @@ var (
 	ErrUnsealExpired      = errors.New("unseal token has expired")
 	ErrSessionNotFound    = errors.New("session not found")
 	ErrAgentNotAuthorized = errors.New("agent not authorized for this session")
+
+	// Password policy errors
+	ErrInvalidPassword = &PasswordUnsealError{Code: -32001, Message: "invalid password"}
+	ErrAlreadyUnsealed = &PasswordUnsealError{Code: -32003, Message: "keystore already unsealed"}
+	ErrPasswordSealed  = &PasswordUnsealError{Code: -32005, Message: "keystore is sealed"}
 )
 
 // UnsealPolicy defines how the keystore can be unsealed
@@ -36,6 +50,8 @@ const (
 	PolicyTimeLimited UnsealPolicy = "time_limited"
 	// PolicyAuto allows automatic unseal (for development/testing only)
 	PolicyAuto UnsealPolicy = "auto"
+	// PolicyPassword requires Argon2id password verification to unseal
+	PolicyPassword UnsealPolicy = "password"
 )
 
 // SealedSession represents an unsealed session with an expiration
@@ -83,6 +99,16 @@ type SealedKeystore struct {
 	defaultTTL   time.Duration
 	policy       UnsealPolicy
 	challengeMgr *ChallengeManager // Challenge manager for challenge-response policy
+
+	// Password policy fields (protected by passwordMu, NOT mu)
+	passwordMu   sync.Mutex
+	vaultKey     []byte         // decrypted vault key in memory when unsealed
+	passwordKD   *KeyDerivation // key derivation for password verification
+	isUnsealed   bool
+	unsealedAt   time.Time
+	verifySalt   []byte     // salt for password verification
+	verifier     []byte     // stored password verifier
+	wrappedVK    WrappedKey // wrapped (encrypted) vault key
 }
 
 // SealedKeystoreConfig holds configuration for the sealed keystore
@@ -90,6 +116,13 @@ type SealedKeystoreConfig struct {
 	BaseKeystore *Keystore
 	DefaultTTL   time.Duration // Default unseal duration (default: 5 minutes)
 	Policy       UnsealPolicy  // Default unseal policy
+}
+
+// SealedStoreConfig holds configuration for password-gated sealed keystore.
+type SealedStoreConfig struct {
+	PasswordVerifier []byte    // Argon2id-derived verifier for password comparison
+	VerifySalt       []byte    // Salt used to derive the verifier
+	WrappedVaultKey  WrappedKey // Vault key encrypted with the user's password
 }
 
 // NewSealedKeystore creates a new sealed keystore wrapper
@@ -429,7 +462,8 @@ func (sk *SealedKeystore) ExtendSession(ctx context.Context, agentID string, add
 	return nil
 }
 
-// Seal explicitly seals the keystore for an agent
+// Seal explicitly seals the keystore for an agent.
+// For password policy, also zeros the vault key.
 func (sk *SealedKeystore) Seal(ctx context.Context, agentID string) error {
 	sk.mu.Lock()
 	defer sk.mu.Unlock()
@@ -445,6 +479,17 @@ func (sk *SealedKeystore) Seal(ctx context.Context, agentID string) error {
 		if req.AgentID == agentID {
 			delete(sk.pending, reqID)
 		}
+	}
+
+	// For password policy, seal the vault as well
+	if sk.policy == PolicyPassword {
+		sk.passwordMu.Lock()
+		if sk.vaultKey != nil {
+			ZeroBytes(sk.vaultKey)
+			sk.vaultKey = nil
+		}
+		sk.isUnsealed = false
+		sk.passwordMu.Unlock()
 	}
 
 	return nil
@@ -618,6 +663,107 @@ func (sk *SealedKeystore) GetPolicy() UnsealPolicy {
 	sk.mu.RLock()
 	defer sk.mu.RUnlock()
 	return sk.policy
+}
+
+// IsPasswordUnsealed returns whether the password-gated vault is currently unsealed.
+func (sk *SealedKeystore) IsPasswordUnsealed() bool {
+	sk.passwordMu.Lock()
+	defer sk.passwordMu.Unlock()
+	return sk.isUnsealed
+}
+
+// NewSealedKeystoreWithPassword creates a SealedKeystore that uses Argon2id
+// password verification as its unseal policy.
+func NewSealedKeystoreWithPassword(base *Keystore, cfg SealedStoreConfig) (*SealedKeystore, error) {
+	if base == nil {
+		return nil, errors.New("base keystore is required")
+	}
+	if len(cfg.PasswordVerifier) == 0 {
+		return nil, errors.New("password verifier is required")
+	}
+	if len(cfg.VerifySalt) == 0 {
+		return nil, errors.New("verify salt is required")
+	}
+	if len(cfg.WrappedVaultKey.Ciphertext) == 0 {
+		return nil, errors.New("wrapped vault key is required")
+	}
+
+	kd, err := NewKeyDerivation(DefaultKeyDerivationParams)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create key derivation: %w", err)
+	}
+
+	return &SealedKeystore{
+		base:       base,
+		sessions:   make(map[string]*SealedSession),
+		agentSession: make(map[string]string),
+		pending:    make(map[string]*PendingUnsealRequest),
+		defaultTTL: 5 * time.Minute,
+		policy:     PolicyPassword,
+		passwordKD: kd,
+		verifySalt: append([]byte(nil), cfg.VerifySalt...),
+		verifier:   append([]byte(nil), cfg.PasswordVerifier...),
+		wrappedVK:  cfg.WrappedVaultKey,
+	}, nil
+}
+
+// UnsealWithPassword verifies the password via constant-time comparison of the
+// Argon2id-derived verifier, then decrypts the vault key.
+func (sk *SealedKeystore) UnsealWithPassword(password string) error {
+	sk.passwordMu.Lock()
+	defer sk.passwordMu.Unlock()
+
+	if sk.isUnsealed {
+		return ErrAlreadyUnsealed
+	}
+
+	// Derive verifier candidate from the supplied password + stored salt.
+	candidate, err := sk.passwordKD.DeriveKey([]byte(password), sk.verifySalt)
+	if err != nil {
+		return fmt.Errorf("key derivation failed: %w", err)
+	}
+	candidateBytes := candidate.Key
+
+	if subtle.ConstantTimeCompare(candidateBytes, sk.verifier) != 1 {
+		ZeroBytes(candidateBytes)
+		return ErrInvalidPassword
+	}
+	ZeroBytes(candidateBytes)
+
+	// Decrypt the vault key using the password.
+	vk, err := sk.passwordKD.UnwrapKey(&sk.wrappedVK, []byte(password))
+	if err != nil {
+		return ErrInvalidPassword
+	}
+
+	sk.vaultKey = vk
+	sk.isUnsealed = true
+	sk.unsealedAt = time.Now()
+	return nil
+}
+
+// SealPassword zeros the in-memory vault key and marks the keystore sealed.
+func (sk *SealedKeystore) SealPassword() {
+	sk.passwordMu.Lock()
+	defer sk.passwordMu.Unlock()
+
+	if sk.vaultKey != nil {
+		ZeroBytes(sk.vaultKey)
+		sk.vaultKey = nil
+	}
+	sk.isUnsealed = false
+}
+
+// VaultKey returns a copy of the decrypted vault key or nil if sealed.
+func (sk *SealedKeystore) VaultKey() []byte {
+	sk.passwordMu.Lock()
+	defer sk.passwordMu.Unlock()
+	if !sk.isUnsealed || sk.vaultKey == nil {
+		return nil
+	}
+	cp := make([]byte, len(sk.vaultKey))
+	copy(cp, sk.vaultKey)
+	return cp
 }
 
 // ToMatrixEvent converts a pending unseal request to a Matrix event for mobile notification

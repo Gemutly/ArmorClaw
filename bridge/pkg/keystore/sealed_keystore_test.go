@@ -2,8 +2,10 @@ package keystore
 
 import (
 	"context"
+	"crypto/rand"
 	"os"
 	"path/filepath"
+	"sync"
 	"testing"
 	"time"
 )
@@ -515,4 +517,182 @@ func createTestKeystore(t *testing.T) *Keystore {
 	}
 
 	return ks
+}
+
+func newTestPasswordSealedKeystore(t *testing.T) (*SealedKeystore, string) {
+	t.Helper()
+
+	baseKS := createTestKeystore(t)
+	t.Cleanup(func() { baseKS.Close() })
+
+	password := "test-password"
+	kd, err := NewKeyDerivation(DefaultKeyDerivationParams)
+	if err != nil {
+		t.Fatalf("failed to create key derivation: %v", err)
+	}
+
+	// Generate verifier: derive key from password with random salt
+	salt := make([]byte, DefaultKeyDerivationParams.SaltLength)
+	if _, err := rand.Read(salt); err != nil {
+		t.Fatalf("failed to generate salt: %v", err)
+	}
+
+	verifier, err := kd.DeriveKey([]byte(password), salt)
+	if err != nil {
+		t.Fatalf("failed to derive verifier: %v", err)
+	}
+
+	// Generate random vault key
+	vaultKey := make([]byte, 32)
+	if _, err := rand.Read(vaultKey); err != nil {
+		t.Fatalf("failed to generate vault key: %v", err)
+	}
+
+	// Wrap vault key with password
+	wrapped, err := kd.WrapKey(vaultKey, []byte(password))
+	if err != nil {
+		t.Fatalf("failed to wrap vault key: %v", err)
+	}
+
+	cfg := SealedStoreConfig{
+		PasswordVerifier: verifier.Key,
+		VerifySalt:       salt,
+		WrappedVaultKey:  *wrapped,
+	}
+
+	sk, err := NewSealedKeystoreWithPassword(baseKS, cfg)
+	if err != nil {
+		t.Fatalf("failed to create password sealed keystore: %v", err)
+	}
+
+	return sk, password
+}
+
+func TestPasswordUnsealCorrect(t *testing.T) {
+	sk, password := newTestPasswordSealedKeystore(t)
+
+	if sk.IsPasswordUnsealed() {
+		t.Error("expected keystore to start sealed")
+	}
+
+	err := sk.UnsealWithPassword(password)
+	if err != nil {
+		t.Fatalf("expected successful unseal, got: %v", err)
+	}
+
+	if !sk.IsPasswordUnsealed() {
+		t.Error("expected keystore to be unsealed after correct password")
+	}
+
+	vk := sk.VaultKey()
+	if vk == nil {
+		t.Error("expected vault key to be available after unseal")
+	}
+	if len(vk) != 32 {
+		t.Errorf("expected vault key length 32, got %d", len(vk))
+	}
+}
+
+func TestPasswordUnsealWrong(t *testing.T) {
+	sk, _ := newTestPasswordSealedKeystore(t)
+
+	err := sk.UnsealWithPassword("wrong-password")
+	if err == nil {
+		t.Fatal("expected error with wrong password")
+	}
+
+	if err != ErrInvalidPassword {
+		t.Errorf("expected ErrInvalidPassword, got: %v", err)
+	}
+
+	if sk.IsPasswordUnsealed() {
+		t.Error("expected keystore to stay sealed after wrong password")
+	}
+
+	if sk.VaultKey() != nil {
+		t.Error("expected nil vault key after failed unseal")
+	}
+}
+
+func TestPasswordUnsealAlreadyUnsealed(t *testing.T) {
+	sk, password := newTestPasswordSealedKeystore(t)
+
+	err := sk.UnsealWithPassword(password)
+	if err != nil {
+		t.Fatalf("first unseal failed: %v", err)
+	}
+
+	err = sk.UnsealWithPassword(password)
+	if err == nil {
+		t.Fatal("expected error on second unseal")
+	}
+
+	if err != ErrAlreadyUnsealed {
+		t.Errorf("expected ErrAlreadyUnsealed, got: %v", err)
+	}
+}
+
+func TestPasswordSealZerosVaultKey(t *testing.T) {
+	sk, password := newTestPasswordSealedKeystore(t)
+
+	err := sk.UnsealWithPassword(password)
+	if err != nil {
+		t.Fatalf("unseal failed: %v", err)
+	}
+
+	if sk.VaultKey() == nil {
+		t.Fatal("expected vault key after unseal")
+	}
+
+	sk.SealPassword()
+
+	if sk.IsPasswordUnsealed() {
+		t.Error("expected keystore to be sealed after SealPassword()")
+	}
+
+	if sk.VaultKey() != nil {
+		t.Error("expected nil vault key after seal")
+	}
+}
+
+func TestPasswordConcurrent(t *testing.T) {
+	sk, password := newTestPasswordSealedKeystore(t)
+
+	var wg sync.WaitGroup
+	errors := make(chan error, 10)
+
+	// Concurrent unseal attempts
+	for i := 0; i < 5; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Add(-1)
+			_ = sk.UnsealWithPassword(password)
+		}()
+	}
+
+	// Concurrent seal attempts
+	for i := 0; i < 5; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Add(-1)
+			sk.SealPassword()
+		}()
+	}
+
+	// Concurrent reads
+	for i := 0; i < 5; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Add(-1)
+			_ = sk.VaultKey()
+		}()
+	}
+
+	wg.Wait()
+	close(errors)
+	for err := range errors {
+		if err != nil {
+			t.Errorf("unexpected error in concurrent test: %v", err)
+		}
+	}
 }
