@@ -54,8 +54,7 @@ import (
 
 	"github.com/armorclaw/bridge/internal/sdtw"
 	"github.com/armorclaw/bridge/internal/skills"
-	// TODO: Voice package needs refactoring - uncomment when fixed
-	// "github.com/armorclaw/bridge/pkg/voice"
+	"github.com/armorclaw/bridge/pkg/voice"
 	"github.com/armorclaw/bridge/pkg/appservice"
 	"github.com/armorclaw/bridge/pkg/email"
 	"github.com/armorclaw/bridge/pkg/webrtc"
@@ -1986,12 +1985,11 @@ func runBridgeServer(cliCfg cliConfig) {
 		log.Println("TURN manager initialized")
 	}
 
-	// TODO: Voice package needs refactoring - uncomment when fixed
-	/*
-		// Create voice manager
-		voiceConfig := voice.DefaultConfig()
+	// Initialize voice manager (gated by VoicePipeline feature flag)
+	var voiceMgr *voice.Manager
+	if cfg.IsFeatureEnabled("voice_pipeline") {
+		log.Println("Initializing voice manager (VoicePipeline=cloud)...")
 
-		// Helper function to parse duration strings
 		parseDuration := func(s string) time.Duration {
 			if s == "" {
 				return 0
@@ -2004,7 +2002,6 @@ func runBridgeServer(cliCfg cliConfig) {
 			return d
 		}
 
-		// Helper function to convert string slice to bool map
 		stringSliceToBoolMap := func(slice []string) map[string]bool {
 			result := make(map[string]bool)
 			for _, s := range slice {
@@ -2013,95 +2010,101 @@ func runBridgeServer(cliCfg cliConfig) {
 			return result
 		}
 
-		// Override with config file values if present
+		securityPolicy := voice.DefaultSecurityPolicy()
+		if cfg.Voice.Security.MaxCallDuration != "" {
+			if d := parseDuration(cfg.Voice.Security.MaxCallDuration); d > 0 {
+				securityPolicy.MaxCallDuration = d
+			}
+		}
+		securityPolicy.RateLimitCalls = cfg.Voice.Security.RateLimitCalls
+		if cfg.Voice.Security.RateLimitWindow != "" {
+			if d := parseDuration(cfg.Voice.Security.RateLimitWindow); d > 0 {
+				securityPolicy.RateLimitWindow = d
+			}
+		}
+		securityPolicy.RequireE2EE = cfg.Voice.Security.RequireE2EE
+		securityPolicy.RequireSignalingTLS = cfg.Voice.Security.RequireSignalingTLS
 
-		// General settings
+		budgetConfig := voice.DefaultConfig()
+		budgetConfig.DefaultTokenLimit = cfg.Voice.Budget.DefaultTokenLimit
+		if cfg.Voice.Budget.DefaultDurationLimit != "" {
+			if d := parseDuration(cfg.Voice.Budget.DefaultDurationLimit); d > 0 {
+				budgetConfig.DefaultDurationLimit = d
+			}
+		}
+		budgetConfig.WarningThreshold = cfg.Voice.Budget.WarningThreshold
+		budgetConfig.HardStop = cfg.Voice.Budget.HardStop
+		budgetConfig.AutoAnswer = cfg.Voice.AutoAnswer
+		budgetConfig.RequireMembership = cfg.Voice.RequireMembership
+		budgetConfig.AllowedRooms = stringSliceToBoolMap(cfg.Voice.AllowedRooms)
+		budgetConfig.BlockedRooms = stringSliceToBoolMap(cfg.Voice.BlockedRooms)
 		if cfg.Voice.DefaultLifetime != "" {
 			if d := parseDuration(cfg.Voice.DefaultLifetime); d > 0 {
-				voiceConfig.DefaultLifetime = d
+				budgetConfig.DefaultLifetime = d
 			}
 		}
 		if cfg.Voice.MaxLifetime != "" {
 			if d := parseDuration(cfg.Voice.MaxLifetime); d > 0 {
-				voiceConfig.MaxLifetime = d
+				budgetConfig.MaxLifetime = d
 			}
 		}
-		voiceConfig.AutoAnswer = cfg.Voice.AutoAnswer
-		voiceConfig.RequireMembership = cfg.Voice.RequireMembership
-		voiceConfig.AllowedRooms = stringSliceToBoolMap(cfg.Voice.AllowedRooms)
-		voiceConfig.BlockedRooms = stringSliceToBoolMap(cfg.Voice.BlockedRooms)
 
-		// Security settings
-		voiceConfig.MaxConcurrentCalls = cfg.Voice.Security.MaxConcurrentCalls
-		if cfg.Voice.Security.MaxCallDuration != "" {
-			if d := parseDuration(cfg.Voice.Security.MaxCallDuration); d > 0 {
-				voiceConfig.SecurityPolicy.MaxCallDuration = d
-			}
-		}
-		voiceConfig.SecurityPolicy.RateLimitCalls = cfg.Voice.Security.RateLimitCalls
-		if cfg.Voice.Security.RateLimitWindow != "" {
-			if d := parseDuration(cfg.Voice.Security.RateLimitWindow); d > 0 {
-				voiceConfig.SecurityPolicy.RateLimitWindow = d
-			}
-		}
-		voiceConfig.SecurityPolicy.RequireE2EE = cfg.Voice.Security.RequireE2EE
-		voiceConfig.SecurityPolicy.RequireSignalingTLS = cfg.Voice.Security.RequireSignalingTLS
-
-		// Budget settings
-		voiceConfig.DefaultTokenLimit = cfg.Voice.Budget.DefaultTokenLimit
-		if cfg.Voice.Budget.DefaultDurationLimit != "" {
-			if d := parseDuration(cfg.Voice.Budget.DefaultDurationLimit); d > 0 {
-				voiceConfig.DefaultDurationLimit = d
-			}
-		}
-		voiceConfig.WarningThreshold = cfg.Voice.Budget.WarningThreshold
-		voiceConfig.HardStop = cfg.Voice.Budget.HardStop
-
-		// TTL settings
+		ttlConfig := voice.DefaultTTLConfig()
 		if cfg.Voice.TTL.DefaultTTL != "" {
 			if d := parseDuration(cfg.Voice.TTL.DefaultTTL); d > 0 {
-				voiceConfig.TTLConfig.DefaultTTL = d
+				ttlConfig.DefaultTTL = d
 			}
 		}
 		if cfg.Voice.TTL.MaxTTL != "" {
 			if d := parseDuration(cfg.Voice.TTL.MaxTTL); d > 0 {
-				voiceConfig.TTLConfig.MaxTTL = d
+				ttlConfig.MaxTTL = d
 			}
 		}
 		if cfg.Voice.TTL.EnforcementInterval != "" {
 			if d := parseDuration(cfg.Voice.TTL.EnforcementInterval); d > 0 {
-				voiceConfig.TTLConfig.EnforcementInterval = d
+				ttlConfig.EnforcementInterval = d
 			}
 		}
 		if cfg.Voice.TTL.WarningThreshold > 0 {
-			voiceConfig.TTLConfig.WarningThreshold = cfg.Voice.TTL.WarningThreshold
+			ttlConfig.WarningThreshold = cfg.Voice.TTL.WarningThreshold
 		}
-		voiceConfig.TTLConfig.HardStop = cfg.Voice.TTL.HardStop
+		ttlConfig.HardStop = cfg.Voice.TTL.HardStop
 
-		// Update budget config in voiceConfig
-		voiceConfig.BudgetConfig.DefaultTokenLimit = cfg.Voice.Budget.DefaultTokenLimit
-		if cfg.Voice.Budget.DefaultDurationLimit != "" {
-			if d := parseDuration(cfg.Voice.Budget.DefaultDurationLimit); d > 0 {
-				voiceConfig.BudgetConfig.DefaultDurationLimit = d
-			}
+		maxCallDuration := securityPolicy.MaxCallDuration
+		if maxCallDuration == 0 {
+			maxCallDuration = 1 * time.Hour
 		}
-		voiceConfig.BudgetConfig.WarningThreshold = cfg.Voice.Budget.WarningThreshold
-		voiceConfig.BudgetConfig.HardStop = cfg.Voice.Budget.HardStop
 
-		voiceMgr := voice.NewManager(
+		voiceMgr = voice.NewManager(
 			sessionMgr,
 			tokenMgr,
 			webrtcEngine,
 			turnMgr,
-			voiceConfig,
+			voice.ManagerConfig{
+				WebRTCConfig:         webrtc.DefaultEngineConfig(),
+				VoiceConfig:          budgetConfig,
+				SecurityPolicy:       securityPolicy,
+				BudgetConfig:         budgetConfig,
+				DefaultLifetime:      budgetConfig.DefaultLifetime,
+				MaxLifetime:          budgetConfig.MaxLifetime,
+				TURNSharedSecret:     cfg.WebRTC.TURNSharedSecret,
+				TURNServerURL:        cfg.WebRTC.TURNServerURL,
+				MaxConcurrentCalls:   cfg.Voice.Security.MaxConcurrentCalls,
+				MaxCallDuration:      maxCallDuration,
+				DefaultTokenLimit:    budgetConfig.DefaultTokenLimit,
+				DefaultDurationLimit: budgetConfig.DefaultDurationLimit,
+			},
 		)
 
-		// Start voice manager
 		if err := voiceMgr.Start(); err != nil {
 			log.Printf("Warning: Failed to start voice manager: %v", err)
 			log.Println("Voice calls will not be available")
+		} else {
+			log.Println("Voice manager started")
 		}
-	*/
+	} else {
+		log.Println("Voice pipeline disabled (features.voice_pipeline=off)")
+	}
 
 	// Create budget tracker (unused, kept for future use)
 	_, err = budget.NewBudgetTracker(budget.BudgetConfig{
@@ -2840,8 +2843,9 @@ func runBridgeServer(cliCfg cliConfig) {
 			errorSystem.Stop()
 		}
 
-		// TODO: Voice package needs refactoring - uncomment when fixed
-		// voiceMgr.Stop()
+		if voiceMgr != nil {
+			voiceMgr.Stop()
+		}
 		webrtcEngine.Stop()
 
 		if ingestServer != nil {
