@@ -2583,6 +2583,12 @@ func runBridgeServer(cliCfg cliConfig) {
 	rpcCfg.MCPRouter = mcpRouter
 	rpcCfg.Translator = mcpTranslator
 
+	rpcCfg.ZeroTrustKS = cfg.Features.ZeroTrustKeystore
+	rpcCfg.VoicePipeline = cfg.Features.VoicePipeline
+	rpcCfg.ReplayFlags = rpc.ReplayFeatureFlags{
+		MultiTabReplay: cfg.Features.MultiTabReplay,
+	}
+
 	if rolodexStore != nil && workflowOrchestrator != nil {
 		rpcCfg.SecretaryHandler = rpc.NewSecretaryHandler(secretary.NewRPCHandler(secretary.RPCHandlerConfig{
 			Orchestrator: workflowOrchestrator,
