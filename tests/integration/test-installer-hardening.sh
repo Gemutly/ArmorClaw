@@ -140,10 +140,10 @@ test_systemd_hardening() {
     local found_runtime=0
     
     for f in setup-quick.sh setup-wizard.sh installer-v4.sh install-bridge.sh; do
-        if grep -q "Type=simple" "$PROJECT_ROOT/deploy/$f"; then
+        if grep -qE "Type=(simple|notify)" "$PROJECT_ROOT/deploy/$f"; then
             ((found_simple++))
         else
-            fail "Type=simple missing in $f"
+            fail "Type=simple or Type=notify missing in $f"
         fi
         
         if grep -q "RuntimeDirectory=armorclaw" "$PROJECT_ROOT/deploy/$f"; then

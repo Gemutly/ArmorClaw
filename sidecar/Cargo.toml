@@ -58,7 +58,7 @@ zip = "2.2"
 quick-xml = "0.37"
 
 # Image Processing (for OCR)
-image = "0.25"
+image = "=0.25.5"
 
 # ONNX Runtime (for OCR inference)
 tract-onnx = "0.21"

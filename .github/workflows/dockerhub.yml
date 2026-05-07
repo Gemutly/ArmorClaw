@@ -31,7 +31,7 @@ jobs:
       - name: Install CGO dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y libyara-dev libsqlcipher-dev
+          sudo apt-get install -y libyara-dev libsqlcipher-dev libolm-dev
 
       - name: Go vet RPC packages
         env:
@@ -62,7 +62,7 @@ jobs:
       - name: Install CGO dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y libyara-dev libsqlcipher-dev
+          sudo apt-get install -y libyara-dev libsqlcipher-dev libolm-dev
 
       - name: Run RPC unit tests
         env:
