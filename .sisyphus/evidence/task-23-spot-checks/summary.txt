@@ -1,0 +1,79 @@
+================================================================================
+Task 23: Contract Spot Checks — Method Count Verification
+Source: bridge/pkg/rpc/server.go registerHandlers()
+Verified: 2026-05-07
+================================================================================
+
+SPOT CHECK RESULTS:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+1. TOTAL METHOD COUNT
+   Expected: 109
+   Actual:   109  (awk count inside registerHandlers block)
+   Status:   ✓ PASS
+
+2. keystore.* COUNT
+   Expected: 7
+   Actual:   7
+   Methods:  keystore.unseal, keystore.sealed, keystore.seal,
+             keystore.extend_session, keystore.session_status,
+             keystore.list_keys, keystore.delete_key
+   Status:   ✓ PASS
+
+3. voice.* COUNT
+   Expected: 3
+   Actual:   3
+   Methods:  voice.start_session, voice.stop_session, voice.status
+   Status:   ✓ PASS
+
+4. e2ee.* COUNT
+   Expected: 3
+   Actual:   3
+   Methods:  e2ee.create_backup, e2ee.delete_backup, e2ee.backup_exists
+   Status:   ✓ PASS
+
+5. browser.replay_diagnostics COUNT
+   Expected: 1
+   Actual:   1
+   Status:   ✓ PASS
+
+6. e2ee.restore_backup ABSENCE
+   grep -rn "restore_backup" bridge/ --include="*.go"
+   Result: 2 matches, BOTH in test file only:
+     bridge/pkg/crypto/backup_test.go:178  (negative test assertion)
+     bridge/pkg/crypto/backup_test.go:180  (negative test assertion)
+   Source files: 0 matches
+   Status:   ✓ PASS (absent from production code)
+
+7. BASE METHOD COUNT (no feature flag gate)
+   Expected: 95  (109 total - 14 gated)
+   Actual:   95  (confirmed by T22 harness Config A)
+   Status:   ✓ PASS
+
+8. DISCOVERY SCRIPT COVERAGE (scripts/a0_discover.sh)
+   All 14 new methods found in KNOWN_METHODS:
+   ✓ keystore.unseal
+   ✓ keystore.sealed
+   ✓ keystore.seal
+   ✓ keystore.extend_session
+   ✓ keystore.session_status
+   ✓ keystore.list_keys
+   ✓ keystore.delete_key
+   ✓ voice.start_session
+   ✓ voice.stop_session
+   ✓ voice.status
+   ✓ e2ee.create_backup
+   ✓ e2ee.delete_backup
+   ✓ e2ee.backup_exists
+   ✓ browser.replay_diagnostics
+   Status:   ✓ PASS (14/14)
+
+SUMMARY:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+All 8 spot checks: PASS
+Total gated methods: 14 (7 keystore + 3 voice + 1 browser + 3 e2ee)
+Base methods: 95
+Total registered: 109
+e2ee.restore_backup: NOT in production code (test-only negative assertion)
+Discovery script: All 14 methods present
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
