@@ -1,9 +1,40 @@
 # ArmorClaw Changelog
 
-> **Last Updated:** 2026-04-18
-> **Current Version:** 0.7.0
+> **Last Updated:** 2026-05-07
+> **Current Version:** 1.0.0
 
 All notable changes to ArmorClaw are documented here with commit references.
+
+---
+
+## [1.0.0] - 2026-05-07 - Feature Flags, Zero-Trust Keystore, Voice Pipeline, E2EE Backup
+
+### Added
+
+- **14 new RPC methods** (7 keystore + 3 voice + 3 e2ee + 1 browser):
+  - `keystore.unseal`, `keystore.sealed`, `keystore.seal`, `keystore.extend_session`, `keystore.session_status`, `keystore.list_keys`, `keystore.delete_key`
+  - `voice.start_session`, `voice.stop_session`, `voice.status`
+  - `e2ee.create_backup`, `e2ee.delete_backup`, `e2ee.backup_exists`
+  - `browser.replay_diagnostics`
+- **Feature flags** for conditional RPC method registration. Baseline: 95 methods with all flags off. Maximum: 109 with all flags on. Flags: `ZeroTrustKeystore`, `VoicePipeline`, `E2EEBackup`, `MultiTabReplay`.
+- **Zero-trust keystore** with Argon2id password-gated unseal, auto-seal timer (default 5 min), rate limiting (5 failures per 60s triggers 30s lockout), and memory zeroization.
+- **Voice pipeline** RPC methods for session management. Requires `VoicePipeline` flag. Routes through OpenAI cloud (local WebRTC stack remains partial).
+- **E2EE backup** methods for key backup creation and deletion. Requires `E2EEBackup` flag. Note: `e2ee.restore_backup` does NOT exist.
+- **Multi-tab replay diagnostics** via `browser.replay_diagnostics`. Requires `MultiTabReplay` flag.
+- **Memory zeroization** of password material after Argon2id verification.
+- **Audit logging** for keystore seal/unseal events, session extensions, and key deletions.
+
+### Changed
+
+- **SealedKeystore** now supports password-gated unseal (Argon2id) alongside the existing challenge-response mechanism. Both unlock paths coexist.
+- RPC method surface is now feature-flag dependent (95–109 methods) instead of fixed at 95.
+
+### Security
+
+- **Argon2id password verification** with hardened parameters (memory: 64MB, iterations: 3, parallelism: 4). Passwords never stored in plaintext.
+- **Rate limiting** on keystore unseal attempts (5 failures per 60s triggers 30s lockout).
+- **Memory zeroization** of sensitive password material immediately after verification.
+- **Audit trail** for all keystore state transitions and key lifecycle operations.
 
 ---
 

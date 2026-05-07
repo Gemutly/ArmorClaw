@@ -515,7 +515,7 @@ The `contract_manifest.json` is the central output of the discovery pipeline. Al
 
 ### Method List
 
-The bridge registers 89 RPC methods in `bridge/pkg/rpc/server.go` → `registerHandlers()`. Discovery probes each one with empty params `{}`.
+The bridge registers 95–109 RPC methods (feature-flag dependent) in `bridge/pkg/rpc/server.go` → `registerHandlers()`. Discovery probes each one with empty params `{}`. Baseline is 95 methods with all flags off; maximum is 109 with all flags enabled.
 
 ### Method Categories
 
@@ -560,6 +560,56 @@ echo '{"jsonrpc":"2.0","id":1,"method":"status"}' | \
 ```
 
 **Note**: The bridge may use HTTPS even on localhost depending on deployment mode. Scripts use `ssh_vps "curl -sf http://localhost:..."` because localhost connections within the VPS don't need TLS. External access requires `https://`.
+
+---
+
+## Flag-Dependent Discovery
+
+### Updated Baseline (v1.0.0)
+
+The Bridge RPC method count is no longer fixed. With v1.0.0, feature flags control which methods are registered at startup. The contract discovery pipeline (`a0_discover.sh`) must account for this variability.
+
+| Configuration | Methods | Flags Enabled |
+|---|---|---|
+| All off (baseline) | 95 | None |
+| Zero-Trust Keystore | 102 | ZeroTrustKeystore |
+| + Voice Pipeline | 105 | ZeroTrustKeystore + VoicePipeline |
+| + E2EE Backup | 108 | ZeroTrustKeystore + VoicePipeline + E2EEBackup |
+| + Multi-Tab Replay | 109 | All flags on |
+
+### How Discovery Adapts
+
+The `a0_discover.sh` script (Phase A0, step A0.4) probes all registered RPC methods with empty params. When a flag is disabled, its methods return JSON-RPC error `-32601` (method not found). The discovery pipeline treats `-32601` the same as any other error response: the method is recorded as `status: "error"` in the manifest with the error message.
+
+To determine which flags are active, count responding methods:
+
+```bash
+# After a0_discover.sh completes
+TOTAL=$(jq '.live_discovered.rpc_methods | length' .sisyphus/evidence/armorclaw/contract_manifest.json)
+RESPONDING=$(jq '[.[] | select(.status == "responds")] | length' .sisyphus/evidence/armorclaw/contract_manifest.json)
+
+echo "Total methods discovered: $TOTAL"
+echo "Responding methods: $RESPONDING"
+```
+
+If the count is 95, no flags are enabled. If 102, only ZeroTrustKeystore is on. If 109, all flags are active.
+
+### Flag-Dependent Test Behavior
+
+Tests that exercise flag-dependent methods should check for `-32601` responses and SKIP gracefully rather than FAIL. This follows the existing Tier B pattern (graceful skip when subsystems are not deployed).
+
+| Test Area | Skip Condition | Flag |
+|-----------|---------------|------|
+| `keystore.unseal` / seal / session | Method returns `-32601` | `ZeroTrustKeystore` |
+| `voice.*` | Method returns `-32601` | `VoicePipeline` |
+| `e2ee.create_backup` / delete / exists | Method returns `-32601` | `E2EEBackup` |
+| `browser.replay_diagnostics` | Method returns `-32601` | `MultiTabReplay` |
+
+### Reference
+
+- Method counting: `scripts/a0_discover.sh` (A0.4)
+- Feature flag configuration: `/etc/armorclaw/config.toml`
+- Error code reference: `doc/bridge-reference.md`
 
 ---
 
