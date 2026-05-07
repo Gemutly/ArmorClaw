@@ -772,6 +772,290 @@ func (l *CriticalOperationLogger) LogPIIInjected(ctx context.Context, containerI
 }
 
 
+// SensitiveFieldDenylist contains field names that must NEVER appear in audit logs.
+// Covers: passwords, verifiers, vault keys, recovery phrases, wrapped keys,
+// Ed25519 challenge nonces, and PII values.
+var SensitiveFieldDenylist = map[string]bool{
+	"password":        true,
+	"passwd":          true,
+	"pin":             true,
+	"passphrase":      true,
+	"verifier":        true,
+	"verifier_hash":   true,
+	"vault_key":       true,
+	"vault_keys":      true,
+	"master_key":      true,
+	"recovery_phrase": true,
+	"seed_phrase":     true,
+	"mnemonic":        true,
+	"wrapped_key":     true,
+	"wrapped_keys":    true,
+	"challenge_nonce": true,
+	"nonce":           true,
+	"secret":          true,
+	"token":           true,
+	"access_token":    true,
+	"refresh_token":   true,
+	"api_key":         true,
+	"private_key":     true,
+	"ssn":             true,
+	"credit_card":     true,
+	"card_number":     true,
+	"cvv":             true,
+}
+
+// SanitizeDetails removes sensitive fields from a details map.
+// Returns a new map with denylisted fields stripped.
+func SanitizeDetails(details map[string]interface{}) map[string]interface{} {
+	if details == nil {
+		return nil
+	}
+	safe := make(map[string]interface{}, len(details))
+	for k, v := range details {
+		if SensitiveFieldDenylist[k] {
+			continue
+		}
+		safe[k] = v
+	}
+	return safe
+}
+
+// LogKeystoreUnseal logs a keystore unseal event.
+// Logs identity + success/failure. NEVER logs the password.
+func (l *CriticalOperationLogger) LogKeystoreUnseal(ctx context.Context, identity string, success bool) error {
+	l.mu.RLock()
+	auditLog := l.auditLog
+	l.mu.RUnlock()
+
+	if auditLog == nil {
+		return nil
+	}
+
+	actor := Actor{
+		Type: "user",
+		ID:   identity,
+	}
+	resource := Resource{
+		Type: "keystore",
+		ID:   identity,
+	}
+	severity := "low"
+	if !success {
+		severity = "high"
+	}
+	details := map[string]interface{}{
+		"success": success,
+		"action":  "unseal",
+	}
+	compliance := ComplianceFlags{
+		Category:      "keystore_lifecycle",
+		Severity:      severity,
+		AuditRequired: true,
+	}
+
+	eventType := "keystore.unseal"
+	if !success {
+		eventType = "keystore.unseal_failed"
+	}
+
+	_, err := auditLog.LogEntry(eventType, actor, "unseal", resource, details, compliance)
+	return err
+}
+
+// LogKeystoreSeal logs a keystore seal event.
+// Logs identity + reason (manual vs auto-seal timer).
+func (l *CriticalOperationLogger) LogKeystoreSeal(ctx context.Context, identity, reason string) error {
+	l.mu.RLock()
+	auditLog := l.auditLog
+	l.mu.RUnlock()
+
+	if auditLog == nil {
+		return nil
+	}
+
+	actor := Actor{
+		Type: "user",
+		ID:   identity,
+	}
+	resource := Resource{
+		Type: "keystore",
+		ID:   identity,
+	}
+	details := map[string]interface{}{
+		"reason": reason,
+		"action": "seal",
+	}
+	compliance := ComplianceFlags{
+		Category:      "keystore_lifecycle",
+		Severity:      "medium",
+		AuditRequired: true,
+	}
+
+	_, err := auditLog.LogEntry("keystore.seal", actor, "seal", resource, details, compliance)
+	return err
+}
+
+// LogKeystoreExtendSession logs a keystore session extension event.
+func (l *CriticalOperationLogger) LogKeystoreExtendSession(ctx context.Context, identity string) error {
+	l.mu.RLock()
+	auditLog := l.auditLog
+	l.mu.RUnlock()
+
+	if auditLog == nil {
+		return nil
+	}
+
+	actor := Actor{
+		Type: "user",
+		ID:   identity,
+	}
+	resource := Resource{
+		Type: "keystore",
+		ID:   identity,
+	}
+	details := map[string]interface{}{
+		"action": "extend_session",
+	}
+	compliance := ComplianceFlags{
+		Category:      "keystore_lifecycle",
+		Severity:      "low",
+		AuditRequired: true,
+	}
+
+	_, err := auditLog.LogEntry("keystore.extend_session", actor, "extend_session", resource, details, compliance)
+	return err
+}
+
+// LogBackupCreate logs a backup creation event.
+// Logs user ID + backup ID. NEVER logs recovery phrase or encrypted key.
+func (l *CriticalOperationLogger) LogBackupCreate(ctx context.Context, userID, backupID string) error {
+	l.mu.RLock()
+	auditLog := l.auditLog
+	l.mu.RUnlock()
+
+	if auditLog == nil {
+		return nil
+	}
+
+	actor := Actor{
+		Type: "user",
+		ID:   userID,
+	}
+	resource := Resource{
+		Type: "backup",
+		ID:   backupID,
+	}
+	details := map[string]interface{}{
+		"backup_id": backupID,
+		"action":    "create",
+	}
+	compliance := ComplianceFlags{
+		Category:      "backup_management",
+		Severity:      "medium",
+		AuditRequired: true,
+	}
+
+	_, err := auditLog.LogEntry("backup.create", actor, "create", resource, details, compliance)
+	return err
+}
+
+// LogBackupDelete logs a backup deletion event.
+func (l *CriticalOperationLogger) LogBackupDelete(ctx context.Context, userID, backupID string) error {
+	l.mu.RLock()
+	auditLog := l.auditLog
+	l.mu.RUnlock()
+
+	if auditLog == nil {
+		return nil
+	}
+
+	actor := Actor{
+		Type: "user",
+		ID:   userID,
+	}
+	resource := Resource{
+		Type: "backup",
+		ID:   backupID,
+	}
+	details := map[string]interface{}{
+		"backup_id": backupID,
+		"action":    "delete",
+	}
+	compliance := ComplianceFlags{
+		Category:      "backup_management",
+		Severity:      "high",
+		AuditRequired: true,
+	}
+
+	_, err := auditLog.LogEntry("backup.delete", actor, "delete", resource, details, compliance)
+	return err
+}
+
+// LogVoiceStartSession logs a voice session start event.
+func (l *CriticalOperationLogger) LogVoiceStartSession(ctx context.Context, sessionID, provider string) error {
+	l.mu.RLock()
+	auditLog := l.auditLog
+	l.mu.RUnlock()
+
+	if auditLog == nil {
+		return nil
+	}
+
+	actor := Actor{
+		Type: "system",
+		ID:   "voice_service",
+	}
+	resource := Resource{
+		Type: "voice_session",
+		ID:   sessionID,
+	}
+	details := map[string]interface{}{
+		"session_id": sessionID,
+		"provider":   provider,
+		"action":     "start",
+	}
+	compliance := ComplianceFlags{
+		Category:      "voice_session",
+		Severity:      "low",
+		AuditRequired: true,
+	}
+
+	_, err := auditLog.LogEntry("voice.start_session", actor, "start", resource, details, compliance)
+	return err
+}
+
+// LogVoiceStopSession logs a voice session stop event.
+func (l *CriticalOperationLogger) LogVoiceStopSession(ctx context.Context, sessionID string) error {
+	l.mu.RLock()
+	auditLog := l.auditLog
+	l.mu.RUnlock()
+
+	if auditLog == nil {
+		return nil
+	}
+
+	actor := Actor{
+		Type: "system",
+		ID:   "voice_service",
+	}
+	resource := Resource{
+		Type: "voice_session",
+		ID:   sessionID,
+	}
+	details := map[string]interface{}{
+		"session_id": sessionID,
+		"action":     "stop",
+	}
+	compliance := ComplianceFlags{
+		Category:      "voice_session",
+		Severity:      "low",
+		AuditRequired: true,
+	}
+
+	_, err := auditLog.LogEntry("voice.stop_session", actor, "stop", resource, details, compliance)
+	return err
+}
+
 // Global audit logger instance
 var globalAuditLogger *CriticalOperationLogger
 var globalAuditMu sync.RWMutex

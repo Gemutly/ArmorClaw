@@ -40,6 +40,19 @@ const (
 	EventSidecarProcessDocument EventType = "sidecar_process_document"
 	EventSidecarQueued          EventType = "sidecar_queued"
 	EventSidecarRetry           EventType = "sidecar_retry"
+
+	// Keystore lifecycle events
+	EventKeystoreUnseal        EventType = "keystore.unseal"
+	EventKeystoreSeal          EventType = "keystore.seal"
+	EventKeystoreExtendSession EventType = "keystore.extend_session"
+
+	// Backup events
+	EventBackupCreate EventType = "backup.create"
+	EventBackupDelete EventType = "backup.delete"
+
+	// Voice session events
+	EventVoiceStartSession EventType = "voice.start_session"
+	EventVoiceStopSession  EventType = "voice.stop_session"
 )
 
 const (
