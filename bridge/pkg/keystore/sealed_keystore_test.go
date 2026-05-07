@@ -520,6 +520,10 @@ func createTestKeystore(t *testing.T) *Keystore {
 }
 
 func newTestPasswordSealedKeystore(t *testing.T) (*SealedKeystore, string) {
+	return newTestPasswordSealedKeystoreWithAutoSeal(t, 0)
+}
+
+func newTestPasswordSealedKeystoreWithAutoSeal(t *testing.T, autoSeal time.Duration) (*SealedKeystore, string) {
 	t.Helper()
 
 	baseKS := createTestKeystore(t)
@@ -531,7 +535,6 @@ func newTestPasswordSealedKeystore(t *testing.T) (*SealedKeystore, string) {
 		t.Fatalf("failed to create key derivation: %v", err)
 	}
 
-	// Generate verifier: derive key from password with random salt
 	salt := make([]byte, DefaultKeyDerivationParams.SaltLength)
 	if _, err := rand.Read(salt); err != nil {
 		t.Fatalf("failed to generate salt: %v", err)
@@ -542,13 +545,11 @@ func newTestPasswordSealedKeystore(t *testing.T) (*SealedKeystore, string) {
 		t.Fatalf("failed to derive verifier: %v", err)
 	}
 
-	// Generate random vault key
 	vaultKey := make([]byte, 32)
 	if _, err := rand.Read(vaultKey); err != nil {
 		t.Fatalf("failed to generate vault key: %v", err)
 	}
 
-	// Wrap vault key with password
 	wrapped, err := kd.WrapKey(vaultKey, []byte(password))
 	if err != nil {
 		t.Fatalf("failed to wrap vault key: %v", err)
@@ -563,6 +564,10 @@ func newTestPasswordSealedKeystore(t *testing.T) (*SealedKeystore, string) {
 	sk, err := NewSealedKeystoreWithPassword(baseKS, cfg)
 	if err != nil {
 		t.Fatalf("failed to create password sealed keystore: %v", err)
+	}
+
+	if autoSeal > 0 {
+		sk.SetAutoSealDuration(autoSeal)
 	}
 
 	return sk, password
@@ -655,6 +660,87 @@ func TestPasswordSealZerosVaultKey(t *testing.T) {
 	}
 }
 
+func TestListKeysReturnsNames(t *testing.T) {
+	sk, password := newTestPasswordSealedKeystore(t)
+
+	err := sk.UnsealWithPassword(password)
+	if err != nil {
+		t.Fatalf("unseal failed: %v", err)
+	}
+
+	base := sk.GetBaseKeystore()
+	now := time.Now().Unix()
+	base.Store(Credential{ID: "key-alpha", Provider: ProviderOpenAI, Token: "tok-a", DisplayName: "Alpha", CreatedAt: now})
+	base.Store(Credential{ID: "key-beta", Provider: ProviderAnthropic, Token: "tok-b", DisplayName: "Beta", CreatedAt: now})
+
+	ctx := context.Background()
+	names, err := sk.ListKeys(ctx)
+	if err != nil {
+		t.Fatalf("ListKeys failed: %v", err)
+	}
+
+	if len(names) != 2 {
+		t.Fatalf("expected 2 keys, got %d", len(names))
+	}
+
+	found := map[string]bool{}
+	for _, n := range names {
+		found[n] = true
+	}
+	if !found["key-alpha"] || !found["key-beta"] {
+		t.Errorf("expected key-alpha and key-beta, got %v", names)
+	}
+}
+
+func TestListKeysSealed(t *testing.T) {
+	sk, _ := newTestPasswordSealedKeystore(t)
+
+	ctx := context.Background()
+	_, err := sk.ListKeys(ctx)
+	if err != ErrPasswordSealed {
+		t.Errorf("expected ErrPasswordSealed, got %v", err)
+	}
+}
+
+func TestDeleteKeyRemovesKey(t *testing.T) {
+	sk, password := newTestPasswordSealedKeystore(t)
+
+	err := sk.UnsealWithPassword(password)
+	if err != nil {
+		t.Fatalf("unseal failed: %v", err)
+	}
+
+	base := sk.GetBaseKeystore()
+	now := time.Now().Unix()
+	base.Store(Credential{ID: "key-gone", Provider: ProviderOpenAI, Token: "tok-x", DisplayName: "Gone", CreatedAt: now})
+
+	ctx := context.Background()
+	err = sk.DeleteKey(ctx, "key-gone")
+	if err != nil {
+		t.Fatalf("DeleteKey failed: %v", err)
+	}
+
+	names, err := sk.ListKeys(ctx)
+	if err != nil {
+		t.Fatalf("ListKeys after delete failed: %v", err)
+	}
+	for _, n := range names {
+		if n == "key-gone" {
+			t.Error("key-gone should have been deleted")
+		}
+	}
+}
+
+func TestDeleteKeySealed(t *testing.T) {
+	sk, _ := newTestPasswordSealedKeystore(t)
+
+	ctx := context.Background()
+	err := sk.DeleteKey(ctx, "any-key")
+	if err != ErrPasswordSealed {
+		t.Errorf("expected ErrPasswordSealed, got %v", err)
+	}
+}
+
 func TestPasswordConcurrent(t *testing.T) {
 	sk, password := newTestPasswordSealedKeystore(t)
 
@@ -694,5 +780,136 @@ func TestPasswordConcurrent(t *testing.T) {
 		if err != nil {
 			t.Errorf("unexpected error in concurrent test: %v", err)
 		}
+	}
+}
+
+func TestAutoSealTimer(t *testing.T) {
+	sk, password := newTestPasswordSealedKeystoreWithAutoSeal(t, 100*time.Millisecond)
+
+	err := sk.UnsealWithPassword(password)
+	if err != nil {
+		t.Fatalf("unseal failed: %v", err)
+	}
+
+	if !sk.IsPasswordUnsealed() {
+		t.Fatal("expected keystore to be unsealed immediately after unseal")
+	}
+
+	time.Sleep(200 * time.Millisecond)
+
+	if sk.IsPasswordUnsealed() {
+		t.Error("expected keystore to be auto-sealed after 100ms inactivity")
+	}
+
+	if sk.VaultKey() != nil {
+		t.Error("expected vault key to be nil after auto-seal")
+	}
+}
+
+func TestTimerActivityReset(t *testing.T) {
+	sk, password := newTestPasswordSealedKeystoreWithAutoSeal(t, 200*time.Millisecond)
+
+	err := sk.UnsealWithPassword(password)
+	if err != nil {
+		t.Fatalf("unseal failed: %v", err)
+	}
+
+	time.Sleep(100 * time.Millisecond)
+
+	err = sk.ExtendPasswordSession()
+	if err != nil {
+		t.Fatalf("ExtendPasswordSession failed: %v", err)
+	}
+
+	time.Sleep(100 * time.Millisecond)
+
+	if !sk.IsPasswordUnsealed() {
+		t.Error("expected keystore to still be unsealed after ExtendPasswordSession reset the timer")
+	}
+
+	time.Sleep(150 * time.Millisecond)
+
+	if sk.IsPasswordUnsealed() {
+		t.Error("expected keystore to be sealed after timer expired post-extend")
+	}
+}
+
+func TestSessionStatus(t *testing.T) {
+	sk, password := newTestPasswordSealedKeystoreWithAutoSeal(t, 5*time.Second)
+
+	status := sk.SessionStatus()
+	if !status.Sealed {
+		t.Error("expected sealed status before unseal")
+	}
+
+	err := sk.UnsealWithPassword(password)
+	if err != nil {
+		t.Fatalf("unseal failed: %v", err)
+	}
+
+	status = sk.SessionStatus()
+	if status.Sealed {
+		t.Error("expected unsealed status after unseal")
+	}
+	if status.RemainingSeconds <= 0 {
+		t.Errorf("expected positive remaining seconds, got %f", status.RemainingSeconds)
+	}
+	if status.RemainingSeconds > 5.0 {
+		t.Errorf("expected remaining <= 5s, got %f", status.RemainingSeconds)
+	}
+	if time.Since(status.LastActivityAt) > time.Second {
+		t.Error("expected LastActivityAt to be recent")
+	}
+
+	sk.SealPassword()
+
+	status = sk.SessionStatus()
+	if !status.Sealed {
+		t.Error("expected sealed status after SealPassword")
+	}
+	if status.RemainingSeconds != 0 {
+		t.Errorf("expected 0 remaining seconds when sealed, got %f", status.RemainingSeconds)
+	}
+}
+
+func TestTimerResetOnExtend(t *testing.T) {
+	sk, password := newTestPasswordSealedKeystoreWithAutoSeal(t, 300*time.Millisecond)
+
+	err := sk.UnsealWithPassword(password)
+	if err != nil {
+		t.Fatalf("unseal failed: %v", err)
+	}
+
+	time.Sleep(200 * time.Millisecond)
+
+	err = sk.ExtendPasswordSession()
+	if err != nil {
+		t.Fatalf("ExtendPasswordSession failed: %v", err)
+	}
+
+	status := sk.SessionStatus()
+	if status.Sealed {
+		t.Error("expected unsealed after extend")
+	}
+	if status.RemainingSeconds < 0.2 {
+		t.Errorf("expected timer to be reset, remaining should be near 0.3s, got %f", status.RemainingSeconds)
+	}
+
+	time.Sleep(400 * time.Millisecond)
+
+	if sk.IsPasswordUnsealed() {
+		t.Error("expected auto-seal after extended timer expired")
+	}
+}
+
+func TestExtendPasswordSessionWhenSealed(t *testing.T) {
+	sk, _ := newTestPasswordSealedKeystore(t)
+
+	err := sk.ExtendPasswordSession()
+	if err == nil {
+		t.Fatal("expected error when extending sealed keystore")
+	}
+	if err != ErrPasswordSealed {
+		t.Errorf("expected ErrPasswordSealed, got: %v", err)
 	}
 }

@@ -109,6 +109,12 @@ type SealedKeystore struct {
 	verifySalt   []byte     // salt for password verification
 	verifier     []byte     // stored password verifier
 	wrappedVK    WrappedKey // wrapped (encrypted) vault key
+
+	// Auto-seal timer fields (protected by passwordMu)
+	autoSealTimer    *time.Timer
+	sessionExpiresAt time.Time
+	lastActivityAt   time.Time
+	autoSealDuration time.Duration // configurable, default 4 hours
 }
 
 // SealedKeystoreConfig holds configuration for the sealed keystore
@@ -123,6 +129,13 @@ type SealedStoreConfig struct {
 	PasswordVerifier []byte    // Argon2id-derived verifier for password comparison
 	VerifySalt       []byte    // Salt used to derive the verifier
 	WrappedVaultKey  WrappedKey // Vault key encrypted with the user's password
+}
+
+// SessionStatusResult holds the current password session status.
+type SessionStatusResult struct {
+	Sealed           bool
+	RemainingSeconds float64
+	LastActivityAt   time.Time
 }
 
 // NewSealedKeystore creates a new sealed keystore wrapper
@@ -694,16 +707,17 @@ func NewSealedKeystoreWithPassword(base *Keystore, cfg SealedStoreConfig) (*Seal
 	}
 
 	return &SealedKeystore{
-		base:       base,
-		sessions:   make(map[string]*SealedSession),
-		agentSession: make(map[string]string),
-		pending:    make(map[string]*PendingUnsealRequest),
-		defaultTTL: 5 * time.Minute,
-		policy:     PolicyPassword,
-		passwordKD: kd,
-		verifySalt: append([]byte(nil), cfg.VerifySalt...),
-		verifier:   append([]byte(nil), cfg.PasswordVerifier...),
-		wrappedVK:  cfg.WrappedVaultKey,
+		base:             base,
+		sessions:         make(map[string]*SealedSession),
+		agentSession:     make(map[string]string),
+		pending:          make(map[string]*PendingUnsealRequest),
+		defaultTTL:       5 * time.Minute,
+		policy:           PolicyPassword,
+		passwordKD:       kd,
+		verifySalt:       append([]byte(nil), cfg.VerifySalt...),
+		verifier:         append([]byte(nil), cfg.PasswordVerifier...),
+		wrappedVK:        cfg.WrappedVaultKey,
+		autoSealDuration: 4 * time.Hour,
 	}, nil
 }
 
@@ -739,6 +753,7 @@ func (sk *SealedKeystore) UnsealWithPassword(password string) error {
 	sk.vaultKey = vk
 	sk.isUnsealed = true
 	sk.unsealedAt = time.Now()
+	sk.resetTimerLocked()
 	return nil
 }
 
@@ -746,6 +761,11 @@ func (sk *SealedKeystore) UnsealWithPassword(password string) error {
 func (sk *SealedKeystore) SealPassword() {
 	sk.passwordMu.Lock()
 	defer sk.passwordMu.Unlock()
+
+	if sk.autoSealTimer != nil {
+		sk.autoSealTimer.Stop()
+		sk.autoSealTimer = nil
+	}
 
 	if sk.vaultKey != nil {
 		ZeroBytes(sk.vaultKey)
@@ -764,6 +784,99 @@ func (sk *SealedKeystore) VaultKey() []byte {
 	cp := make([]byte, len(sk.vaultKey))
 	copy(cp, sk.vaultKey)
 	return cp
+}
+
+// resetTimerLocked resets the auto-seal timer. Caller must hold passwordMu.
+func (sk *SealedKeystore) resetTimerLocked() {
+	if sk.autoSealTimer != nil {
+		sk.autoSealTimer.Stop()
+	}
+	sk.lastActivityAt = time.Now()
+	sk.sessionExpiresAt = sk.lastActivityAt.Add(sk.autoSealDuration)
+	sk.autoSealTimer = time.AfterFunc(sk.autoSealDuration, sk.sealCallback)
+}
+
+// sealCallback is invoked by the auto-seal timer.
+func (sk *SealedKeystore) sealCallback() {
+	sk.SealPassword()
+}
+
+// SessionStatus returns the current password session status.
+func (sk *SealedKeystore) SessionStatus() SessionStatusResult {
+	sk.passwordMu.Lock()
+	defer sk.passwordMu.Unlock()
+
+	if !sk.isUnsealed {
+		return SessionStatusResult{Sealed: true}
+	}
+
+	remaining := sk.sessionExpiresAt.Sub(time.Now()).Seconds()
+	if remaining < 0 {
+		remaining = 0
+	}
+	return SessionStatusResult{
+		Sealed:           false,
+		RemainingSeconds: remaining,
+		LastActivityAt:   sk.lastActivityAt,
+	}
+}
+
+// ExtendPasswordSession explicitly extends the auto-seal timer.
+// Returns an error if the keystore is sealed.
+func (sk *SealedKeystore) ExtendPasswordSession() error {
+	sk.passwordMu.Lock()
+	defer sk.passwordMu.Unlock()
+
+	if !sk.isUnsealed {
+		return ErrPasswordSealed
+	}
+
+	sk.resetTimerLocked()
+	return nil
+}
+
+// SetAutoSealDuration configures the auto-seal timeout. For testing only.
+func (sk *SealedKeystore) SetAutoSealDuration(d time.Duration) {
+	sk.passwordMu.Lock()
+	defer sk.passwordMu.Unlock()
+	sk.autoSealDuration = d
+}
+
+// ListKeys returns the names of all stored credentials.
+// Requires the password-gated vault to be unsealed.
+// This is a non-activity operation — it does NOT reset the auto-seal timer.
+func (sk *SealedKeystore) ListKeys(ctx context.Context) ([]string, error) {
+	sk.passwordMu.Lock()
+	if !sk.isUnsealed {
+		sk.passwordMu.Unlock()
+		return nil, ErrPasswordSealed
+	}
+	sk.passwordMu.Unlock()
+
+	infos, err := sk.base.List("")
+	if err != nil {
+		return nil, err
+	}
+
+	names := make([]string, 0, len(infos))
+	for _, info := range infos {
+		names = append(names, info.ID)
+	}
+	return names, nil
+}
+
+// DeleteKey removes a credential by name.
+// Requires the password-gated vault to be unsealed.
+// This is a non-activity operation — it does NOT reset the auto-seal timer.
+func (sk *SealedKeystore) DeleteKey(ctx context.Context, name string) error {
+	sk.passwordMu.Lock()
+	if !sk.isUnsealed {
+		sk.passwordMu.Unlock()
+		return ErrPasswordSealed
+	}
+	sk.passwordMu.Unlock()
+
+	return sk.base.Delete(name)
 }
 
 // ToMatrixEvent converts a pending unseal request to a Matrix event for mobile notification
