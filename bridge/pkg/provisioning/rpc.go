@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"unicode"
 )
 
 // RPCHandler provides JSON-RPC handlers for provisioning
@@ -49,6 +50,38 @@ type RPCResponse struct {
 type RPCError struct {
 	Code    int    `json:"code"`
 	Message string `json:"message"`
+}
+
+// validatePassphraseStrength checks that a password meets minimum strength requirements.
+// Requirements: ≥12 characters, at least 1 uppercase, 1 lowercase, 1 digit.
+func validatePassphraseStrength(password string) error {
+	if len(password) < 12 {
+		return fmt.Errorf("passphrase must be at least 12 characters (got %d)", len(password))
+	}
+
+	var hasUpper, hasLower, hasDigit bool
+	for _, r := range password {
+		switch {
+		case unicode.IsUpper(r):
+			hasUpper = true
+		case unicode.IsLower(r):
+			hasLower = true
+		case unicode.IsDigit(r):
+			hasDigit = true
+		}
+	}
+
+	if !hasUpper {
+		return fmt.Errorf("passphrase must contain at least 1 uppercase letter")
+	}
+	if !hasLower {
+		return fmt.Errorf("passphrase must contain at least 1 lowercase letter")
+	}
+	if !hasDigit {
+		return fmt.Errorf("passphrase must contain at least 1 digit")
+	}
+
+	return nil
 }
 
 // StartRequest is the request for provisioning.start
@@ -324,6 +357,10 @@ func (h *RPCHandler) handleRotate(ctx context.Context, params json.RawMessage) (
 			return nil, fmt.Errorf("failed to generate new secret: %w", err)
 		}
 		req.NewSecret = hex.EncodeToString(b)
+	} else {
+		if err := validatePassphraseStrength(req.NewSecret); err != nil {
+			return nil, fmt.Errorf("weak passphrase: %w", err)
+		}
 	}
 
 	if err := h.manager.RotateSecret(req.NewSecret); err != nil {

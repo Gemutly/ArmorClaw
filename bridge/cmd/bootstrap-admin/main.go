@@ -79,7 +79,7 @@ func generateSecureSecret(length int) (string, error) {
 }
 
 func generateSecurePassword() (string, error) {
-	const charset = "abcdefghijklmnopqrstuvwxyz0123456789"
+	const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*"
 	const length = 24
 	result := make([]byte, length)
 	charsetLen := big.NewInt(int64(len(charset)))
