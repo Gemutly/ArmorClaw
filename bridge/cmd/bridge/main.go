@@ -2084,15 +2084,18 @@ func runBridgeServer(cliCfg cliConfig) {
 				WebRTCConfig:         webrtc.DefaultEngineConfig(),
 				VoiceConfig:          budgetConfig,
 				SecurityPolicy:       securityPolicy,
-				BudgetConfig:         budgetConfig,
+				BudgetConfig: voice.BudgetConfig{
+					DefaultTokenLimit:    budgetConfig.DefaultTokenLimit,
+					DefaultDurationLimit: budgetConfig.DefaultDurationLimit,
+					WarningThreshold:     budgetConfig.WarningThreshold,
+					HardStop:             budgetConfig.HardStop,
+				},
 				DefaultLifetime:      budgetConfig.DefaultLifetime,
 				MaxLifetime:          budgetConfig.MaxLifetime,
 				TURNSharedSecret:     cfg.WebRTC.TURNSharedSecret,
 				TURNServerURL:        cfg.WebRTC.TURNServerURL,
 				MaxConcurrentCalls:   cfg.Voice.Security.MaxConcurrentCalls,
 				MaxCallDuration:      maxCallDuration,
-				DefaultTokenLimit:    budgetConfig.DefaultTokenLimit,
-				DefaultDurationLimit: budgetConfig.DefaultDurationLimit,
 			},
 		)
 
