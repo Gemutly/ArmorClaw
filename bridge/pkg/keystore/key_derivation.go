@@ -161,6 +161,7 @@ func (kd *KeyDerivation) WrapKey(plaintextKey []byte, password []byte) (*Wrapped
 	if err != nil {
 		return nil, err
 	}
+	defer ZeroBytes(derived.Key)
 
 	// Create AEAD cipher
 	aead, err := chacha20poly1305.NewX(derived.Key)
@@ -176,11 +177,6 @@ func (kd *KeyDerivation) WrapKey(plaintextKey []byte, password []byte) (*Wrapped
 
 	// Encrypt
 	ciphertext := aead.Seal(nil, nonce, plaintextKey, nil)
-
-	// Clear derived key from memory
-	for i := range derived.Key {
-		derived.Key[i] = 0
-	}
 
 	return &WrappedKey{
 		Ciphertext: ciphertext,
@@ -207,6 +203,7 @@ func (kd *KeyDerivation) UnwrapKey(wrapped *WrappedKey, password []byte) ([]byte
 	if err != nil {
 		return nil, err
 	}
+	defer ZeroBytes(derived.Key)
 
 	// Create AEAD cipher
 	aead, err := chacha20poly1305.NewX(derived.Key)
@@ -223,11 +220,6 @@ func (kd *KeyDerivation) UnwrapKey(wrapped *WrappedKey, password []byte) ([]byte
 	plaintext, err := aead.Open(nil, wrapped.Nonce, wrapped.Ciphertext, nil)
 	if err != nil {
 		return nil, ErrDecryptionFailed
-	}
-
-	// Clear derived key from memory
-	for i := range derived.Key {
-		derived.Key[i] = 0
 	}
 
 	return plaintext, nil
@@ -264,6 +256,7 @@ func (kd *KeyDerivation) Rekey(wrapped *WrappedKey, oldPassword, newPassword []b
 	if err != nil {
 		return nil, err
 	}
+	defer ZeroBytes(plaintext)
 
 	// Re-encrypt with new password
 	return kd.WrapKey(plaintext, newPassword)
@@ -280,6 +273,7 @@ func (kd *KeyDerivation) ChangeParams(wrapped *WrappedKey, password []byte, newP
 	if err != nil {
 		return nil, err
 	}
+	defer ZeroBytes(plaintext)
 
 	// Re-encrypt with new params
 	newKD := &KeyDerivation{params: newParams}

@@ -69,6 +69,7 @@ func (bm *BackupManager) CreateBackup(userID string, recoveryPhrase []string, en
 	}
 
 	phraseBytes := []byte(strings.Join(recoveryPhrase, " "))
+	defer zeroBytes(phraseBytes)
 
 	salt := make([]byte, argon2SaltLen)
 	if _, err := rand.Read(salt); err != nil {
@@ -76,6 +77,7 @@ func (bm *BackupManager) CreateBackup(userID string, recoveryPhrase []string, en
 	}
 
 	derivedKey := argon2.IDKey(phraseBytes, salt, argon2Iterations, argon2Memory, argon2Parallelism, argon2KeyLen)
+	defer zeroBytes(derivedKey)
 
 	backupID := fmt.Sprintf("%s-%s", userID, hex.EncodeToString(derivedKey[:8]))
 
@@ -96,6 +98,13 @@ func (bm *BackupManager) CreateBackup(userID string, recoveryPhrase []string, en
 	}
 
 	return backupID, nil
+}
+
+// zeroBytes securely overwrites b with zeros. Safe to call with nil or empty slices.
+func zeroBytes(b []byte) {
+	for i := range b {
+		b[i] = 0
+	}
 }
 
 func (bm *BackupManager) DeleteBackup(userID string, backupID string) error {
