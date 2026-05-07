@@ -21,6 +21,10 @@ type Scrubber struct {
 	patternsMap map[string]*PIIPattern
 	mu          sync.RWMutex
 	enabled     bool
+
+	// Sealed keystore integration (nil = no gate)
+	sealedCheck func() error
+	resetTimer  func()
 }
 
 // Redaction holds information about a redaction
@@ -556,4 +560,37 @@ func MaskPhone(phone string) string {
 	}
 	visible := digits[len(digits)-4:]
 	return "***-***-" + visible
+}
+
+// SetSealedCheck configures the sealed keystore gate for PII fulfillment.
+// When set, Fulfill will return the sealed error instead of returning data.
+func (s *Scrubber) SetSealedCheck(check func() error, reset func()) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.sealedCheck = check
+	s.resetTimer = reset
+}
+
+// Fulfill scrubs PII from text after verifying the keystore is unsealed.
+// This is an activity operation — it resets the auto-seal timer on success.
+// Returns ErrPasswordSealed (-32005) if the keystore is sealed.
+func (s *Scrubber) Fulfill(text string) (string, []Redaction, error) {
+	s.mu.RLock()
+	check := s.sealedCheck
+	reset := s.resetTimer
+	s.mu.RUnlock()
+
+	if check != nil {
+		if err := check(); err != nil {
+			return "", nil, err
+		}
+	}
+
+	result, redactions := s.Scrub(text)
+
+	if reset != nil {
+		reset()
+	}
+
+	return result, redactions, nil
 }

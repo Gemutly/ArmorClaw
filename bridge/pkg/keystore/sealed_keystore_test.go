@@ -913,3 +913,171 @@ func TestExtendPasswordSessionWhenSealed(t *testing.T) {
 		t.Errorf("expected ErrPasswordSealed, got: %v", err)
 	}
 }
+
+func TestSealedGetBlocked(t *testing.T) {
+	sk, _ := newTestPasswordSealedKeystore(t)
+	sk.SetFeatureCheck(func() bool { return true })
+
+	base := sk.GetBaseKeystore()
+	now := time.Now().Unix()
+	base.Store(Credential{ID: "test-key", Provider: ProviderOpenAI, Token: "tok-123", DisplayName: "Test", CreatedAt: now})
+
+	ctx := context.Background()
+	sk.mu.Lock()
+	sk.createSessionLocked("agent-001", PolicyPassword, "", "")
+	sk.mu.Unlock()
+
+	_, err := sk.Retrieve(ctx, "agent-001", "test-key")
+	if err == nil {
+		t.Fatal("expected error when retrieving from sealed keystore")
+	}
+	if err != ErrPasswordSealed {
+		t.Errorf("expected ErrPasswordSealed, got: %v", err)
+	}
+}
+
+func TestSealedGetAllowed(t *testing.T) {
+	sk, password := newTestPasswordSealedKeystore(t)
+	sk.SetFeatureCheck(func() bool { return true })
+
+	err := sk.UnsealWithPassword(password)
+	if err != nil {
+		t.Fatalf("unseal failed: %v", err)
+	}
+
+	base := sk.GetBaseKeystore()
+	now := time.Now().Unix()
+	base.Store(Credential{ID: "test-key", Provider: ProviderOpenAI, Token: "tok-123", DisplayName: "Test", CreatedAt: now})
+
+	ctx := context.Background()
+	sk.mu.Lock()
+	sk.createSessionLocked("agent-001", PolicyPassword, "", "")
+	sk.mu.Unlock()
+
+	cred, err := sk.Retrieve(ctx, "agent-001", "test-key")
+	if err != nil {
+		t.Fatalf("expected successful retrieve, got: %v", err)
+	}
+	if cred.ID != "test-key" {
+		t.Errorf("expected credential ID 'test-key', got %s", cred.ID)
+	}
+}
+
+func TestSealedSetBlocked(t *testing.T) {
+	sk, _ := newTestPasswordSealedKeystore(t)
+	sk.SetFeatureCheck(func() bool { return true })
+
+	ctx := context.Background()
+	sk.mu.Lock()
+	sk.createSessionLocked("agent-001", PolicyPassword, "", "")
+	sk.mu.Unlock()
+
+	err := sk.Store(ctx, "agent-001", Credential{
+		ID:        "new-key",
+		Provider:  ProviderOpenAI,
+		Token:     "tok-new",
+		CreatedAt: time.Now().Unix(),
+	})
+	if err == nil {
+		t.Fatal("expected error when storing to sealed keystore")
+	}
+	if err != ErrPasswordSealed {
+		t.Errorf("expected ErrPasswordSealed, got: %v", err)
+	}
+}
+
+func TestSealedSetAllowed(t *testing.T) {
+	sk, password := newTestPasswordSealedKeystore(t)
+	sk.SetFeatureCheck(func() bool { return true })
+
+	err := sk.UnsealWithPassword(password)
+	if err != nil {
+		t.Fatalf("unseal failed: %v", err)
+	}
+
+	ctx := context.Background()
+	sk.mu.Lock()
+	sk.createSessionLocked("agent-001", PolicyPassword, "", "")
+	sk.mu.Unlock()
+
+	err = sk.Store(ctx, "agent-001", Credential{
+		ID:        "new-key",
+		Provider:  ProviderOpenAI,
+		Token:     "tok-new",
+		CreatedAt: time.Now().Unix(),
+	})
+	if err != nil {
+		t.Fatalf("expected successful store, got: %v", err)
+	}
+}
+
+func TestRetrieveNoFlagUnchanged(t *testing.T) {
+	sk, _ := newTestPasswordSealedKeystore(t)
+	// No SetFeatureCheck — feature flag off
+
+	base := sk.GetBaseKeystore()
+	now := time.Now().Unix()
+	base.Store(Credential{ID: "test-key", Provider: ProviderOpenAI, Token: "tok-123", DisplayName: "Test", CreatedAt: now})
+
+	ctx := context.Background()
+	sk.mu.Lock()
+	sk.createSessionLocked("agent-001", PolicyPassword, "", "")
+	sk.mu.Unlock()
+
+	// Should succeed even though password vault is sealed — flag is off
+	cred, err := sk.Retrieve(ctx, "agent-001", "test-key")
+	if err != nil {
+		t.Fatalf("expected success with flag off, got: %v", err)
+	}
+	if cred.ID != "test-key" {
+		t.Errorf("expected credential ID 'test-key', got %s", cred.ID)
+	}
+}
+
+func TestSealedCheckFunc(t *testing.T) {
+	sk, password := newTestPasswordSealedKeystore(t)
+	sk.SetFeatureCheck(func() bool { return true })
+
+	check := sk.SealedCheckFunc()
+
+	// Sealed — should error
+	if err := check(); err != ErrPasswordSealed {
+		t.Errorf("expected ErrPasswordSealed, got: %v", err)
+	}
+
+	// Unseal
+	if err := sk.UnsealWithPassword(password); err != nil {
+		t.Fatalf("unseal failed: %v", err)
+	}
+
+	// Unsealed — should return nil
+	if err := check(); err != nil {
+		t.Errorf("expected nil after unseal, got: %v", err)
+	}
+}
+
+func TestResetTimerFunc(t *testing.T) {
+	sk, password := newTestPasswordSealedKeystoreWithAutoSeal(t, 200*time.Millisecond)
+	sk.SetFeatureCheck(func() bool { return true })
+
+	err := sk.UnsealWithPassword(password)
+	if err != nil {
+		t.Fatalf("unseal failed: %v", err)
+	}
+
+	reset := sk.ResetTimerFunc()
+
+	time.Sleep(100 * time.Millisecond)
+	reset()
+	time.Sleep(100 * time.Millisecond)
+
+	if !sk.IsPasswordUnsealed() {
+		t.Error("expected keystore to still be unsealed after timer reset")
+	}
+
+	time.Sleep(250 * time.Millisecond)
+
+	if sk.IsPasswordUnsealed() {
+		t.Error("expected keystore to be sealed after timer expired post-reset")
+	}
+}

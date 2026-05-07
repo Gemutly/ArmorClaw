@@ -115,6 +115,9 @@ type SealedKeystore struct {
 	sessionExpiresAt time.Time
 	lastActivityAt   time.Time
 	autoSealDuration time.Duration // configurable, default 4 hours
+
+	// Feature flag check for ZeroTrustKeystore (nil = feature off)
+	featureCheck func() bool
 }
 
 // SealedKeystoreConfig holds configuration for the sealed keystore
@@ -554,18 +557,107 @@ func (sk *SealedKeystore) ListProfiles(ctx context.Context, profileType string) 
 	return sk.base.ListProfiles(profileType)
 }
 
-// Retrieve retrieves a credential if unsealed
+// Retrieve retrieves a credential if unsealed.
+// When ZeroTrustKeystore flag is on and policy is PolicyPassword, checks
+// the password-gated sealed state and resets the auto-seal timer on success
+// (credential read is an activity operation).
 func (sk *SealedKeystore) Retrieve(ctx context.Context, agentID, keyID string) (*Credential, error) {
-	// Check if unsealed
 	if sk.IsSealed(agentID) {
 		return nil, ErrKeystoreSealed
 	}
 
-	// Update session operation count
+	if sk.requirePasswordGate() {
+		sk.passwordMu.Lock()
+		if !sk.isUnsealed {
+			sk.passwordMu.Unlock()
+			return nil, ErrPasswordSealed
+		}
+		sk.passwordMu.Unlock()
+	}
+
 	sk.recordOperation(agentID)
 
-	// Delegate to base keystore
-	return sk.base.Retrieve(keyID)
+	cred, err := sk.base.Retrieve(keyID)
+	if err != nil {
+		return nil, err
+	}
+
+	if sk.requirePasswordGate() {
+		sk.resetActivityTimer()
+	}
+
+	return cred, nil
+}
+
+// Store stores a credential if unsealed.
+// When ZeroTrustKeystore flag is on and policy is PolicyPassword, checks
+// the password-gated sealed state. Store is a non-activity operation —
+// it does NOT reset the auto-seal timer.
+func (sk *SealedKeystore) Store(ctx context.Context, agentID string, cred Credential) error {
+	if sk.IsSealed(agentID) {
+		return ErrKeystoreSealed
+	}
+
+	if sk.requirePasswordGate() {
+		sk.passwordMu.Lock()
+		if !sk.isUnsealed {
+			sk.passwordMu.Unlock()
+			return ErrPasswordSealed
+		}
+		sk.passwordMu.Unlock()
+	}
+
+	sk.recordOperation(agentID)
+
+	return sk.base.Store(cred)
+}
+
+// requirePasswordGate returns true when the ZeroTrustKeystore feature flag
+// is enabled and the current policy is PolicyPassword.
+func (sk *SealedKeystore) requirePasswordGate() bool {
+	return sk.featureCheck != nil && sk.featureCheck() && sk.policy == PolicyPassword
+}
+
+// resetActivityTimer resets the auto-seal timer. Safe to call only when
+// already holding no lock on passwordMu; acquires passwordMu internally.
+func (sk *SealedKeystore) resetActivityTimer() {
+	sk.passwordMu.Lock()
+	defer sk.passwordMu.Unlock()
+	if sk.isUnsealed {
+		sk.resetTimerLocked()
+	}
+}
+
+// SetFeatureCheck sets the closure that returns true when the
+// ZeroTrustKeystore feature flag is enabled at runtime.
+func (sk *SealedKeystore) SetFeatureCheck(fn func() bool) {
+	sk.featureCheck = fn
+}
+
+// SealedCheckFunc returns a closure that checks sealed state.
+// Returns ErrPasswordSealed (-32005) when the password vault is sealed
+// and the ZeroTrustKeystore feature is enabled. Nil when no gate applies.
+func (sk *SealedKeystore) SealedCheckFunc() func() error {
+	return func() error {
+		if !sk.requirePasswordGate() {
+			return nil
+		}
+		sk.passwordMu.Lock()
+		sealed := !sk.isUnsealed
+		sk.passwordMu.Unlock()
+		if sealed {
+			return ErrPasswordSealed
+		}
+		return nil
+	}
+}
+
+// ResetTimerFunc returns a closure that resets the auto-seal timer.
+// Safe to hand to external components (PII scrubber, provider registry).
+func (sk *SealedKeystore) ResetTimerFunc() func() {
+	return func() {
+		sk.resetActivityTimer()
+	}
 }
 
 // recordOperation updates the operation count for a session

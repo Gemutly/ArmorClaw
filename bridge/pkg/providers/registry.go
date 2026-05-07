@@ -18,6 +18,9 @@ type Provider struct {
 // Registry represents the provider registry
 type Registry struct {
 	Providers []Provider `json:"providers"`
+
+	sealedCheck func() error
+	resetTimer  func()
 }
 
 // DefaultRegistryPath is the default path to the providers registry
@@ -117,4 +120,32 @@ func (r *Registry) GetAllProviders() map[string]Provider {
 // GetProviderCount returns the number of providers in the registry
 func (r *Registry) GetProviderCount() int {
 	return len(r.Providers)
+}
+
+// SetSealedCheck configures the sealed keystore gate for key lookups.
+func (r *Registry) SetSealedCheck(check func() error, reset func()) {
+	r.sealedCheck = check
+	r.resetTimer = reset
+}
+
+// LookupProviderKey resolves a provider by ID or alias after verifying
+// the keystore is unsealed. This is an activity operation — it resets
+// the auto-seal timer on success.
+func (r *Registry) LookupProviderKey(providerID string) (*Provider, error) {
+	if r.sealedCheck != nil {
+		if err := r.sealedCheck(); err != nil {
+			return nil, err
+		}
+	}
+
+	provider, found := r.ResolveProvider(providerID)
+	if !found {
+		return nil, fmt.Errorf("provider not found: %s", providerID)
+	}
+
+	if r.resetTimer != nil {
+		r.resetTimer()
+	}
+
+	return provider, nil
 }
