@@ -1,5 +1,10 @@
 package browser
 
+// Deprecated: The legacy (Playwright-based) browser backend is deprecated but
+// still supported as a fallback. Use the Jetski (CDP proxy) backend instead
+// by setting ARMORCLAW_BROWSER_BACKEND=jetski. Legacy support will be removed
+// in a future version.
+
 import "context"
 
 // BrowserBroker manages browser automation jobs and exposes semantic

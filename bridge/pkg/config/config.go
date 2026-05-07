@@ -5,6 +5,7 @@ package config
 import (
 	"errors"
 	"fmt"
+	"log"
 	"os"
 	"path/filepath"
 	"time"
@@ -450,7 +451,11 @@ type BrowserConfig struct {
 	// LegacyURL is the legacy browser-service HTTP API URL (e.g., http://localhost:3002)
 	LegacyURL string `toml:"legacy_url" env:"ARMORCLAW_BROWSER_LEGACY_URL"`
 
-	// Backend selects the browser backend: "jetski" or "legacy"
+	// Backend selects the browser backend: "jetski" or "legacy".
+	//
+	// Deprecated: The "legacy" (Playwright-based) backend is deprecated but
+	// still supported as a fallback. Use "jetski" (CDP proxy) instead.
+	// Legacy support will be removed in a future version.
 	Backend string `toml:"backend" env:"ARMORCLAW_BROWSER_BACKEND"`
 
 	// Fallback enables automatic fallback from jetski to legacy on failure
@@ -1317,6 +1322,14 @@ func (c *Config) GetLegacyURL() string {
 		return c.Browser.LegacyURL
 	}
 	return c.Browser.ServiceURL
+}
+
+// WarnDeprecatedBrowserBackend logs a warning if the legacy browser backend is
+// configured. Call this once during startup after config is loaded.
+func (c *Config) WarnDeprecatedBrowserBackend() {
+	if c.Browser.Backend == "legacy" {
+		log.Printf("[WARN] Legacy browser backend is deprecated. Consider switching to Jetski (jetski) backend. Legacy support will be removed in a future version.")
+	}
 }
 
 // ToBudgetConfig converts the Config to budget.BudgetConfig
