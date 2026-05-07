@@ -12,6 +12,7 @@ RUN echo "deb http://deb.debian.org/debian bookworm-backports main" > /etc/apt/s
     build-essential \
     pkg-config \
     libsqlcipher-dev \
+    libolm-dev \
     libyara-dev/bookworm-backports \
     ca-certificates \
  && rm -rf /var/lib/apt/lists/*
@@ -23,14 +24,19 @@ COPY bridge/go.mod bridge/go.sum /src/bridge/
 WORKDIR /src/bridge
 RUN go mod download
 
+# Copy jetski module (navchart subpackage is a workspace dependency)
+COPY jetski/ /src/jetski/
+
 # Copy bridge source
-WORKDIR /src
 COPY bridge/ /src/bridge/
 
 WORKDIR /src/bridge
 ENV CGO_ENABLED=1
 ENV GOOS=linux
 ENV CGO_CFLAGS="-I/usr/include"
+
+# Add replace directive for workspace-local jetski dependency
+RUN echo '' >> go.mod && echo 'replace github.com/armorclaw/jetski => ../jetski' >> go.mod && go mod tidy
 
 # Build the Linux bridge - architecture and library path set dynamically
 RUN ARCH=$(dpkg-architecture -qDEB_HOST_ARCH 2>/dev/null || echo 'amd64') && \
