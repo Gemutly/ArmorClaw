@@ -82,13 +82,13 @@ func TestCreateBackup(t *testing.T) {
 		encryptedKey[i] = byte(i)
 	}
 
-	err = bm.CreateBackup("user-123", phrase, encryptedKey)
+	_, err = bm.CreateBackup("user-123", phrase, encryptedKey)
 	if err != nil {
 		t.Fatalf("CreateBackup() error = %v", err)
 	}
 
 	disabled := NewBackupManager(store, false)
-	err = disabled.CreateBackup("user-123", phrase, encryptedKey)
+	_, err = disabled.CreateBackup("user-123", phrase, encryptedKey)
 	if err != ErrBackupDisabled {
 		t.Fatalf("expected ErrBackupDisabled, got %v", err)
 	}
@@ -106,7 +106,7 @@ func TestDeleteBackup(t *testing.T) {
 	phrase, _ := GenerateRecoveryPhrase()
 	encryptedKey := make([]byte, 32)
 
-	if err := bm.CreateBackup("user-del", phrase, encryptedKey); err != nil {
+	if _, err := bm.CreateBackup("user-del", phrase, encryptedKey); err != nil {
 		t.Fatalf("CreateBackup() error = %v", err)
 	}
 
@@ -148,7 +148,7 @@ func TestBackupExists(t *testing.T) {
 
 	phrase, _ := GenerateRecoveryPhrase()
 	encryptedKey := make([]byte, 32)
-	if err := bm.CreateBackup("user-ex", phrase, encryptedKey); err != nil {
+	if _, err := bm.CreateBackup("user-ex", phrase, encryptedKey); err != nil {
 		t.Fatalf("CreateBackup() error = %v", err)
 	}
 

@@ -120,6 +120,7 @@ KNOWN_METHODS=(
   "browser.navigate" "browser.fill" "browser.click" "browser.status"
   "browser.wait_for_element" "browser.wait_for_captcha" "browser.wait_for_2fa"
   "browser.complete" "browser.fail" "browser.list" "browser.cancel"
+  "browser.replay_diagnostics"
   "bridge.start" "bridge.stop" "bridge.status" "bridge.channel"
   "bridge.unchannel" "bridge.list" "bridge.ghost_list" "bridge.appservice_status"
   "pii.request" "pii.approve" "pii.deny" "pii.status" "pii.list_pending"
@@ -146,7 +147,9 @@ KNOWN_METHODS=(
   "device.list" "device.get" "device.approve" "device.reject"
   "invite.list" "invite.create" "invite.revoke" "invite.validate"
   "keystore.unseal" "keystore.sealed" "keystore.seal" "keystore.extend_session" "keystore.session_status" "keystore.list_keys" "keystore.delete_key"
-)
+  "e2ee.create_backup" "e2ee.delete_backup" "e2ee.backup_exists"
+  "voice.start_session" "voice.stop_session" "voice.status"
+ )
 
 RPC_METHODS_JSON="[]"
 METHODS_FOUND=0

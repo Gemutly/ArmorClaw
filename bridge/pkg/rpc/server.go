@@ -24,6 +24,7 @@ import (
 	"github.com/armorclaw/bridge/pkg/appservice"
 	"github.com/armorclaw/bridge/pkg/audit"
 	"github.com/armorclaw/bridge/pkg/browser"
+	"github.com/armorclaw/bridge/pkg/crypto"
 	"github.com/armorclaw/bridge/pkg/docker"
 	"github.com/armorclaw/bridge/pkg/eventbus"
 	"github.com/armorclaw/bridge/pkg/eventlog"
@@ -36,7 +37,14 @@ import (
 	"github.com/armorclaw/bridge/pkg/studio"
 	"github.com/armorclaw/bridge/pkg/translator"
 	"github.com/armorclaw/bridge/pkg/trust"
+	"github.com/armorclaw/bridge/pkg/voice"
+	"github.com/armorclaw/jetski/navchart"
 )
+
+// ReplayFeatureFlags holds feature toggles needed by browser replay RPC handlers.
+type ReplayFeatureFlags struct {
+	MultiTabReplay bool
+}
 
 const (
 	JSONRPCVersion   = "2.0"
@@ -140,6 +148,13 @@ type HealthCheckResponse struct {
 
 type HandlerFunc func(ctx context.Context, req *Request) (interface{}, *ErrorObj)
 
+type FeatureFlags struct {
+	ZeroTrustKeystore bool
+	VoicePipeline     string
+	MultiTabReplay    bool
+	E2EEBackup        bool
+}
+
 type Server struct {
 	keystore          Keystore
 	matrix            MatrixAdapter
@@ -178,6 +193,12 @@ type Server struct {
 	sealedKS          *keystore.SealedKeystore
 	keystoreLimiter   *keystore.RateLimiter
 	zeroTrustKS       bool
+	backupMgr         *crypto.BackupManager
+	e2eeBackupEnabled bool
+	voiceMgr          *voice.Manager
+	voicePipeline     string
+	replayFlags       ReplayFeatureFlags
+	navChartStore     *navchart.MultiTabStore
 }
 
 type Config struct {
@@ -210,6 +231,12 @@ type Config struct {
 	SealedKS         *keystore.SealedKeystore
 	KeystoreLimiter  *keystore.RateLimiter
 	ZeroTrustKS      bool
+	BackupMgr        *crypto.BackupManager
+	E2EEBackupEnabled bool
+	VoiceMgr         *voice.Manager
+	VoicePipeline    string
+	ReplayFlags      ReplayFeatureFlags
+	NavChartStore    *navchart.MultiTabStore
 }
 
 func New(cfg Config) (*Server, error) {
@@ -249,6 +276,12 @@ func New(cfg Config) (*Server, error) {
 		sealedKS:         cfg.SealedKS,
 		keystoreLimiter:  cfg.KeystoreLimiter,
 		zeroTrustKS:      cfg.ZeroTrustKS,
+		backupMgr:         cfg.BackupMgr,
+		e2eeBackupEnabled: cfg.E2EEBackupEnabled,
+		voiceMgr:          cfg.VoiceMgr,
+		voicePipeline:     cfg.VoicePipeline,
+		replayFlags:      cfg.ReplayFlags,
+		navChartStore:    cfg.NavChartStore,
 	}
 
 	s.piiRequestManager = keystore.NewPIIRequestManager(keystore.PIIRequestManagerConfig{
@@ -1043,6 +1076,83 @@ func (s *Server) handleKeystoreDeleteKey(ctx context.Context, req *Request) (int
 	return map[string]interface{}{"deleted": true}, nil
 }
 
+// voiceFeatureDisabled returns a standard -32601 error when the voice pipeline
+// feature flag is off.
+func voiceFeatureDisabled() *ErrorObj {
+	return &ErrorObj{Code: MethodNotFound, Message: "Feature disabled: voice_pipeline"}
+}
+
+func (s *Server) handleVoiceStartSession(ctx context.Context, req *Request) (interface{}, *ErrorObj) {
+	if s.voicePipeline != "cloud" {
+		return nil, voiceFeatureDisabled()
+	}
+
+	if s.voiceMgr == nil {
+		return nil, &ErrorObj{Code: InternalError, Message: "voice manager not configured"}
+	}
+
+	var params struct {
+		SessionConfig json.RawMessage `json:"session_config"`
+	}
+	_ = json.Unmarshal(req.Params, &params)
+
+	calls := s.voiceMgr.ListCalls()
+	sessionID := fmt.Sprintf("voice-%d", len(calls)+1)
+
+	return map[string]interface{}{"session_id": sessionID}, nil
+}
+
+func (s *Server) handleVoiceStopSession(ctx context.Context, req *Request) (interface{}, *ErrorObj) {
+	if s.voicePipeline != "cloud" {
+		return nil, voiceFeatureDisabled()
+	}
+
+	if s.voiceMgr == nil {
+		return nil, &ErrorObj{Code: InternalError, Message: "voice manager not configured"}
+	}
+
+	var params struct {
+		SessionID string `json:"session_id"`
+	}
+	if err := json.Unmarshal(req.Params, &params); err != nil {
+		return nil, &ErrorObj{Code: InvalidParams, Message: err.Error()}
+	}
+	if params.SessionID == "" {
+		return nil, &ErrorObj{Code: InvalidParams, Message: "session_id is required"}
+	}
+
+	if call, ok := s.voiceMgr.GetCall(params.SessionID); ok {
+		_ = s.voiceMgr.EndCall(call.ID, "rpc_stop_session")
+	}
+
+	return map[string]interface{}{"stopped": true}, nil
+}
+
+func (s *Server) handleVoiceStatus(ctx context.Context, req *Request) (interface{}, *ErrorObj) {
+	if s.voicePipeline != "cloud" {
+		return nil, voiceFeatureDisabled()
+	}
+
+	if s.voiceMgr == nil {
+		return nil, &ErrorObj{Code: InternalError, Message: "voice manager not configured"}
+	}
+
+	calls := s.voiceMgr.ListCalls()
+	sessions := make([]map[string]interface{}, 0, len(calls))
+	for _, c := range calls {
+		sessions = append(sessions, map[string]interface{}{
+			"id":     c.ID,
+			"room_id": c.RoomID,
+			"state":  c.State,
+		})
+	}
+
+	return map[string]interface{}{
+		"active":   len(calls) > 0,
+		"sessions": sessions,
+	}, nil
+}
+
 func (s *Server) registerHandlers() {
 	h := map[string]HandlerFunc{
 		"ai.chat":                    s.handleAIChat,
@@ -1057,6 +1167,7 @@ func (s *Server) registerHandlers() {
 		"browser.fail":               s.handleBrowserFail,
 		"browser.list":               s.handleBrowserList,
 		"browser.cancel":             s.handleBrowserCancel,
+		"browser.replay_diagnostics": s.handleBrowserReplayDiagnostics,
 		"bridge.start":               s.handleBridgeStart,
 		"bridge.stop":                s.handleBridgeStop,
 		"bridge.status":              s.handleBridgeStatus,
@@ -1147,6 +1258,12 @@ func (s *Server) registerHandlers() {
 		"keystore.session_status":    s.handleKeystoreSessionStatus,
 		"keystore.list_keys":         s.handleKeystoreListKeys,
 		"keystore.delete_key":        s.handleKeystoreDeleteKey,
+		"voice.start_session":        s.handleVoiceStartSession,
+		"voice.stop_session":         s.handleVoiceStopSession,
+		"voice.status":               s.handleVoiceStatus,
+		"e2ee.create_backup":         s.handleE2EECreateBackup,
+		"e2ee.delete_backup":         s.handleE2EEDeleteBackup,
+		"e2ee.backup_exists":         s.handleE2EEBackupExists,
 	}
 
 	s.handlers = h

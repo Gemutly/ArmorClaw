@@ -53,26 +53,26 @@ func (bm *BackupManager) checkEnabled() error {
 	return nil
 }
 
-func (bm *BackupManager) CreateBackup(userID string, recoveryPhrase []string, encryptedKey []byte) error {
+func (bm *BackupManager) CreateBackup(userID string, recoveryPhrase []string, encryptedKey []byte) (string, error) {
 	if err := bm.checkEnabled(); err != nil {
-		return err
+		return "", err
 	}
 
 	if userID == "" {
-		return ErrInvalidUserID
+		return "", ErrInvalidUserID
 	}
 	if len(recoveryPhrase) != 24 {
-		return ErrInvalidRecoveryLen
+		return "", ErrInvalidRecoveryLen
 	}
 	if len(encryptedKey) == 0 {
-		return ErrNoEncryptedKey
+		return "", ErrNoEncryptedKey
 	}
 
 	phraseBytes := []byte(strings.Join(recoveryPhrase, " "))
 
 	salt := make([]byte, argon2SaltLen)
 	if _, err := rand.Read(salt); err != nil {
-		return fmt.Errorf("failed to generate salt: %w", err)
+		return "", fmt.Errorf("failed to generate salt: %w", err)
 	}
 
 	derivedKey := argon2.IDKey(phraseBytes, salt, argon2Iterations, argon2Memory, argon2Parallelism, argon2KeyLen)
@@ -88,14 +88,14 @@ func (bm *BackupManager) CreateBackup(userID string, recoveryPhrase []string, en
 
 	data, err := json.Marshal(record)
 	if err != nil {
-		return fmt.Errorf("failed to marshal backup record: %w", err)
+		return "", fmt.Errorf("failed to marshal backup record: %w", err)
 	}
 
 	if err := bm.store.Store(backupID, data); err != nil {
-		return fmt.Errorf("failed to store backup: %w", err)
+		return "", fmt.Errorf("failed to store backup: %w", err)
 	}
 
-	return nil
+	return backupID, nil
 }
 
 func (bm *BackupManager) DeleteBackup(userID string, backupID string) error {

@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/armorclaw/bridge/pkg/browser"
+	"github.com/armorclaw/jetski/navchart"
 )
 
 // BrowserJob represents an active browser automation job
@@ -943,5 +944,89 @@ func (s *Server) handleBrowserCancel(ctx context.Context, req *Request) (interfa
 		"status":       "cancelled",
 		"cancelled_at": job.CompletedAt.Format(time.RFC3339),
 		"success":      true,
+	}, nil
+}
+
+// handleBrowserReplayDiagnostics compares the expected NavChart for a tab
+// against a replayed chart and returns a diff with match percentage.
+// Requires FeatureFlags.MultiTabReplay to be enabled.
+func (s *Server) handleBrowserReplayDiagnostics(ctx context.Context, req *Request) (interface{}, *ErrorObj) {
+	if !s.replayFlags.MultiTabReplay {
+		return nil, &ErrorObj{
+			Code:    MethodNotFound,
+			Message: "Feature disabled: multi_tab_replay",
+		}
+	}
+
+	var params struct {
+		TabID     string `json:"tab_id"`
+		SessionID string `json:"session_id,omitempty"`
+	}
+
+	if err := json.Unmarshal(req.Params, &params); err != nil {
+		return nil, &ErrorObj{
+			Code:    InvalidParams,
+			Message: "invalid parameters: " + err.Error(),
+		}
+	}
+
+	if params.TabID == "" {
+		return nil, &ErrorObj{
+			Code:    InvalidParams,
+			Message: "tab_id is required",
+		}
+	}
+
+	if s.navChartStore == nil {
+		return nil, &ErrorObj{
+			Code:    InternalError,
+			Message: "navchart store not configured",
+		}
+	}
+
+	_ = params.SessionID
+
+	charts, err := s.navChartStore.GetCharts(params.TabID)
+	if err != nil {
+		return nil, &ErrorObj{
+			Code:    InternalError,
+			Message: "failed to retrieve charts: " + err.Error(),
+		}
+	}
+	if len(charts) == 0 {
+		return nil, &ErrorObj{
+			Code:    InvalidParams,
+			Message: fmt.Sprintf("no stored charts for tab %q", params.TabID),
+		}
+	}
+
+	var diffs []navchart.ChartDiff
+	var matchPercentage float64
+
+	if len(charts) >= 2 {
+		expected := charts[len(charts)-2]
+		actual := charts[len(charts)-1]
+		diffs = navchart.DiffCharts(expected, actual)
+
+		matched := 0
+		for _, d := range diffs {
+			if d.Match {
+				matched++
+			}
+		}
+		if len(diffs) > 0 {
+			matchPercentage = float64(matched) / float64(len(diffs)) * 100.0
+		} else {
+			matchPercentage = 100.0
+		}
+	} else {
+		diffs = []navchart.ChartDiff{}
+		matchPercentage = 100.0
+	}
+
+	return map[string]interface{}{
+		"tab_id":           params.TabID,
+		"diffs":            diffs,
+		"match_percentage": matchPercentage,
 	}, nil
 }
