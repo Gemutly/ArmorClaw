@@ -681,6 +681,384 @@ Not yet implemented: `e2ee.restore_backup` (intentionally omitted for security; 
 
 ---
 
+## Client Applications (Detail)
+
+> This section supplements the per-component entries above. For RPC method signatures, see [bridge-reference.md](bridge-reference.md).
+
+### ArmorChat Workflow UI (v3)
+
+Three Jetpack Compose components give users real-time visibility into agent workflows and a human-in-the-loop mechanism for resolving blockers.
+
+**WorkflowTimeline** renders workflow events as a scrollable vertical timeline. Each row shows an emoji icon (mapped from Go bridge `stepIcon()` values), step name, optional detail line, and duration badge. A progress bar and live/paused/complete status indicator sit above the event list. The component consumes `WorkflowTimelineState` from a ViewModel/StateFlow pattern fed by Matrix `/sync` events.
+
+Key types: `WorkflowEvent` (seq, type, name, tsMs, detail, durationMs), `WorkflowTimelineState` (events, progress, isRunning, workflowName)
+
+**BlockerResponseDialog** is a modal for resolving workflow blockers. Sensitive fields (password, card, key, token, secret, cvv, pin, ssn) get password masking automatically. State machine with four states: INPUT, LOADING, ERROR, DISMISSED. On submit, calls `BridgeApi.resolveBlocker()` with (workflowId, stepId, input, note).
+
+Key types: `BlockerInfo` (blockerType, message, suggestion, field, workflowId, stepId), `BlockerDialogState` enum
+
+**GovernanceBanner** is a persistent compact banner mapping to Go `WorkflowStatus` values: IDLE (hidden), RUNNING (blue, pulsing dot), BLOCKED (amber, clickable), COMPLETED (green), FAILED (red), CANCELLED (grey).
+
+### ArmorChat Blocker Resolution RPC
+
+`BridgeApi.resolveBlocker()` sends a JSON-RPC call to the Bridge:
+
+```
+method: "resolve_blocker"
+params: { workflow_id, step_id, input, note? }
+returns: Result<Map<String, String>>
+```
+
+The input field is never logged or cached (PII safety). Sensitive values travel E2EE through the Bridge to the Orchestrator, which unblocks the workflow.
+
+### Admin Panel Detail
+
+| | |
+|---|---|
+| **Location** | `applications/admin-panel/` |
+| **Tech stack** | React 18, TypeScript, Vite, Tailwind CSS, TanStack React Query, React Router |
+| **Status** | In development (v0.7.0: API wiring complete) |
+
+**Key Pages:** AdminDashboard (system overview), DevicesPage (device trust), AdaptersPage (adapter config), APIKeysPage (provider keys), InvitationsPage (invite codes), AuditLogPage (security events), SecurityConfig (data categories, tiers), LoginPage.
+
+**Bridge Connection:** JSON-RPC 2.0 over HTTP proxied to `bridge.sock` via `/api/*`. Supports full lockdown lifecycle: claiming ownership, mode transitions (lockdown, bonding, configuring, hardening, operational), QR code generation. Typed React Query hooks (`useDashboardStats`, `useDevices`, `useAdapters`, `useInvitations`, `useAuditLogs`, `useApiKeys`) call real Bridge RPC endpoints.
+
+### ArmorTerminal Detail
+
+| | |
+|---|---|
+| **Location** | `applications/ArmorTerminal/` |
+| **Tech stack** | Android (Kotlin), traditional Android SDK, OkHttp, Retrofit |
+| **Min SDK** | 26 (Android 8.0) |
+| **Target SDK** | 34 |
+
+**Key Components:** BridgeDiscovery (mDNS/Bonjour with manual IP fallback), PairingViewModel (discovery, QR parsing, cert verification, device registration, approval polling), ResilientWebSocket (auto-reconnecting with exponential backoff), BridgeTrustStore (certificate pinning, trust-on-first-use), ConfigManager/SignedConfigParser (QR config parsing).
+
+**Bridge Connection:** Discovers bridges via mDNS (`NsdManager`) or manual IP. JSON-RPC over HTTP(S) for device registration, WebSocket for real-time approval status.
+
+### Setup Wizard Detail
+
+| | |
+|---|---|
+| **Location** | `applications/setup-wizard/` |
+| **Tech stack** | React 18, TypeScript, Vite, Tailwind CSS |
+
+**Key Components:** BridgeDiscovery (`src/components/BridgeDiscovery.tsx`), bridgeApi (`src/services/bridgeApi.ts`) focused on lockdown/security methods, bridgeDiscovery (`src/services/bridgeDiscovery.ts`) with mDNS + local IP range scanning.
+
+**Bridge Connection:** JSON-RPC 2.0 over HTTP, proxied to Bridge Unix socket via `/api/*`. Includes passphrase hashing (SHA-256 via Web Crypto API) and device fingerprint generation for ownership claim.
+
+### OpenClaw UI
+
+| | |
+|---|---|
+| **Location** | `container/openclaw-src/ui/` |
+| **Tech stack** | Canvas-host HTTP server, TypeScript, Vite, Vitest, Playwright |
+| **Status** | In development |
+
+The agent runtime control interface. Chat-based agent interaction, agent configuration, tool execution monitoring, channel integration management (Telegram, Discord, WhatsApp, Signal, Slack, iMessage, Nostr, Google Chat), usage metrics, session management, cron scheduling, i18n, dark/light themes, event log with filtering.
+
+**Agent Runtime Connection:** WebSocket via `GatewayBrowserClient` (`src/ui/gateway.ts`). Device identity auth using Ed25519 key pairs (`@noble/ed25519`), automatic token management, reconnection. Operates in "webchat" mode with operator-level scopes. Messages flow as typed frames: request/response for RPC, event frames for real-time updates with sequence gap detection.
+
+### Client Integration Topology
+
+```
+┌──────────────────┐     JSON-RPC/HTTP      ┌─────────────┐
+│   Admin Panel    │ ───────────────────────▶│             │
+│   Setup Wizard   │     (via /api/* proxy)  │             │
+└──────────────────┘                         │   Go Bridge │
+                                               │ (Control    │
+┌──────────────────┐     WebSocket           │  Plane)     │
+│  OpenClaw UI     │ ───────────────────────▶│             │
+│  (Agent Control) │   (Gateway protocol)    │             │
+└──────────────────┘                         └──────┬──────┘
+                                                      │
+┌──────────────────┐     Matrix E2EE               │
+│   ArmorChat      │ ──────────────────────────────│
+│   ArmorTerminal  │     (via Conduit homeserver)   │
+└──────────────────┘                                │
+                                                      ▼
+                                               ┌──────────┐
+                                               │  Agents  │
+                                               └──────────┘
+```
+
+| Application | Transport | Protocol | Authentication |
+|---|---|---|---|
+| Admin Panel | HTTP (proxied to Unix socket) | JSON-RPC 2.0 | Session token (ownership claim) |
+| Setup Wizard | HTTP (proxied to Unix socket) | JSON-RPC 2.0 | Lockdown challenge/response |
+| ArmorTerminal | HTTP(S) + WebSocket | JSON-RPC 2.0 + Matrix | Device registration + cert pinning |
+| OpenClaw UI | WebSocket | Gateway protocol (v3) | Ed25519 device identity + token |
+| ArmorChat | Matrix federation + Bridge HTTP RPC | Matrix + JSON-RPC | Matrix E2EE + biometric keystore |
+
+---
+
+## Communication Infrastructure
+
+> These are independent subsystems with zero cross-dependencies. Each solves a distinct communication problem. For RPC method details, see [bridge-reference.md](bridge-reference.md).
+
+| Subsystem | Package | Purpose |
+|-----------|---------|---------|
+| Push Notifications | `pkg/push/` | Mobile push via FCM, APNS, Web Push, Sygnal |
+| Single Sign-On | `pkg/sso/` | Enterprise SAML 2.0 and OIDC |
+| WebSocket Server | `pkg/websocket/` | Real-time event streaming to clients |
+| Event Bus | `pkg/eventbus/` | In-process pub/sub with optional durable log |
+| Stream Bus | `internal/events/` | High-throughput ring buffer for agent streaming |
+| Platform Adapters | `internal/adapter/` | Matrix and Slack message routing |
+| SDtW Adapters | `internal/sdtw/` | Discord, Teams, WhatsApp, Slack adapters |
+
+### Push Notifications (`pkg/push/`)
+
+The push subsystem delivers mobile and browser notifications. Centers on the `Gateway` type, which manages device registrations and routes to platform-specific providers.
+
+**Supported platforms:** FCM (Firebase Cloud Messaging), APNS (Apple Push Notification Service), Web Push (VAPID with ECDSA P-256 key pairs), Unified Push (constant defined, no provider implementation).
+
+**How it works:**
+
+1. Devices register via `RegisterDevice`, associating user ID, platform, and device token.
+2. Gateway maintains in-memory user-to-device map (read-write mutex protected).
+3. `SendToUser` fans out to all registered devices, selecting the correct provider per device.
+4. Each send includes configurable retries (default 3) with configurable delay (default 5s).
+5. Keeps last 1,000 `PushResult` entries for stats.
+
+**Matrix Sygnal integration:** `CreateMatrixPushNotification` converts a Matrix room event (room ID, event ID, sender, content) into per-device `Notification` structs. `SygnalURL` and `SygnalAPIKey` config fields allow delegating delivery to a Sygnal push gateway.
+
+**Provider interface:** Each provider implements `PushProvider` with `Send`, `ValidateToken`, and `Platform`. Token validation is platform-specific. `MockProvider` exists for testing.
+
+Key types: `Gateway`, `Notification`, `DeviceRegistration`, `PushResult`, `PushProvider` interface.
+
+### Single Sign-On (`pkg/sso/`)
+
+Enterprise authentication via SAML 2.0 and OpenID Connect. Managed by `SSOManager`, wrapping an `SSOProvider` implementation and a `StateStore` for OAuth state parameters.
+
+**Authentication flow:**
+
+1. `BeginAuth(redirect)` generates a cryptographic state parameter (10-minute TTL), returns the IdP authorization URL.
+2. IdP callback: `HandleCallback(ctx, code, state)` validates state (one-time use, then deleted).
+3. User attributes extracted and mapped to ArmorClaw roles via `RoleMapping` config. Unmapped users get "user" role.
+4. Resulting `SSOSession` stored in memory, validatable and refreshable.
+
+**SAML 2.0:** Loads IdP metadata from URL or file, builds `AuthnRequest` XML, decodes/validates base64 `SAMLResponse`, extracts `NameID` and assertion attributes. Supports Single Logout. Sessions cannot be natively refreshed.
+
+**OIDC:** Discovers endpoints from `/.well-known/openid-configuration`. Supports PKCE (S256 challenge), token exchange, userinfo retrieval, refresh tokens. Logout redirects to end-session endpoint.
+
+**Security:** State parameters are one-time use. Redirect URLs validated against dangerous schemes (`javascript:`, `data:`, `vbscript:`) and control characters. Issuer URLs must use HTTPS (except localhost). Client IDs length-limited.
+
+Key types: `SSOManager`, `SSOSession`, `SSOProvider` interface, `SAMLProvider`, `OIDCProvider`, `StateStore`.
+
+### WebSocket Server (`pkg/websocket/`)
+
+Updated in v0.7.0: now implements the `EventBroadcaster` interface, acting as adapter between EventBus and the HTTP server's `/ws` endpoint.
+
+The `Server` type accepts `Config` with address, path, allowed origins, max connections, inactivity timeout, and handler callbacks. `Broadcast` sends serialized events to all connected WebSocket clients.
+
+**EventBus-WebSocket wiring (v0.7.0):**
+
+```
+EventBus.PublishBridgeEvent()
+  → websocketServer.Broadcast(data)        // EventBroadcaster interface
+    → http.Server.BroadcastEvent()          // implements EventBroadcaster
+      → gorilla/websocket WriteJSON         // to each connected client
+```
+
+- `websocket.EventBroadcaster` avoids circular imports between `eventbus` and `http` packages
+- Wire-up in `bridge/cmd/bridge/main.go` via `eventBus.SetBroadcaster(httpsServer)` before `eventBus.Start()`
+- Crash-only `log.Fatalf` preserved: if broadcaster fails when WebSocket enabled, Bridge halts
+
+Key types: `Server`, `Config`, `EventBroadcaster` interface, `MessageHandler`, `ConnectHandler`, `DisconnectHandler`.
+
+### Event Bus Internals (`pkg/eventbus/`)
+
+The in-process pub/sub backbone for real-time Matrix event distribution.
+
+**Core mechanism:**
+
+1. Subscribers call `Subscribe(filter)`, receive a `Subscriber` with buffered channel (capacity 100).
+2. Publishers call `Publish(event)` with a `MatrixEvent`. Bus walks subscribers, checks filters (room ID, sender ID, event type), sends matching events to channels.
+3. Slow consumers: event dropped and logged. Bus never blocks publishers.
+4. Background goroutine cleans up subscribers inactive for 30+ minutes.
+5. Optional durable log (`eventlog.Log`) for replay/auditing.
+6. Optional WebSocket streaming via `EventBroadcaster` adapter (v0.7.0).
+
+**Filter model:** `EventFilter` has three optional fields: `RoomID`, `SenderID`, `EventType` (slice). Empty fields match everything. AND logic.
+
+**Bridge events:** `PublishBridgeEvent` handles non-Matrix events (agent, workflow, HITL, budget, platform, email). Events implement `BridgeEvent` interface (`EventType()`, `Timestamp()`, `ToJSON()`). Wrapped, serialized, broadcast via `EventBroadcaster` when enabled.
+
+**In-process handlers:** `RegisterBridgeHandler(eventType, handler)` registers callbacks dispatched in goroutines with panic recovery.
+
+**Error system:** Structured errors with domain, code, severity, message, source location, stack trace, context hints. Error codes by category:
+
+| Range | Category |
+|-------|----------|
+| E001-E099 | Publisher |
+| E101-E199 | Subscriber |
+| E201-E299 | WebSocket |
+| E301-E399 | Filter |
+
+Key types: `EventBus`, `Subscriber`, `EventFilter`, `MatrixEventWrapper`, `EventError`, `ErrorCode`, `ErrorDomain`.
+
+### Dual-Bus Architecture
+
+The Bridge runs two separate event buses with different delivery semantics. No shared code, state, or configuration.
+
+**Push Bus** (`pkg/eventbus`): fire-and-forget delivery. Events pushed to subscriber channels and WebSocket clients. Slow consumers: event dropped. No sequence numbers, no cursors, no replay. Used for vault events and email events where missing an update is acceptable.
+
+**Stream Bus** (`internal/events`): ring buffer with cursor-based polling. Monotonically increasing sequence numbers. `WaitForEvents(ctx, cursor)` tails the buffer, batch reads up to 128 events. Slow consumers can replay by re-requesting from earlier cursor. Used for Matrix sync, workflow progress, agent status, RPC long-poll (ArmorChat streaming).
+
+| Aspect | Push Bus | Stream Bus |
+|--------|----------|------------|
+| Delivery | Fire-and-forget to channels | Cursor-based polling from ring buffer |
+| Consumers | WebSocket clients, in-process handlers | Long-poll RPC, Matrix sync, workflow, agent status |
+| Ordering | None | Monotonic sequence numbers |
+| Replay | No | Yes, via cursor |
+| Backpressure | Drop on slow consumer | Skip slow channel subscribers, buffer readable |
+| Registration | `RegisterBridgeHandler(eventType, handler)` | `Subscribe()` returns channel, `GetEventsAfter(cursor)` |
+| Use cases | Vault events, email events | Matrix sync, workflow, agent status, RPC streaming |
+
+### Workflow Events (`pkg/secretary/`)
+
+The orchestrator events system defines workflow lifecycle events flowing through `MatrixEventBus`.
+
+**Core workflow events:**
+
+| Event Type | When Emitted |
+|------------|-------------|
+| `workflow.started` | Workflow begins execution |
+| `workflow.progress` | Step progress update |
+| `workflow.blocked` | Workflow hits a HITL blocker |
+| `workflow.completed` | Workflow finishes successfully |
+| `workflow.failed` | Workflow fails (may be recoverable) |
+| `workflow.cancelled` | Cancelled by user or system |
+
+**Step-level events (v3):** Derived from container `StepEvent` objects (read from `_events.jsonl`):
+
+| Event Type | When Emitted |
+|------------|-------------|
+| `workflow.step_progress` | Container emits step progress |
+| `workflow.step_error` | Container step fails |
+| `workflow.blocker_warning` | Container encounters blocker condition |
+
+**Event structure (shared `WorkflowEvent` struct):**
+
+```
+WorkflowID  string                 // Running workflow
+TemplateID  string                 // Spawned template (optional)
+Status      WorkflowStatus         // running, completed, failed, blocked, cancelled
+StepID      string                 // Current step (optional)
+StepName    string                 // Human-readable step name (optional)
+Progress    float64                // 0.0 to 1.0 (optional)
+Timestamp   int64                  // Unix milliseconds
+Error       string                 // Error message (optional)
+Recoverable bool                   // Whether failure is recoverable
+Reason      string                 // Blocker or cancellation reason (optional)
+Result      string                 // Completion result (optional)
+Duration    int64                  // Total duration in ms (optional)
+Metadata    map[string]interface{} // Extra context
+```
+
+**Step icon rendering** (`stepIcon()` in `notifications.go`):
+
+| Event Type | Icon |
+|-----------|------|
+| `step` | `🔹` |
+| `file_read` | `📄` |
+| `file_write` | `✏️` |
+| `file_delete` | `🗑️` |
+| `command_run` | `⌨️` |
+| `observation` | `💭` |
+| `blocker` | `🚧` |
+| `error` | `❌` |
+| `artifact` | `📦` |
+| `checkpoint` | `🏁` |
+
+`FormatTimelineMessage()` builds human-readable timelines from `ExtendedStepResult.Events`. `FormatBlockerMessage()` formats blocker lists into structured Matrix notifications.
+
+### Platform Adapters (`internal/adapter/`)
+
+**Matrix adapter (`matrix.go`):** The central adapter. Full Matrix client that syncs with homeserver, processes events, publishes to event bus. Handles login/token refresh, long polling via `/sync` with server-side sync filters, event queue, PII scrubbing via `pii.Scrubber`, zero-trust verification via `TrustVerifier`, audit logging, integration with `events.MatrixEventBus`.
+
+**processEvents() routing:**
+
+1. `m.room.message` events go through full trust/PII pipeline. Studio commands checked first via `StudioCommandHandler.HandleMatrixMessage()`. Otherwise, pushed to `eventQueue` and published to `MatrixEventBus`.
+2. Custom ArmorClaw event types routed by prefix: `workflow.*`, `agent.*`, `blocker.*` forwarded to `publishCustomEvent()`.
+
+**MatrixEventBus integration** (`internal/events/matrix_event_bus.go`): Ring buffer (default 1024 events), monotonic sequence numbers, non-blocking publish. `GetEventsAfter(cursor)` and `WaitForEvents(ctx, cursor)` for tailing by position, batch reads up to 128 events. `Subscribe()` returns buffered channel (capacity 100). Condition variable broadcast wakes polling consumers.
+
+**Slack adapter (`slack.go`):** Routes messages between Slack workspaces and Matrix rooms. Bot token auth (`xoxb-` tokens), Socket Mode for real-time (optional), channel monitoring/forwarding, user/channel caching, rate limiting, message queue integration.
+
+**Command handling:** `CommandHandler` processes `/` and `!` prefixed Matrix messages. Admin commands: `/claim_admin`, `/status`, `/verify`, `/approve`, `/reject`, `/help`. Agent commands: `!agent skills <agent_id>`, `!agent forget-skill <agent_id> <skill_id>` (require non-nil `LearnedStore`).
+
+### SDtW Adapters (`internal/sdtw/`)
+
+Uniform adapter interface for external messaging platforms. Each adapter implements `SDTWAdapter` and embeds `BaseAdapter`.
+
+**Adapter interface (`adapter.go`):**
+
+- **Lifecycle:** `Initialize`, `Start`, `Shutdown`
+- **Core:** `SendMessage`, `ReceiveEvent`
+- **Reactions:** `SendReaction`, `RemoveReaction`, `GetReactions`
+- **Mutation:** `EditMessage`, `DeleteMessage`, `GetMessageHistory`
+- **Health:** `HealthCheck`, `Metrics`
+
+Each adapter declares a `CapabilitySet` (read, write, media, reactions, threads, edit, delete, typing, read receipts). Messages carry HMAC-SHA256 signatures. `SignMessage` and `VerifySignature` handle signing and validation.
+
+| Adapter | Auth | Features |
+|---------|------|----------|
+| **Discord** (`discord.go`) | Bot token, Discord Gateway protocol | Rich embeds, message references, guild-scoped, edit/delete |
+| **WhatsApp** (`whatsapp.go`) | Access token + phone number ID (Business Cloud API) | Text/template/image/document/audio/video, token-bucket rate limiter |
+| **Teams** (`teams.go`) | Azure AD (client ID, client secret, tenant ID) | Webhook processing, OAuth token refresh, HMAC-SHA256 webhook verification |
+| **Slack** (`slack.go`) | Webhook-based | URL verification challenge for event subscriptions |
+
+### BroadcastStatus Events
+
+When agent state transitions occur, the Bridge publishes `com.armorclaw.agent.status` Matrix events.
+
+```json
+{
+  "status": "<new_status>",
+  "agent_id": "<agent_identifier>",
+  "previous": "<prior_status>",
+  "metadata": {
+    "workflow_id": "<optional_workflow>",
+    "step": "<optional_current_step>",
+    "inferred_from": "<signal_source>"
+  },
+  "timestamp": 1710000000000
+}
+```
+
+| `inferred_from` value | Meaning |
+|-----------------------|---------|
+| `cdp` | Chrome DevTools Protocol activity |
+| `workflow` | Workflow engine side-channel |
+| `command` | Explicit RPC call |
+
+**Routing:** `bridge/internal/adapter/matrix.go` handles all `com.armorclaw.` prefixed events via `publishCustomEvent()`. **Source:** `bridge/pkg/agent/integration.go:359-384`
+
+### Email Approval Events
+
+When an agent requests to send outbound email containing PII, the Bridge emits `app.armorclaw.email_approval_request` Matrix events, triggering HITL approval.
+
+```json
+{
+  "approval_id": "<unique_id>",
+  "email_id": "<email_reference>",
+  "to": "<recipient>",
+  "subject": "[masked]",
+  "pii_fields": ["body", "attachment_names"],
+  "timeout_s": 60,
+  "event_type": "EMAIL_APPROVAL_REQUEST"
+}
+```
+
+**Approval flow:** Agent requests email send via RPC. Bridge detects PII, emits approval request to user's Matrix room. ArmorChat renders `EmailApprovalCard`. User approves/denies via `approve_email` or `deny_email` RPC. If approved, Bridge sends. If denied or timed out, request discarded.
+
+| Component | File |
+|-----------|------|
+| RPC handlers | `bridge/pkg/rpc/email_approval.go` |
+| Android UI | `applications/ArmorChat/.../EmailApprovalCard.kt` |
+
+---
+
 ## Known Gaps (v1.0.0 Scope)
 
 - **BrowserBroker**: All browser ops route through BrowserBroker (15 methods) via JetskiBroker. Legacy browser-service available as temporary fallback via `ARMORCLAW_BROWSER_BACKEND=legacy`. NavChart pipeline supports single-tab replay. Multi-tab replay's `browser.replay_diagnostics` is implemented and gated by the `MultiTabReplay` feature flag.
