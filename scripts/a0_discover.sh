@@ -145,6 +145,7 @@ KNOWN_METHODS=(
   "task.create" "task.list" "task.cancel" "task.get"
   "device.list" "device.get" "device.approve" "device.reject"
   "invite.list" "invite.create" "invite.revoke" "invite.validate"
+  "keystore.unseal" "keystore.sealed" "keystore.seal" "keystore.extend_session" "keystore.session_status" "keystore.list_keys" "keystore.delete_key"
 )
 
 RPC_METHODS_JSON="[]"

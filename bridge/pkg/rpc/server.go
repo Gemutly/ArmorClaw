@@ -46,9 +46,10 @@ const (
 	MethodNotFound   = -32601
 	InvalidParams    = -32602
 	InternalError    = -32603
-	NotFoundError    = -32000
-	TooManyRequests  = -32001
-	RequestCancelled = -32002
+	NotFoundError       = -32000
+	TooManyRequests     = -32001
+	RequestCancelled    = -32002
+	KeystoreRateLimited = -32006
 )
 
 type BridgeManager interface {
@@ -174,6 +175,9 @@ type Server struct {
 	tlsInfoProvider   TLSInfoProvider
 	piiRequestManager *keystore.PIIRequestManager
 	e2eeEnabled       atomic.Bool
+	sealedKS          *keystore.SealedKeystore
+	keystoreLimiter   *keystore.RateLimiter
+	zeroTrustKS       bool
 }
 
 type Config struct {
@@ -203,6 +207,9 @@ type Config struct {
 	GovernanceRoomID string
 	Translator       *translator.RPCToMCPTranslator
 	SecretaryHandler secretaryRPCHandler
+	SealedKS         *keystore.SealedKeystore
+	KeystoreLimiter  *keystore.RateLimiter
+	ZeroTrustKS      bool
 }
 
 func New(cfg Config) (*Server, error) {
@@ -239,6 +246,9 @@ func New(cfg Config) (*Server, error) {
 		translator:       cfg.Translator,
 		secretaryHandler: cfg.SecretaryHandler,
 		governanceRoomID: cfg.GovernanceRoomID,
+		sealedKS:         cfg.SealedKS,
+		keystoreLimiter:  cfg.KeystoreLimiter,
+		zeroTrustKS:      cfg.ZeroTrustKS,
 	}
 
 	s.piiRequestManager = keystore.NewPIIRequestManager(keystore.PIIRequestManagerConfig{
@@ -870,6 +880,169 @@ func randomString(n int) string {
 	return string(b)
 }
 
+// keystoreFeatureDisabled returns a standard -32601 error when the zero-trust
+// keystore feature flag is off.
+func keystoreFeatureDisabled() *ErrorObj {
+	return &ErrorObj{Code: MethodNotFound, Message: "Feature disabled: zero_trust_keystore"}
+}
+
+// identityFromCtx extracts a rate-limiting identity string from the RPC context.
+// It mirrors resolveClientIdentity but works without *http.Request.
+func identityFromCtx(ctx context.Context) string {
+	if cred := PeerCredFromContext(ctx); cred != nil {
+		return "uid:" + itoa(int64(cred.UID))
+	}
+	return "rpc:unknown"
+}
+
+func (s *Server) handleKeystoreUnseal(ctx context.Context, req *Request) (interface{}, *ErrorObj) {
+	if !s.zeroTrustKS {
+		return nil, keystoreFeatureDisabled()
+	}
+
+	identity := identityFromCtx(ctx)
+	if s.keystoreLimiter != nil && s.keystoreLimiter.Exceeded(identity) {
+		return nil, &ErrorObj{Code: KeystoreRateLimited, Message: "rate limit exceeded"}
+	}
+
+	var params struct {
+		Password string `json:"password"`
+	}
+	if err := json.Unmarshal(req.Params, &params); err != nil {
+		return nil, &ErrorObj{Code: InvalidParams, Message: err.Error()}
+	}
+	if params.Password == "" {
+		return nil, &ErrorObj{Code: InvalidParams, Message: "password is required"}
+	}
+
+	if s.sealedKS == nil {
+		return nil, &ErrorObj{Code: InternalError, Message: "sealed keystore not configured"}
+	}
+
+	err := s.sealedKS.UnsealWithPassword(params.Password)
+	if s.keystoreLimiter != nil {
+		s.keystoreLimiter.Record(identity)
+	}
+	if err != nil {
+		if pue, ok := err.(*keystore.PasswordUnsealError); ok {
+			return nil, &ErrorObj{Code: pue.Code, Message: pue.Message}
+		}
+		return nil, &ErrorObj{Code: InternalError, Message: err.Error()}
+	}
+
+	return map[string]interface{}{"unsealed": true}, nil
+}
+
+func (s *Server) handleKeystoreSealed(ctx context.Context, req *Request) (interface{}, *ErrorObj) {
+	if !s.zeroTrustKS {
+		return nil, keystoreFeatureDisabled()
+	}
+
+	if s.sealedKS == nil {
+		return map[string]interface{}{"sealed": true}, nil
+	}
+
+	return map[string]interface{}{"sealed": !s.sealedKS.IsPasswordUnsealed()}, nil
+}
+
+func (s *Server) handleKeystoreSeal(ctx context.Context, req *Request) (interface{}, *ErrorObj) {
+	if !s.zeroTrustKS {
+		return nil, keystoreFeatureDisabled()
+	}
+
+	if s.sealedKS == nil {
+		return nil, &ErrorObj{Code: InternalError, Message: "sealed keystore not configured"}
+	}
+
+	s.sealedKS.SealPassword()
+	return map[string]interface{}{"sealed": true}, nil
+}
+
+func (s *Server) handleKeystoreExtendSession(ctx context.Context, req *Request) (interface{}, *ErrorObj) {
+	if !s.zeroTrustKS {
+		return nil, keystoreFeatureDisabled()
+	}
+
+	if s.sealedKS == nil {
+		return nil, &ErrorObj{Code: InternalError, Message: "sealed keystore not configured"}
+	}
+
+	if err := s.sealedKS.ExtendPasswordSession(); err != nil {
+		if pue, ok := err.(*keystore.PasswordUnsealError); ok {
+			return nil, &ErrorObj{Code: pue.Code, Message: pue.Message}
+		}
+		return nil, &ErrorObj{Code: InternalError, Message: err.Error()}
+	}
+
+	return map[string]interface{}{"extended": true}, nil
+}
+
+func (s *Server) handleKeystoreSessionStatus(ctx context.Context, req *Request) (interface{}, *ErrorObj) {
+	if !s.zeroTrustKS {
+		return nil, keystoreFeatureDisabled()
+	}
+
+	if s.sealedKS == nil {
+		return map[string]interface{}{"sealed": true, "remaining_seconds": float64(0), "last_activity_at": ""}, nil
+	}
+
+	status := s.sealedKS.SessionStatus()
+	return map[string]interface{}{
+		"sealed":           status.Sealed,
+		"remaining_seconds": status.RemainingSeconds,
+		"last_activity_at":  status.LastActivityAt.Format(time.RFC3339),
+	}, nil
+}
+
+func (s *Server) handleKeystoreListKeys(ctx context.Context, req *Request) (interface{}, *ErrorObj) {
+	if !s.zeroTrustKS {
+		return nil, keystoreFeatureDisabled()
+	}
+
+	if s.sealedKS == nil {
+		return nil, &ErrorObj{Code: InternalError, Message: "sealed keystore not configured"}
+	}
+
+	keys, err := s.sealedKS.ListKeys(ctx)
+	if err != nil {
+		if pue, ok := err.(*keystore.PasswordUnsealError); ok {
+			return nil, &ErrorObj{Code: pue.Code, Message: pue.Message}
+		}
+		return nil, &ErrorObj{Code: InternalError, Message: err.Error()}
+	}
+
+	return map[string]interface{}{"keys": keys}, nil
+}
+
+func (s *Server) handleKeystoreDeleteKey(ctx context.Context, req *Request) (interface{}, *ErrorObj) {
+	if !s.zeroTrustKS {
+		return nil, keystoreFeatureDisabled()
+	}
+
+	var params struct {
+		Name string `json:"name"`
+	}
+	if err := json.Unmarshal(req.Params, &params); err != nil {
+		return nil, &ErrorObj{Code: InvalidParams, Message: err.Error()}
+	}
+	if params.Name == "" {
+		return nil, &ErrorObj{Code: InvalidParams, Message: "name is required"}
+	}
+
+	if s.sealedKS == nil {
+		return nil, &ErrorObj{Code: InternalError, Message: "sealed keystore not configured"}
+	}
+
+	if err := s.sealedKS.DeleteKey(ctx, params.Name); err != nil {
+		if pue, ok := err.(*keystore.PasswordUnsealError); ok {
+			return nil, &ErrorObj{Code: pue.Code, Message: pue.Message}
+		}
+		return nil, &ErrorObj{Code: InternalError, Message: err.Error()}
+	}
+
+	return map[string]interface{}{"deleted": true}, nil
+}
+
 func (s *Server) registerHandlers() {
 	h := map[string]HandlerFunc{
 		"ai.chat":                    s.handleAIChat,
@@ -967,6 +1140,13 @@ func (s *Server) registerHandlers() {
 		"invite.validate":            s.handleInviteValidate,
 		"bridge.e2ee_enable":         s.handleE2EEEnable,
 		"bridge.e2ee_disable":        s.handleE2EEDisable,
+		"keystore.unseal":            s.handleKeystoreUnseal,
+		"keystore.sealed":            s.handleKeystoreSealed,
+		"keystore.seal":              s.handleKeystoreSeal,
+		"keystore.extend_session":    s.handleKeystoreExtendSession,
+		"keystore.session_status":    s.handleKeystoreSessionStatus,
+		"keystore.list_keys":         s.handleKeystoreListKeys,
+		"keystore.delete_key":        s.handleKeystoreDeleteKey,
 	}
 
 	s.handlers = h

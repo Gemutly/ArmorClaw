@@ -37,6 +37,7 @@ declare -A SUITE_MAP=(
   ["cross-event-truth"]="test-cross-event-truth.sh"
   ["tls-mode"]="test-tls-mode-integration.sh"
   ["tls-restart"]="test-tls-restart-safety.sh"
+  ["keystore-agent"]="test-keystore-agent.sh"
 )
 
 IFS=',' read -ra SUITE_LIST <<< "$SUITES"
