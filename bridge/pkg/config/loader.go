@@ -291,6 +291,20 @@ func applyEnvOverrides(cfg *Config) error {
 		cfg.HTTP.CertDir = v
 	}
 
+	// Feature flag overrides
+	if v := os.Getenv("ARMORCLAW_FEATURE_ZERO_TRUST_KEYSTORE"); v != "" {
+		cfg.Features.ZeroTrustKeystore = v == "true" || v == "1"
+	}
+	if v := os.Getenv("ARMORCLAW_FEATURE_VOICE_PIPELINE"); v != "" {
+		cfg.Features.VoicePipeline = v
+	}
+	if v := os.Getenv("ARMORCLAW_FEATURE_MULTI_TAB_REPLAY"); v != "" {
+		cfg.Features.MultiTabReplay = v == "true" || v == "1"
+	}
+	if v := os.Getenv("ARMORCLAW_FEATURE_E2EE_BACKUP"); v != "" {
+		cfg.Features.E2EEBackup = v == "true" || v == "1"
+	}
+
 	return nil
 }
 

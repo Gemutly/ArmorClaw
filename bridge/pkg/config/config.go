@@ -55,6 +55,22 @@ var (
 	ErrMissingValue  = errors.New("missing required configuration value")
 )
 
+// FeatureFlags holds runtime feature toggles for v1.0 phases.
+// All flags default to false/off unless explicitly enabled via config or env var.
+type FeatureFlags struct {
+	// ZeroTrustKeystore enables zero-trust keystore validation
+	ZeroTrustKeystore bool `toml:"feature_zero_trust_keystore" env:"ARMORCLAW_FEATURE_ZERO_TRUST_KEYSTORE"`
+
+	// VoicePipeline controls voice processing: "cloud" or "off"
+	VoicePipeline string `toml:"feature_voice_pipeline" env:"ARMORCLAW_FEATURE_VOICE_PIPELINE"`
+
+	// MultiTabReplay enables multi-tab browser replay capability
+	MultiTabReplay bool `toml:"feature_multi_tab_replay" env:"ARMORCLAW_FEATURE_MULTI_TAB_REPLAY"`
+
+	// E2EEBackup enables end-to-end encrypted backup
+	E2EEBackup bool `toml:"feature_e2ee_backup" env:"ARMORCLAW_FEATURE_E2EE_BACKUP"`
+}
+
 // BudgetConfig holds budget-related configuration
 type BudgetConfig struct {
 	// DailyLimitUSD is the maximum daily spend in USD (0 = no limit)
@@ -125,6 +141,9 @@ type Config struct {
 
 	// Java sidecar configuration (legacy .doc/.ppt extraction)
 	SidecarJava SidecarJavaConfig `toml:"sidecar_java"`
+
+	// Feature flags for v1.0 phases
+	Features FeatureFlags `toml:"features"`
 }
 
 // ServerConfig holds server-specific configuration
@@ -1062,6 +1081,12 @@ func DefaultConfig() *Config {
 			V6AuditMode:   false,
 			SocketPath:    "/run/armorclaw/vault/keystore.sock",
 		},
+		Features: FeatureFlags{
+			ZeroTrustKeystore: false,
+			VoicePipeline:     "off",
+			MultiTabReplay:    false,
+			E2EEBackup:        false,
+		},
 	}
 }
 
@@ -1202,6 +1227,10 @@ func (c *Config) Validate() error {
 		return fmt.Errorf("%w: budget.alert_threshold must be between 0 and 100", ErrInvalidConfig)
 	}
 
+	if err := c.Features.Validate(); err != nil {
+		return err
+	}
+
 	return nil
 }
 
@@ -1252,6 +1281,28 @@ func (c *Config) IsMatrixEnabled() bool {
 
 func (c *Config) IsE2EEEnabled() bool {
 	return c.Matrix.E2EE.Enabled
+}
+
+func (c *Config) IsFeatureEnabled(flagName string) bool {
+	switch flagName {
+	case "zero_trust_keystore":
+		return c.Features.ZeroTrustKeystore
+	case "voice_pipeline":
+		return c.Features.VoicePipeline == "cloud"
+	case "multi_tab_replay":
+		return c.Features.MultiTabReplay
+	case "e2ee_backup":
+		return c.Features.E2EEBackup
+	default:
+		return false
+	}
+}
+
+func (c *FeatureFlags) Validate() error {
+	if c.VoicePipeline != "" && c.VoicePipeline != "cloud" && c.VoicePipeline != "off" {
+		return fmt.Errorf("%w: features.voice_pipeline must be 'cloud' or 'off', got '%s'", ErrInvalidConfig, c.VoicePipeline)
+	}
+	return nil
 }
 
 // GetSyncInterval returns the Matrix sync interval as a Duration
