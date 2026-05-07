@@ -4,7 +4,7 @@
 
 ## Current State
 
-The voice stack has a complete infrastructure layer (WebRTC, budget enforcement, security policies, TURN traversal) but **zero concrete speech providers**. STT, TTS, and VAD services define interfaces only. No AI provider backends exist. The voice manager initialization is commented out in `bridge/cmd/bridge/main.go`.
+The voice stack has a complete infrastructure layer (WebRTC, budget enforcement, security policies, TURN traversal) with a working voice manager gated behind the `VoicePipeline` feature flag. When enabled (`feature_voice_pipeline = "cloud"` in config or `ARMORCLAW_FEATURE_VOICE_PIPELINE=cloud` env var), the voice manager initializes and 3 RPC methods (`voice.start_session`, `voice.stop_session`, `voice.status`) become available. STT, TTS, and VAD services still define interfaces only — no AI provider backends exist yet.
 
 ### What Exists
 
@@ -18,7 +18,9 @@ The voice stack has a complete infrastructure layer (WebRTC, budget enforcement,
 | TTL Manager | Implemented | `bridge/pkg/voice/security.go` |
 | Security Audit | Implemented | `bridge/pkg/voice/security.go` |
 | Matrix Call Signaling | Implemented (unwired) | `bridge/pkg/voice/matrix.go` |
-| Voice Manager | Implemented (commented out) | `bridge/pkg/voice/manager.go` |
+| Voice Manager | Implemented, gated by feature flag | `bridge/pkg/voice/manager.go` |
+| Voice Manager Wiring | Wired in `main.go:1988-2103` | `bridge/cmd/bridge/main.go` |
+| Voice RPC Handlers | 3 methods, flag-gated | `bridge/pkg/rpc/server.go` |
 
 ### What Is Missing
 
@@ -28,25 +30,32 @@ The voice stack has a complete infrastructure layer (WebRTC, budget enforcement,
 | TTS Provider | Interface only | `voice.Synthesizer` has no implementation |
 | VAD Provider | Interface only | `voice.SpeechDetector` has no implementation |
 | Audio Pipeline | Not implemented | No PCM routing between WebRTC and agent |
-| Voice Manager Wiring | Commented out | `main.go` lines 1988-2103 |
 
 ### Runtime Reality
 
-The voice import and all initialization code in `main.go` is wrapped in a block comment:
+The voice manager initialization in `main.go` (lines 1988–2103) is gated by the `VoicePipeline` feature flag. When `feature_voice_pipeline = "cloud"` is set in config (or `ARMORCLAW_FEATURE_VOICE_PIPELINE=cloud` env var), the full initialization runs:
 
 ```go
-// TODO: Voice package needs refactoring - uncomment when fixed
-// "github.com/armorclaw/bridge/pkg/voice"
-
-/*
-    voiceConfig := voice.DefaultConfig()
-    ...
-    voiceMgr := voice.NewManager(...)
+var voiceMgr *voice.Manager
+if cfg.IsFeatureEnabled("voice_pipeline") {
+    log.Println("Initializing voice manager (VoicePipeline=cloud)...")
+    securityPolicy := voice.DefaultSecurityPolicy()
+    budgetConfig := voice.DefaultConfig()
+    // ... configure security, budget, TTL from config ...
+    voiceMgr = voice.NewManager(sessionMgr, tokenMgr, webrtcEngine, turnMgr, mgrConfig)
     if err := voiceMgr.Start(); err != nil { ... }
-*/
+}
 ```
 
-Even if uncommented, the voice manager sets its internal `voiceMgr` field to `nil`, so Matrix call signaling would not function.
+The feature flags are wired from config to the RPC server via `main.go` (after the `rpcCfg` setup):
+
+```go
+rpcCfg.ZeroTrustKS = cfg.Features.ZeroTrustKeystore
+rpcCfg.VoicePipeline = cfg.Features.VoicePipeline
+rpcCfg.ReplayFlags = rpc.ReplayFeatureFlags{MultiTabReplay: cfg.Features.MultiTabReplay}
+```
+
+When the flag is off (default `VoicePipeline = "off"`), voice RPC methods return `-32601: Feature disabled: voice_pipeline`. When enabled but the voice manager fails to start, methods return `-32603: voice manager not configured`.
 
 ### Interface Discrepancy
 

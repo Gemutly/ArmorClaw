@@ -181,7 +181,7 @@ The enforcement layer sits between the Bridge's business logic and the license c
 
 | Setting | Default | Description |
 |---------|---------|-------------|
-| `GracePeriodDuration` | `7 days` | Time after expiry before hard block |
+| `GracePeriodDuration` | `3 days` | Time after expiry before hard block |
 | `PollInterval` | `24 hours` | How often to revalidate |
 | `AlertThresholds` | `[30, 14, 7, 1]` | Days before expiry to send alerts |
 | `BlockOnExpired` | `true` | Block all ops when fully expired |

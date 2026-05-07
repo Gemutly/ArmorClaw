@@ -54,7 +54,7 @@ ArmorClaw is a VPS-based agent platform. AI agents run 24/7 on your server, brow
 | Location | `bridge/` |
 | Status | Production Ready |
 | Packages | 68 (`bridge/pkg/`) |
-| RPC Methods | 95–109 (feature-flag dependent) |
+| RPC Methods | 95–108 (feature-flag dependent) |
 | Binaries | 5 (`cmd/bridge`, `cmd/bootstrap-admin`, `cmd/gen-models`, `cmd/migrate-templates`, `cmd/mta-recv`) |
 
 The Bridge is the central orchestrator. Everything passes through it.
@@ -77,7 +77,7 @@ The Bridge is the central orchestrator. Everything passes through it.
 
 | Package | Purpose |
 |---------|---------|
-| `pkg/rpc/` | JSON-RPC server, 95–109 method handlers (feature-flag dependent) |
+| `pkg/rpc/` | JSON-RPC server, 95–108 method handlers (feature-flag dependent) |
 | `pkg/matrix/` | Matrix client, appservice, E2EE crypto |
 | `pkg/eventbus/` | Pub/sub event streaming to WebSocket clients |
 | `pkg/secretary/` | Workflow engine, event reader, step executor |
@@ -95,7 +95,7 @@ The Bridge is the central orchestrator. Everything passes through it.
 
 **Feature Flags (v1.0.0):**
 
-The Bridge exposes RPC methods conditionally based on feature flags in `/etc/armorclaw/config.toml`. With all flags off, the baseline is 95 methods. Each flag adds methods to the discovery surface.
+The Bridge exposes RPC methods conditionally based on feature flags in `/etc/armorclaw/config.toml` (or equivalent env vars `ARMORCLAW_FEATURE_*`). Flags are parsed by `bridge/pkg/config/config.go` into a `FeatureFlags` struct, then wired to the RPC server's `Config` in `main.go`. With all flags off, the baseline is 95 methods. Each flag adds methods to the discovery surface.
 
 | Configuration | Methods | Flags Enabled |
 |---|---|---|
@@ -103,9 +103,11 @@ The Bridge exposes RPC methods conditionally based on feature flags in `/etc/arm
 | Zero-Trust Keystore | 102 | ZeroTrustKeystore |
 | + Voice Pipeline | 105 | ZeroTrustKeystore + VoicePipeline |
 | + E2EE Backup | 108 | ZeroTrustKeystore + VoicePipeline + E2EEBackup |
-| + Multi-Tab Replay | 109 | All flags on |
+| + Multi-Tab Replay | 108 | All flags on (gates `browser.replay_diagnostics` at handler level, does not add new method) |
 
 Flag-dependent methods return error code `-32601` (method not found) when their flag is disabled. The `a0_discover.sh` contract discovery pipeline counts responding methods to detect which flags are active.
+
+**E2EEBackup wiring:** When `feature_e2ee_backup = true`, main.go (lines 2592-2603) creates a BackupStore at `{keystore_dir}/backups` and wires a BackupManager to the RPC server. If the store init fails (e.g. directory not writable), the feature is gracefully disabled and the backup methods return `-32601`.
 
 **Zero-Trust Keystore (v1.0.0):**
 
@@ -116,6 +118,8 @@ The keystore (`pkg/keystore/`) now supports password-gated unseal alongside the 
 - **Rate limiting** on unseal attempts (5 failures within 60 seconds triggers a 30-second lockout). Tracked per-connection.
 - **Memory zeroization** of password material immediately after Argon2id verification completes.
 - **Audit logging** for all seal/unseal events, session extensions, and key deletions.
+
+**Known gap:** `rpcCfg.SealedKS` is not initialized in main.go. The `ZeroTrustKeystore` flag enables the RPC surface (7 methods), but they all return "sealed keystore not configured" because no `NewSealedKeystore()` call exists yet.
 
 **RPC method groups:**
 
@@ -135,11 +139,10 @@ The keystore (`pkg/keystore/`) now supports password-gated unseal alongside the 
 | `events.*` | 2 | Event replay and streaming |
 | `email.*` | 3 | Email approval status and pending list |
 | `studio.*` | 2 | Agent studio deploy and stats |
-| `e2ee.*` | 2 | E2EE enable/disable toggle |
+| `e2ee.*` | 2 (baseline) | E2EE enable/disable toggle (`e2ee_enable`, `e2ee_disable`). When `E2EEBackup=true`, adds 3 more: `create_backup`, `delete_backup`, `backup_exists` (total 5) |
 | `provisioning.*` | 2 | QR provisioning start and claim |
 | `keystore.*` | 7 | Zero-trust keystore: unseal, sealed, seal, extend_session, session_status, list_keys, delete_key |
 | `voice.*` | 3 | Voice session management: start_session, stop_session, status |
-| `e2ee.*` | 5 | E2EE toggle (2) + backup management: create_backup, delete_backup, backup_exists |
 | other | 5 | Health, heartbeat, key storage, AI chat, blocker, account |
 
 ---
@@ -649,7 +652,7 @@ Matrix E2EE is implemented in the Bridge (`bridge/pkg/crypto/`) using mautrix-go
 - Cross-signing bootstrap
 - Kill switch: `matrix.e2ee.enabled` defaults to false
 
-Not yet implemented: key backup/restore (out of scope for current version).
+Not yet implemented: `e2ee.restore_backup` (intentionally omitted for security; restore must go through manual device verification).
 
 ---
 
@@ -680,7 +683,7 @@ Not yet implemented: key backup/restore (out of scope for current version).
 
 ## Known Gaps (v1.0.0 Scope)
 
-- **BrowserBroker**: All browser ops route through BrowserBroker (15 methods) via JetskiBroker. Legacy browser-service available as temporary fallback via `ARMORCLAW_BROWSER_BACKEND=legacy`. NavChart pipeline supports single-tab replay only. Multi-tab replay and replay diagnostics are stretch goals not yet implemented.
-- **Matrix E2EE**: Key backup/restore not yet implemented.
-- **Voice**: Voice RPC methods (start_session, stop_session, status) are available when the VoicePipeline flag is enabled, but `pkg/webrtc/` remains partial. STT/TTS/VAD providers are not integrated. Voice sessions route through OpenAI cloud, not through the local WebRTC stack.
+- **BrowserBroker**: All browser ops route through BrowserBroker (15 methods) via JetskiBroker. Legacy browser-service available as temporary fallback via `ARMORCLAW_BROWSER_BACKEND=legacy`. NavChart pipeline supports single-tab replay. Multi-tab replay's `browser.replay_diagnostics` is implemented and gated by the `MultiTabReplay` feature flag.
+- **Matrix E2EE**: Key backup is implemented and wired in main.go (lines 2592-2603) when `feature_e2ee_backup = true`, using BackupStore + BackupManager. The `e2ee.restore_backup` method is intentionally not implemented (security constraint: restore must go through manual device verification, not automated RPC).
+- **Voice**: Voice manager initializes when `VoicePipeline` flag is enabled (`feature_voice_pipeline = "cloud"` in config). RPC methods (`voice.start_session`, `voice.stop_session`, `voice.status`) are flag-gated and return `-32601` when off, `-32603` when manager fails to start. STT/TTS/VAD providers remain interface-only — no AI provider backends exist yet. Voice sessions route through OpenAI cloud, not through the local WebRTC stack.
 - **Azure Blob**: Re-enabled with rustls in v0.9.0, no native-tls/openssl dependency.

@@ -515,7 +515,7 @@ The `contract_manifest.json` is the central output of the discovery pipeline. Al
 
 ### Method List
 
-The bridge registers 95–109 RPC methods (feature-flag dependent) in `bridge/pkg/rpc/server.go` → `registerHandlers()`. Discovery probes each one with empty params `{}`. Baseline is 95 methods with all flags off; maximum is 109 with all flags enabled.
+The bridge registers 95–108 RPC methods (feature-flag dependent) in `bridge/pkg/rpc/server.go` → `registerHandlers()`. Discovery probes each one with empty params `{}`. Baseline is 95 methods with all flags off; maximum is 108 with all flags enabled.
 
 ### Method Categories
 
@@ -575,7 +575,7 @@ The Bridge RPC method count is no longer fixed. With v1.0.0, feature flags contr
 | Zero-Trust Keystore | 102 | ZeroTrustKeystore |
 | + Voice Pipeline | 105 | ZeroTrustKeystore + VoicePipeline |
 | + E2EE Backup | 108 | ZeroTrustKeystore + VoicePipeline + E2EEBackup |
-| + Multi-Tab Replay | 109 | All flags on |
+| + Multi-Tab Replay | 108 | All flags on |
 
 ### How Discovery Adapts
 
@@ -592,7 +592,7 @@ echo "Total methods discovered: $TOTAL"
 echo "Responding methods: $RESPONDING"
 ```
 
-If the count is 95, no flags are enabled. If 102, only ZeroTrustKeystore is on. If 109, all flags are active.
+If the count is 95, no flags are enabled. If 102, only ZeroTrustKeystore is on. If 108, all flags are active.
 
 ### Flag-Dependent Test Behavior
 

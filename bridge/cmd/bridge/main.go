@@ -28,6 +28,7 @@ import (
 	"github.com/armorclaw/bridge/internal/wizard"
 	"github.com/armorclaw/bridge/pkg/budget"
 	"github.com/armorclaw/bridge/pkg/config"
+	"github.com/armorclaw/bridge/pkg/crypto"
 	"github.com/armorclaw/bridge/pkg/discovery"
 	"github.com/armorclaw/bridge/pkg/docker"
 	"github.com/armorclaw/bridge/pkg/errors"
@@ -2587,6 +2588,18 @@ func runBridgeServer(cliCfg cliConfig) {
 	rpcCfg.VoicePipeline = cfg.Features.VoicePipeline
 	rpcCfg.ReplayFlags = rpc.ReplayFeatureFlags{
 		MultiTabReplay: cfg.Features.MultiTabReplay,
+	}
+	rpcCfg.E2EEBackupEnabled = cfg.Features.E2EEBackup
+
+	if cfg.Features.E2EEBackup {
+		backupVaultPath := filepath.Join(filepath.Dir(cfg.Keystore.DBPath), "backups")
+		backupStore, err := crypto.NewBackupStore(backupVaultPath)
+		if err != nil {
+			log.Printf("Warning: E2EE backup store init failed (%v), feature disabled", err)
+			rpcCfg.E2EEBackupEnabled = false
+		} else {
+			rpcCfg.BackupMgr = crypto.NewBackupManager(backupStore, true)
+		}
 	}
 
 	if rolodexStore != nil && workflowOrchestrator != nil {

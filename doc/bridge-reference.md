@@ -10,7 +10,7 @@ This document covers the public API surface, internal architecture, and key subs
 
 1. [Binaries](#binaries)
 2. [Package Map (68 packages)](#package-map)
-3. [RPC API (95–109 methods)](#rpc-api)
+3. [RPC API (95–108 methods)](#rpc-api)
 4. [Agent State Machine](#agent-state-machine)
 5. [Event Flow](#event-flow)
 6. [Internal Packages (17 packages)](#internal-packages)
@@ -215,9 +215,9 @@ Generates `docs/reference/models.md` from the provider registry. Optional Catwal
 
 ## RPC API
 
-95–109 RPC Methods (v1.0.0), registered in `bridge/pkg/rpc/server.go` `registerHandlers()`. Protocol: JSON-RPC 2.0 over Unix domain socket (Native mode) or TCP (Sentinel/Cloudflare mode).
+95–108 RPC Methods (v1.0.0), registered in `bridge/pkg/rpc/server.go` `registerHandlers()`. Protocol: JSON-RPC 2.0 over Unix domain socket (Native mode) or TCP (Sentinel/Cloudflare mode).
 
-The method count varies by feature flags. Baseline: 95 methods with all flags off. Maximum: 109 with all flags enabled. Flag-dependent methods return error code `-32601` when their flag is disabled.
+The method count varies by feature flags. Baseline: 95 methods with all flags off. Maximum: 108 with all flags enabled. Flag-dependent methods return error code `-32601` when their flag is disabled. Note: `browser.replay_diagnostics` is always registered but gated at handler level by `MultiTabReplay` — it does not add a new method when enabled.
 
 | Flag | Additional Methods |
 |------|-------------------|

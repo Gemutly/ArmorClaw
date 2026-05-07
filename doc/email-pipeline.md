@@ -41,7 +41,7 @@ External Email → Postfix (Port 25/STARTTLS)
 | `bridge/pkg/secretary/bridge_local_registry.go` | Bridge-local execution handler registry |
 | `bridge/pkg/rpc/email_approval.go` | RPC handlers for approve_email and deny_email |
 | `bridge/cmd/mta-recv/` | Postfix pipe handler binary |
-| `deploy/postfix/` | Postfix config, install script, verify script *(planned — not yet implemented)* |
+| `deploy/postfix/` | Postfix config, install script, verify script |
 
 ## Configuration
 
@@ -54,7 +54,7 @@ External Email → Postfix (Port 25/STARTTLS)
 
 ### Postfix Config
 
-See `deploy/postfix/main.cf` *(planned — not yet implemented)* for full configuration. Key settings:
+See `deploy/postfix/main.cf` for full configuration. Key settings:
 - `inet_interfaces = all` — accept external connections
 - `smtpd_tls_security_level = may` — STARTTLS enabled
 - `transport_maps = hash:/etc/postfix/transport` — route to armorclaw pipe
@@ -70,7 +70,7 @@ cd bridge && go test ./pkg/email/... -v
 cd bridge && go test ./pkg/pii/... -v
 
 # Verify Postfix setup (requires Postfix installed)
-bash deploy/postfix/verify-setup.sh  # planned — not yet implemented
+bash deploy/postfix/verify-setup.sh
 ```
 
 ## File Paths
@@ -104,32 +104,33 @@ The `EmailApprovalManager` provides human-in-the-loop approval for outbound emai
 ```go
 type EmailApprovalManager struct {
     mu              sync.RWMutex
-    pendingRequests map[string]chan ApprovalDecision
+    pending         map[string]*pendingApproval
     config          EmailApprovalConfig
 }
 
 type EmailApprovalConfig struct {
     ApprovalTimeout time.Duration
-    Logger          *zap.Logger
-    MessageSender   MatrixMessageSender
+    Logger          *logger.Logger
+    SendMatrixEvent func(roomID, eventType, body string) error
 }
 
 type ApprovalDecision struct {
-    Approved     bool
-    ApproverID   string
-    Timestamp    time.Time
-    DenialReason string
+    Approved      bool
+    ApprovedBy    string
+    ApprovedAt    time.Time
+    DeniedFields  []string
+    ApprovalID    string
 }
 ```
 
 ### Approval Flow
 
-1. `RequestApproval(emailID string, email *EmailContent) error`
-   - Registers a pending request in `pendingRequests` map
+1. `RequestApproval(ctx context.Context, req *OutboundRequest)`
+   - Registers a pending request in `pending` map
    - Sends `app.armorclaw.email_approval_request` Matrix event to ArmorChat
-   - Blocks on a buffered channel until response or timeout
+   - Blocks until response or timeout
 
-2. `HandleApprovalResponse(emailID string, approved bool, approverID string, reason string)`
+2. `HandleApprovalResponse(approvalID string, approved bool, approvedBy string) error`
    - Delivers user response from ArmorChat via RPC
    - Sends decision through the pending request channel
    - Unblocks the outbound executor to proceed or abort
@@ -140,7 +141,7 @@ type ApprovalDecision struct {
 
 ### Concurrency & Safety
 
-- Thread-safe with `sync.RWMutex` protecting the `pendingRequests` map
+- Thread-safe with `sync.RWMutex` protecting the `pending` map
 - Nil-guard on logger in timeout path prevents panics
 - Default timeout: 300 seconds (configurable via `EmailApprovalConfig`)
 
@@ -172,21 +173,21 @@ The `EmailReceivedEvent` represents a processed inbound email after YARA scannin
 ```go
 type EmailReceivedEvent struct {
     From         string
-    To           []string
+    To           string
     Subject      string
     BodyMasked   string
     FileIDs      []string
     PIIFields    []string
     EmailID      string
-    Attachments []AttachmentMetadata
-    Timestamp    time.Time
+    Attachments  []EmailAttachment
 }
 
-type AttachmentMetadata struct {
-    FileID      string
+type EmailAttachment struct {
     Filename    string
-    SizeBytes   int64
     ContentType string
+    Size        int64
+    ContentID   string
+    FileID      string
 }
 ```
 
@@ -230,13 +231,13 @@ Both methods call `EmailApprovalManager.HandleApprovalResponse()`:
 ```go
 func (s *BridgeRPCServer) approve_email(params json.RawMessage) (interface{}, error) {
     // Parse email_id, approver_id
-    // Call approvalManager.HandleApprovalResponse(emailID, true, approverID, "")
+    // Call approvalManager.HandleApprovalResponse(emailID, true, approverID)
     // Return success response
 }
 
 func (s *BridgeRPCServer) deny_email(params json.RawMessage) (interface{}, error) {
-    // Parse email_id, approver_id, reason
-    // Call approvalManager.HandleApprovalResponse(emailID, false, approverID, reason)
+    // Parse email_id, approver_id
+    // Call approvalManager.HandleApprovalResponse(emailID, false, approverID)
     // Return success response
 }
 ```
@@ -298,13 +299,22 @@ OAuth2 tokens for Gmail and Outlook are stored securely in the SQLCipher keystor
 ### Token Structure
 
 ```go
-type OAuthToken struct {
-    Provider      string  // "gmail" or "outlook"
-    AccessToken   string
-    RefreshToken  string
-    Expiry        time.Time
-    EmailAddress  string
-    EncryptedAt   time.Time
+type OAuthTokenRecord struct {
+    ID                 string
+    Provider           string    // "gmail" or "outlook"
+    AccountEmail       string
+    RefreshToken_encrypted string
+    Scopes             []string
+    CreatedAt          time.Time
+    LastRefreshedAt    time.Time
+    Status             string
+}
+
+type OAuthTokenInfo struct {
+    Provider     string
+    AccountEmail string
+    Scopes       []string
+    Status       string
 }
 ```
 
