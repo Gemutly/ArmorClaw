@@ -31,6 +31,9 @@ type Manager struct {
 	ttlManager  *TTLManager
 	securityAudit *SecurityAudit
 
+	// PCM audio routing
+	pcmRouters sync.Map // map[callID]*PCMRouter
+
 	// State
 	calls       sync.Map // map[callID]*MatrixCall
 	activeCount int
@@ -441,6 +444,9 @@ func (m *Manager) GenerateReport() *SecurityReport {
 
 // cleanupCall removes a call from tracking
 func (m *Manager) cleanupCall(callID string) {
+	if router, ok := m.pcmRouters.LoadAndDelete(callID); ok {
+		router.(*PCMRouter).Close()
+	}
 	m.calls.Delete(callID)
 	m.activeCount--
 }
@@ -502,4 +508,33 @@ func (m *Manager) ValidateCallToken(token *webrtc.Token) (*webrtc.TokenClaims, e
 func (m *Manager) SetTURNManager(turnMgr *turn.Manager) {
 	m.turnMgr = turnMgr
 	// Note: webrtcEngine may not have SetTURNManager, this is for future implementation
+}
+
+// CreatePCMRouter creates a PCM audio router for a call session.
+// The router bridges: Input PCM → VAD → STT → text → agent → text → TTS → output PCM.
+// Audio never reaches agent containers (NetworkMode: none).
+func (m *Manager) CreatePCMRouter(callID string, stt Transcriber, tts Synthesizer, agent AgentTextBridge) *PCMRouter {
+	config := PCMRouterConfig{
+		SampleRate: 16000, // 16kHz standard voice sample rate
+		VADConfig: EnergyVADConfig{
+			EnergyThreshold:    0.01,
+			FrameDurationMs:    20,
+			SilenceDurationMs:  300,
+			SampleRate:         16000,
+		},
+		VADEnabled: true,
+	}
+
+	router := NewPCMRouter(config, stt, tts, agent)
+	m.pcmRouters.Store(callID, router)
+	return router
+}
+
+// GetPCMRouter retrieves the PCM router for a call
+func (m *Manager) GetPCMRouter(callID string) (*PCMRouter, bool) {
+	val, ok := m.pcmRouters.Load(callID)
+	if !ok {
+		return nil, false
+	}
+	return val.(*PCMRouter), true
 }

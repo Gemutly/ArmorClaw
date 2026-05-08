@@ -24,6 +24,62 @@ type PasswordUnsealError struct {
 
 func (e *PasswordUnsealError) Error() string { return e.Message }
 
+// PasswordPolicy defines requirements for the vault passphrase.
+type PasswordPolicy struct {
+	MinLength       int  // Minimum passphrase length (OWASP recommends ≥8)
+	RequireUpper    bool // At least one uppercase letter
+	RequireLower    bool // At least one lowercase letter
+	RequireDigit    bool // At least one digit
+	RequireSpecial  bool // At least one special character
+}
+
+// DefaultPasswordPolicy returns the production password policy per OWASP guidelines.
+func DefaultPasswordPolicy() PasswordPolicy {
+	return PasswordPolicy{
+		MinLength:      8,
+		RequireUpper:   true,
+		RequireLower:   true,
+		RequireDigit:   true,
+		RequireSpecial: false,
+	}
+}
+
+// ValidatePassword checks a passphrase against the policy. Returns nil if acceptable.
+func (p PasswordPolicy) ValidatePassword(password string) error {
+	if len(password) < p.MinLength {
+		return fmt.Errorf("password must be at least %d characters", p.MinLength)
+	}
+	hasUpper := false
+	hasLower := false
+	hasDigit := false
+	hasSpecial := false
+	for _, r := range password {
+		switch {
+		case r >= 'A' && r <= 'Z':
+			hasUpper = true
+		case r >= 'a' && r <= 'z':
+			hasLower = true
+		case r >= '0' && r <= '9':
+			hasDigit = true
+		default:
+			hasSpecial = true
+		}
+	}
+	if p.RequireUpper && !hasUpper {
+		return errors.New("password must contain at least one uppercase letter")
+	}
+	if p.RequireLower && !hasLower {
+		return errors.New("password must contain at least one lowercase letter")
+	}
+	if p.RequireDigit && !hasDigit {
+		return errors.New("password must contain at least one digit")
+	}
+	if p.RequireSpecial && !hasSpecial {
+		return errors.New("password must contain at least one special character")
+	}
+	return nil
+}
+
 // Sealed state errors
 var (
 	ErrKeystoreSealed     = errors.New("keystore is sealed - unseal required")
@@ -36,6 +92,7 @@ var (
 	ErrInvalidPassword = &PasswordUnsealError{Code: -32001, Message: "invalid password"}
 	ErrAlreadyUnsealed = &PasswordUnsealError{Code: -32003, Message: "keystore already unsealed"}
 	ErrPasswordSealed  = &PasswordUnsealError{Code: -32005, Message: "keystore is sealed"}
+	ErrLockedOut       = &PasswordUnsealError{Code: -32007, Message: "keystore locked due to too many failed attempts"}
 )
 
 // UnsealPolicy defines how the keystore can be unsealed
@@ -115,6 +172,12 @@ type SealedKeystore struct {
 	sessionExpiresAt time.Time
 	lastActivityAt   time.Time
 	autoSealDuration time.Duration // configurable, default 4 hours
+
+	// Lockout fields (protected by passwordMu)
+	failedAttempts    int
+	lockedUntil       time.Time
+	maxFailedAttempts int
+	lockoutDuration   time.Duration
 
 	// Feature flag check for ZeroTrustKeystore (nil = feature off)
 	featureCheck func() bool
@@ -799,17 +862,19 @@ func NewSealedKeystoreWithPassword(base *Keystore, cfg SealedStoreConfig) (*Seal
 	}
 
 	return &SealedKeystore{
-		base:             base,
-		sessions:         make(map[string]*SealedSession),
-		agentSession:     make(map[string]string),
-		pending:          make(map[string]*PendingUnsealRequest),
-		defaultTTL:       5 * time.Minute,
-		policy:           PolicyPassword,
-		passwordKD:       kd,
-		verifySalt:       append([]byte(nil), cfg.VerifySalt...),
-		verifier:         append([]byte(nil), cfg.PasswordVerifier...),
-		wrappedVK:        cfg.WrappedVaultKey,
-		autoSealDuration: 4 * time.Hour,
+		base:              base,
+		sessions:          make(map[string]*SealedSession),
+		agentSession:      make(map[string]string),
+		pending:           make(map[string]*PendingUnsealRequest),
+		defaultTTL:        5 * time.Minute,
+		policy:            PolicyPassword,
+		passwordKD:        kd,
+		verifySalt:        append([]byte(nil), cfg.VerifySalt...),
+		verifier:          append([]byte(nil), cfg.PasswordVerifier...),
+		wrappedVK:         cfg.WrappedVaultKey,
+		autoSealDuration:  4 * time.Hour,
+		maxFailedAttempts: 5,
+		lockoutDuration:   5 * time.Minute,
 	}, nil
 }
 
@@ -823,6 +888,15 @@ func (sk *SealedKeystore) UnsealWithPassword(password string) error {
 		return ErrAlreadyUnsealed
 	}
 
+	// Check lockout
+	if sk.maxFailedAttempts > 0 && sk.failedAttempts >= sk.maxFailedAttempts {
+		if time.Now().Before(sk.lockedUntil) {
+			return ErrLockedOut
+		}
+		// Lockout expired, reset counter
+		sk.failedAttempts = 0
+	}
+
 	// Derive verifier candidate from the supplied password + stored salt.
 	candidate, err := sk.passwordKD.DeriveKey([]byte(password), sk.verifySalt)
 	if err != nil {
@@ -832,6 +906,10 @@ func (sk *SealedKeystore) UnsealWithPassword(password string) error {
 
 	if subtle.ConstantTimeCompare(candidateBytes, sk.verifier) != 1 {
 		ZeroBytes(candidateBytes)
+		sk.failedAttempts++
+		if sk.maxFailedAttempts > 0 && sk.failedAttempts >= sk.maxFailedAttempts {
+			sk.lockedUntil = time.Now().Add(sk.lockoutDuration)
+		}
 		return ErrInvalidPassword
 	}
 	ZeroBytes(candidateBytes)
@@ -839,9 +917,15 @@ func (sk *SealedKeystore) UnsealWithPassword(password string) error {
 	// Decrypt the vault key using the password.
 	vk, err := sk.passwordKD.UnwrapKey(&sk.wrappedVK, []byte(password))
 	if err != nil {
+		sk.failedAttempts++
+		if sk.maxFailedAttempts > 0 && sk.failedAttempts >= sk.maxFailedAttempts {
+			sk.lockedUntil = time.Now().Add(sk.lockoutDuration)
+		}
 		return ErrInvalidPassword
 	}
 
+	// Success — reset failure counter
+	sk.failedAttempts = 0
 	sk.vaultKey = vk
 	sk.isUnsealed = true
 	sk.unsealedAt = time.Now()
@@ -864,6 +948,7 @@ func (sk *SealedKeystore) SealPassword() {
 		sk.vaultKey = nil
 	}
 	sk.isUnsealed = false
+	sk.failedAttempts = 0
 }
 
 // VaultKey returns a copy of the decrypted vault key or nil if sealed.
@@ -932,6 +1017,31 @@ func (sk *SealedKeystore) SetAutoSealDuration(d time.Duration) {
 	sk.passwordMu.Lock()
 	defer sk.passwordMu.Unlock()
 	sk.autoSealDuration = d
+}
+
+// SetLockoutConfig configures the lockout parameters. For testing only.
+func (sk *SealedKeystore) SetLockoutConfig(maxAttempts int, duration time.Duration) {
+	sk.passwordMu.Lock()
+	defer sk.passwordMu.Unlock()
+	sk.maxFailedAttempts = maxAttempts
+	sk.lockoutDuration = duration
+}
+
+// FailedAttempts returns the current count of consecutive failed unseal attempts.
+func (sk *SealedKeystore) FailedAttempts() int {
+	sk.passwordMu.Lock()
+	defer sk.passwordMu.Unlock()
+	return sk.failedAttempts
+}
+
+// IsLockedOut returns true if the keystore is currently in lockout mode.
+func (sk *SealedKeystore) IsLockedOut() bool {
+	sk.passwordMu.Lock()
+	defer sk.passwordMu.Unlock()
+	if sk.maxFailedAttempts <= 0 {
+		return false
+	}
+	return sk.failedAttempts >= sk.maxFailedAttempts && time.Now().Before(sk.lockedUntil)
 }
 
 // ListKeys returns the names of all stored credentials.

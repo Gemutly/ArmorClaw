@@ -366,6 +366,9 @@ type VoiceConfig struct {
 
 	// TTL configuration
 	TTL VoiceTTLConfig `toml:"ttl"`
+
+	// VAD configuration
+	VAD VoiceVADConfig `toml:"vad"`
 }
 
 // VoiceSecurityConfig holds voice security settings
@@ -420,6 +423,14 @@ type VoiceTTLConfig struct {
 
 	// HardStop enforces hard TTL expiration
 	HardStop bool `toml:"hard_stop" env:"ARMORCLAW_VOICE_TTL_HARD_STOP"`
+}
+
+// VoiceVADConfig holds voice activity detection settings for the energy-threshold VAD.
+type VoiceVADConfig struct {
+	EnergyThreshold  float64 `toml:"energy_threshold" env:"ARMORCLAW_VOICE_VAD_ENERGY_THRESHOLD"`
+	FrameDurationMs  int     `toml:"frame_duration_ms" env:"ARMORCLAW_VOICE_VAD_FRAME_DURATION_MS"`
+	SilenceDurationMs int   `toml:"silence_duration_ms" env:"ARMORCLAW_VOICE_VAD_SILENCE_DURATION_MS"`
+	SampleRate       uint32  `toml:"sample_rate" env:"ARMORCLAW_VOICE_VAD_SAMPLE_RATE"`
 }
 
 // NotificationsConfig holds notification system configuration
@@ -973,6 +984,12 @@ func DefaultConfig() *Config {
 				EnforcementInterval: "30s",
 				WarningThreshold:    0.9,
 				HardStop:            true,
+			},
+			VAD: VoiceVADConfig{
+				EnergyThreshold:   0.01,
+				FrameDurationMs:   20,
+				SilenceDurationMs: 300,
+				SampleRate:        16000,
 			},
 		},
 		Notifications: NotificationsConfig{

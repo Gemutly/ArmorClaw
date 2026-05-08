@@ -10,7 +10,7 @@ This document covers the public API surface, internal architecture, and key subs
 
 1. [Binaries](#binaries)
 2. [Package Map (68 packages)](#package-map)
-3. [RPC API (95–108 methods)](#rpc-api)
+3. [RPC API (109 methods)](#rpc-api)
 4. [Agent State Machine](#agent-state-machine)
 5. [Event Flow](#event-flow)
 6. [Internal Packages (17 packages)](#internal-packages)
@@ -215,16 +215,27 @@ Generates `docs/reference/models.md` from the provider registry. Optional Catwal
 
 ## RPC API
 
-95–108 RPC Methods (v1.0.0), registered in `bridge/pkg/rpc/server.go` `registerHandlers()`. Protocol: JSON-RPC 2.0 over Unix domain socket (Native mode) or TCP (Sentinel/Cloudflare mode).
+109 RPC Methods (v1.0.0), all registered unconditionally in `bridge/pkg/rpc/server.go` `registerHandlers()`. Protocol: JSON-RPC 2.0 over Unix domain socket (Native mode) or TCP (Sentinel/Cloudflare mode).
 
-The method count varies by feature flags. Baseline: 95 methods with all flags off. Maximum: 108 with all flags enabled. Flag-dependent methods return error code `-32601` when their flag is disabled. Note: `browser.replay_diagnostics` is always registered but gated at handler level by `MultiTabReplay` — it does not add a new method when enabled.
+All 109 methods are always registered regardless of feature flags. Flags control handler behavior: when a flag is off, its methods return error code `-32601`. This is a handler-gated pattern, not registration-gated. The `browser.replay_diagnostics` method is a special case: it is always registered, and the `MultiTabReplay` flag changes what data it returns rather than whether it responds.
 
-| Flag | Additional Methods |
-|------|-------------------|
-| `ZeroTrustKeystore` | +7 (`keystore.unseal`, `keystore.sealed`, `keystore.seal`, `keystore.extend_session`, `keystore.session_status`, `keystore.list_keys`, `keystore.delete_key`) |
-| `VoicePipeline` | +3 (`voice.start_session`, `voice.stop_session`, `voice.status`) |
-| `E2EEBackup` | +3 (`e2ee.create_backup`, `e2ee.delete_backup`, `e2ee.backup_exists`) |
-| `MultiTabReplay` | +1 (`browser.replay_diagnostics`) |
+**Method count breakdown:** 96 baseline methods + 7 keystore (ZeroTrustKeystore) + 3 voice (VoicePipeline) + 3 e2ee backup (E2EEBackup) = 109.
+
+| Flag | TOML Key | Handler-Gated Methods |
+|------|----------|----------------------|
+| `ZeroTrustKeystore` | `feature_zero_trust_keystore` | `keystore.unseal`, `keystore.sealed`, `keystore.seal`, `keystore.extend_session`, `keystore.session_status`, `keystore.list_keys`, `keystore.delete_key` |
+| `VoicePipeline` | `feature_voice_pipeline` (`"cloud"` or `"off"`) | `voice.start_session`, `voice.stop_session`, `voice.status` |
+| `E2EEBackup` | `feature_e2ee_backup` | `e2ee.create_backup`, `e2ee.delete_backup`, `e2ee.backup_exists` |
+| `MultiTabReplay` | `feature_multi_tab_replay` | `browser.replay_diagnostics` (handler behavior changes, not registration) |
+
+**Feature-flag combination matrix:**
+
+| Flags Enabled | Responding Methods | Non-responding (return -32601) |
+|---|---|---|
+| None | 96 | 13 (7 keystore + 3 voice + 3 e2ee backup) |
+| ZeroTrustKeystore | 103 | 6 (3 voice + 3 e2ee backup) |
+| + VoicePipeline | 106 | 3 (e2ee backup) |
+| + E2EEBackup | 109 | 0 |
 
 ### AI Chat (1 method)
 
@@ -232,7 +243,7 @@ The method count varies by feature flags. Baseline: 95 methods with all flags of
 |--------|---------|-------------|
 | `ai.chat` | `handleAIChat` | Send a message to the AI provider and get a response |
 
-### Browser (11–12 methods)
+### Browser (12 methods)
 
 | Method | Handler | Description |
 |--------|---------|-------------|
@@ -247,7 +258,7 @@ The method count varies by feature flags. Baseline: 95 methods with all flags of
 | `browser.fail` | `handleBrowserFail` | Mark browser task as failed |
 | `browser.list` | `handleBrowserList` | List active browser sessions |
 | `browser.cancel` | `handleBrowserCancel` | Cancel an in-progress browser operation |
-| `browser.replay_diagnostics` | `handleBrowserReplayDiagnostics` | Get multi-tab replay diagnostic data (requires `MultiTabReplay` flag) |
+| `browser.replay_diagnostics` | `handleBrowserReplayDiagnostics` | Multi-tab replay diagnostic data (handler-gated by `MultiTabReplay` flag: returns limited data when off, full diagnostics when on) |
 
 ### Bridge Control (10 methods)
 
@@ -325,13 +336,13 @@ The method count varies by feature flags. Baseline: 95 methods with all flags of
 
 | Method | Handler | Description |
 |--------|---------|-------------|
-| `keystore.unseal` | `handleKeystoreUnseal` | Unseal the keystore with a password (Argon2id verification) |
-| `keystore.sealed` | `handleKeystoreSealed` | Check whether the keystore is currently sealed |
-| `keystore.seal` | `handleKeystoreSeal` | Manually seal the keystore |
-| `keystore.extend_session` | `handleKeystoreExtendSession` | Extend the auto-seal timer |
-| `keystore.session_status` | `handleKeystoreSessionStatus` | Get current session status (time remaining, unseal count) |
-| `keystore.list_keys` | `handleKeystoreListKeys` | List stored key identifiers |
-| `keystore.delete_key` | `handleKeystoreDeleteKey` | Delete a stored key by identifier |
+| `keystore.unseal` | `handleKeystoreUnseal` | Unseal the keystore with a password. Params: `{ "password": "..." }`. Argon2id verification (time=3, memory=64MB, threads=4). Returns: `{ "unsealed": true, "session_ttl": "5m" }` |
+| `keystore.sealed` | `handleKeystoreSealed` | Check whether the keystore is currently sealed. Params: `{}`. Returns: `{ "sealed": true/false }` |
+| `keystore.seal` | `handleKeystoreSeal` | Manually seal the keystore. Params: `{}`. Returns: `{ "sealed": true }` |
+| `keystore.extend_session` | `handleKeystoreExtendSession` | Extend the auto-seal timer. Params: `{}`. Returns: `{ "session_ttl": "5m" }` |
+| `keystore.session_status` | `handleKeystoreSessionStatus` | Get current session status. Params: `{}`. Returns: `{ "sealed": false, "time_remaining": "4m32s", "unseal_count": 3 }` |
+| `keystore.list_keys` | `handleKeystoreListKeys` | List stored key identifiers. Params: `{}`. Returns: `{ "keys": ["openai", "anthropic", ...] }` |
+| `keystore.delete_key` | `handleKeystoreDeleteKey` | Delete a stored key. Params: `{ "key_id": "..." }`. Returns: `{ "deleted": true }` |
 
 **Error codes:**
 
@@ -342,19 +353,22 @@ The method count varies by feature flags. Baseline: 95 methods with all flags of
 | `-32005` | `keystore_sealed` | Operation requires unsealed keystore |
 | `-32006` | `rate_limited` | Too many failed unseal attempts |
 
-### Voice (3 methods, requires `VoicePipeline` flag)
+### Voice (3 methods, requires `VoicePipeline` flag set to `"cloud"`)
 
 | Method | Handler | Description |
 |--------|---------|-------------|
-| `voice.start_session` | `handleVoiceStartSession` | Start a voice session |
-| `voice.stop_session` | `handleVoiceStopSession` | Stop an active voice session |
-| `voice.status` | `handleVoiceStatus` | Get voice session status |
+| `voice.start_session` | `handleVoiceStartSession` | Start a voice session. Params: `{}` (uses defaults) or `{ "ttl": "10m" }`. Returns: `{ "session_id": "...", "ttl": "10m" }` |
+| `voice.stop_session` | `handleVoiceStopSession` | Stop an active voice session. Params: `{ "session_id": "..." }`. Returns: `{ "stopped": true }` |
+| `voice.status` | `handleVoiceStatus` | Get voice session status. Params: `{ "session_id": "..." }` (optional, omits for all). Returns: `{ "sessions": [...] }` |
+
+Voice routes through OpenAI cloud: STT via Whisper, TTS via tts-1, VAD via energy-threshold detection. Audio terminates at the Bridge; agent containers (NetworkMode: none) receive only transcribed text.
 
 **Error codes:**
 
 | Code | Name | When |
 |------|------|------|
 | `-32007` | `voice_not_configured` | Voice pipeline is not configured |
+| `-32008` | `voice_rate_limited` | Voice session rate limit exceeded |
 
 ### E2EE Backup (3 methods, requires `E2EEBackup` flag)
 

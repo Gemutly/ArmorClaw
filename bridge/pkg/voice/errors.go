@@ -7,6 +7,10 @@ import (
 
 const (
 	ErrVoiceNotConfiguredCode = -32007
+
+	// ErrVoiceRateLimitCode is returned when the voice provider rate-limits or
+	// rejects requests due to quota exhaustion.
+	ErrVoiceRateLimitCode = -32008
 )
 
 var ErrVoiceNotConfigured = &VoiceError{
@@ -39,6 +43,15 @@ func IsVoiceNotConfigured(err error) bool {
 	var ve *VoiceError
 	if errors.As(err, &ve) {
 		return ve.Code == ErrVoiceNotConfiguredCode
+	}
+	return false
+}
+
+// IsVoiceRateLimit returns true if the error is a rate-limit or quota exceeded error.
+func IsVoiceRateLimit(err error) bool {
+	var ve *VoiceError
+	if errors.As(err, &ve) {
+		return ve.Code == ErrVoiceRateLimitCode
 	}
 	return false
 }

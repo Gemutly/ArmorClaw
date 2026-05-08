@@ -2602,6 +2602,21 @@ func runBridgeServer(cliCfg cliConfig) {
 		}
 	}
 
+	if cfg.Features.ZeroTrustKeystore {
+		sealedKS, err := keystore.NewSealedKeystore(keystore.SealedKeystoreConfig{
+			BaseKeystore: ks,
+			DefaultTTL:   5 * time.Minute,
+			Policy:       keystore.PolicyPassword,
+		})
+		if err != nil {
+			log.Printf("Warning: sealed keystore init failed (%v), feature disabled", err)
+			rpcCfg.ZeroTrustKS = false
+		} else {
+			rpcCfg.SealedKS = sealedKS
+			rpcCfg.KeystoreLimiter = keystore.NewRateLimiter(5, 60*time.Second)
+		}
+	}
+
 	if rolodexStore != nil && workflowOrchestrator != nil {
 		rpcCfg.SecretaryHandler = rpc.NewSecretaryHandler(secretary.NewRPCHandler(secretary.RPCHandlerConfig{
 			Orchestrator: workflowOrchestrator,
