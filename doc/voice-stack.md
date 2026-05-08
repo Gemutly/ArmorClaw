@@ -4,7 +4,7 @@
 
 ## Current State
 
-The voice stack has a complete infrastructure layer (WebRTC, budget enforcement, security policies, TURN traversal) with a working voice manager gated behind the `VoicePipeline` feature flag. When enabled (`feature_voice_pipeline = "cloud"` in config or `ARMORCLAW_FEATURE_VOICE_PIPELINE=cloud` env var), the voice manager initializes and 3 RPC methods (`voice.start_session`, `voice.stop_session`, `voice.status`) become available. STT, TTS, and VAD services still define interfaces only — no AI provider backends exist yet.
+The voice stack has a complete implementation including WebRTC, budget enforcement, security policies, TURN traversal, and **OpenAI cloud speech providers** (STT via Whisper, TTS via tts-1) with an energy-threshold VAD and PCM routing pipeline. All components are gated behind the `VoicePipeline` feature flag. When enabled (`feature_voice_pipeline = "cloud"` in config or `ARMORCLAW_FEATURE_VOICE_PIPELINE=cloud` env var), the voice manager initializes and 3 RPC methods (`voice.start_session`, `voice.stop_session`, `voice.status`) become available. Audio terminates at the Bridge — agent containers receive text only.
 
 ### What Exists
 
@@ -21,68 +21,51 @@ The voice stack has a complete infrastructure layer (WebRTC, budget enforcement,
 | Voice Manager | Implemented, gated by feature flag | `bridge/pkg/voice/manager.go` |
 | Voice Manager Wiring | Wired in `main.go:1988-2103` | `bridge/cmd/bridge/main.go` |
 | Voice RPC Handlers | 3 methods, flag-gated | `bridge/pkg/rpc/server.go` |
+| **STT Provider (OpenAI Whisper)** | **Implemented** | `bridge/pkg/voice/stt_openai.go` |
+| **TTS Provider (OpenAI tts-1)** | **Implemented** | `bridge/pkg/voice/tts_openai.go` |
+| **VAD (Energy Threshold)** | **Implemented** | `bridge/pkg/voice/vad.go` |
+| **PCM Routing Pipeline** | **Implemented** | `bridge/pkg/voice/pcm.go` |
+| Voice Error Codes | Implemented | `bridge/pkg/voice/errors.go` |
+| E2E Provider Tests | Implemented (mocked HTTP) | `bridge/pkg/voice/e2e_providers_test.go` |
+| VAD + PCM Tests | Implemented | `bridge/pkg/voice/vad_pcm_test.go` |
 
-### What Is Missing
+### What Is Not Yet Implemented
 
 | Component | Status | Gap |
 |-----------|--------|-----|
-| STT Provider | Interface only | `voice.Transcriber` has no implementation |
-| TTS Provider | Interface only | `voice.Synthesizer` has no implementation |
-| VAD Provider | Interface only | `voice.SpeechDetector` has no implementation |
-| Audio Pipeline | Not implemented | No PCM routing between WebRTC and agent |
+| Local STT/TTS | Not implemented | v1.0 uses cloud only (OpenAI). Local ONNX providers deferred. |
+| Matrix Call Signaling Wiring | Implemented, unwired | `MatrixManager` exists but is not wired into the top-level `Manager`. |
 
 ### Runtime Reality
 
-The voice manager initialization in `main.go` (lines 1988–2103) is gated by the `VoicePipeline` feature flag. When `feature_voice_pipeline = "cloud"` is set in config (or `ARMORCLAW_FEATURE_VOICE_PIPELINE=cloud` env var), the full initialization runs:
+The voice manager initialization in `main.go` is gated by the `VoicePipeline` feature flag. When `feature_voice_pipeline = "cloud"` is set in config (or `ARMORCLAW_FEATURE_VOICE_PIPELINE=cloud` env var), the full initialization runs.
+
+The `Manager.CreatePCMRouter()` method wires the PCM routing pipeline for each call session:
 
 ```go
-var voiceMgr *voice.Manager
-if cfg.IsFeatureEnabled("voice_pipeline") {
-    log.Println("Initializing voice manager (VoicePipeline=cloud)...")
-    securityPolicy := voice.DefaultSecurityPolicy()
-    budgetConfig := voice.DefaultConfig()
-    // ... configure security, budget, TTL from config ...
-    voiceMgr = voice.NewManager(sessionMgr, tokenMgr, webrtcEngine, turnMgr, mgrConfig)
-    if err := voiceMgr.Start(); err != nil { ... }
-}
+router := voiceMgr.CreatePCMRouter(callID, sttProvider, ttsProvider, agentBridge)
 ```
 
-The feature flags are wired from config to the RPC server via `main.go` (after the `rpcCfg` setup):
-
-```go
-rpcCfg.ZeroTrustKS = cfg.Features.ZeroTrustKeystore
-rpcCfg.VoicePipeline = cfg.Features.VoicePipeline
-rpcCfg.ReplayFlags = rpc.ReplayFeatureFlags{MultiTabReplay: cfg.Features.MultiTabReplay}
+The pipeline routes audio entirely within the Bridge process:
+```
+Input PCM → VAD (energy threshold) → STT (OpenAI Whisper) → text → agent → text → TTS (OpenAI tts-1) → output PCM
 ```
 
-When the flag is off (default `VoicePipeline = "off"`), voice RPC methods return `-32601: Feature disabled: voice_pipeline`. When enabled but the voice manager fails to start, methods return `-32603: voice manager not configured`.
+Agent containers run with `NetworkMode: none` — they receive transcribed text and return text responses. No audio enters or leaves the agent container.
 
-### Interface Discrepancy
+When the flag is off (default `VoicePipeline = "off"`), voice RPC methods return `-32601`. When enabled but the voice manager fails to start, methods return `-32007` (`voice_not_configured`).
 
-Two packages define overlapping voice interfaces with different method signatures:
+### E2E Test Coverage
 
-**`bridge/pkg/interfaces/voice.go`** (canonical result types):
-- `VoiceManager.HandleMatrixCallEvent(roomID, eventID, senderID string, event interface{}) error`
-- `Transcriber.Transcribe(ctx, audioData []byte) (*TranscriptionResult, error)`
-- `Synthesizer.Synthesize(ctx, text string) (*SynthesisResult, error)`
-- `SpeechDetector.DetectSpeech(ctx, audioData []byte) (*VADResult, error)`
+`bridge/pkg/voice/e2e_providers_test.go` (1102 lines) covers the full voice pipeline with mocked HTTP servers:
+- STT lifecycle (PCM→WAV→transcription, empty audio, API errors)
+- TTS lifecycle (text→speech, empty text, API errors)
+- Rate-limit handling (HTTP 429/402 → error code `-32008`)
+- VAD event detection (speech start/end/silence)
+- PCM routing end-to-end (VAD→STT→agent→TTS pipeline)
+- Feature flag off (methods return `-32601`)
 
-**`bridge/pkg/voice/` package** (service wrappers):
-- `Manager.HandleMatrixCallEvent(roomID, eventID, senderID string, event *CallEvent) error`
-- `Transcriber.Transcribe(ctx, audioData []byte) (*interfaces.TranscriptionResult, error)`
-- `Synthesizer.Synthesize(ctx, text string) (*interfaces.SynthesisResult, error)`
-- `SpeechDetector.DetectSpeech(ctx, audioData []byte) (*interfaces.VADResult, error)`
-
-The `VoiceManager` signatures differ: `interface{}` vs `*CallEvent`. The `Manager` struct does not satisfy the `interfaces.VoiceManager` interface. The `Transcriber`, `Synthesizer`, and `SpeechDetector` interfaces are duplicated between packages, though they share the same method signatures and return types from `interfaces`.
-
-### E2E Test Expectations
-
-`bridge/pkg/voice/e2e_test.go` expects HTTP sidecar services that do not exist:
-- VAD at `http://localhost:8001/health`
-- STT at `http://localhost:8002/health`
-- TTS at `http://localhost:8003/health`
-
-These tests run only when `ARMORCLAW_E2E=1` is set. They will fail until concrete providers are deployed.
+The older `e2e_test.go` tests HTTP sidecar health checks under `ARMORCLAW_E2E=1` and is unrelated to the OpenAI provider implementation.
 
 ## Overview
 
@@ -92,36 +75,60 @@ The stack is built on four packages: `audio` for PCM and Opus processing, `voice
 
 ## Architecture
 
-Audio flows through a fixed path from the caller's phone to the agent and back. The Bridge sits in the middle, handling codec work, budget checks, and signaling. TURN relays handle NAT punching when direct connections are not possible.
+Audio flows through a fixed path from the caller's phone to the agent and back. The Bridge sits in the middle, handling codec work, VAD gating, STT/TTS via OpenAI, budget checks, and signaling. TURN relays handle NAT punching when direct connections are not possible.
 
 ```
-                          ArmorClaw Voice Call Flow
+                          ArmorClaw Voice Call Flow (v1.0.0)
 
-  ┌──────────┐       ┌───────────┐       ┌─────────────────────────────────────┐
-  │  Phone   │       │   TURN    │       │            Bridge (VPS)             │
-  │ ArmorChat│       │  Relay    │       │                                     │
-  │          │       │           │       │  ┌─────────┐  ┌───────┐  ┌───────┐ │
-  │ Mic ─────┼──SDP──┼───────────┼──RTP──┼─▶│ webrtc  │─▶│ audio │─▶│ voice │ │
-  │          │       │  (NAT     │       │  │ engine  │  │ pcm   │  │ budget│ │
-  │ Speaker ◀┼──SDP──┼──traversal│◀─RTP──┼──│ session │◀─│ opus  │◀─│ check │ │
-  │          │       │  only)    │       │  └────┬────┘  └───┬───┘  └───┬───┘ │
-  └──────────┘       └───────────┘       │       │            │           │     │
-                                          │       │            │           │     │
-                                          │       ▼            ▼           │     │
-                                          │  ┌──────────────────────┐     │     │
-                                          │  │    Agent Container   │◀────┘     │
-                                          │  │    (AI runtime)      │           │
-                                          │  └──────────────────────┘           │
-                                          └─────────────────────────────────────┘
+  ┌──────────┐       ┌───────────┐       ┌──────────────────────────────────────────────┐
+  │  Phone   │       │   TURN    │       │                Bridge (VPS)                  │
+  │ ArmorChat│       │  Relay    │       │                                              │
+  │          │       │           │       │  ┌─────────┐   ┌───────┐   ┌───────┐        │
+  │ Mic ─────┼──SDP──┼───────────┼──RTP──┼─▶│ webrtc  │──▶│ audio │──▶│ VAD   │        │
+  │          │       │  (NAT     │       │  │ engine  │   │ pcm   │   │(energy│        │
+  │          │       │ traversal)│       │  │ session │   │ 16kHz  │   │thresh)│        │
+  │ Speaker ◀┼──SDP──┼───────────┼◀─RTP──┼──│         │◀──│       │◀──│       │        │
+  └──────────┘       └───────────┘       │  └─────────┘   └───┬───┘   └───┬───┘        │
+                                          │                    │            │             │
+                                          │                    ▼            │             │
+                                          │             ┌──────────┐      │             │
+                                          │             │ STT      │      │             │
+                                          │             │ OpenAI   │◀─────┘             │
+                                          │             │ Whisper  │                    │
+                                          │             └────┬─────┘                    │
+                                          │                  │ text                      │
+                                          │                  ▼                           │
+                                          │           ┌──────────────┐                  │
+                                          │           │    Agent     │                  │
+                                          │           │  Container   │                  │
+                                          │           │(text in/out) │                  │
+                                          │           └──────┬───────┘                  │
+                                          │                  │ text                      │
+                                          │                  ▼                           │
+                                          │             ┌──────────┐     ┌───────┐      │
+                                          │             │ TTS      │     │ voice │      │
+                                          │             │ OpenAI   │     │ budget│      │
+                                          │             │ tts-1    │     │ check │      │
+                                          │             └────┬─────┘     └───────┘      │
+                                          │                  │ PCM                      │
+                                          │                  ▼                          │
+                                          │             ┌──────────┐                    │
+                                          │             │ Output   │                    │
+                                          │             │ PCM →    │──▶ RTP → Phone     │
+                                          │             │ WebRTC   │                    │
+                                          │             └──────────┘                    │
+                                          └──────────────────────────────────────────────┘
 
-  Signaling path (SDP offer/answer, ICE candidates):
-    Phone ◀── Matrix E2EE room ──▶ Bridge
+  PCM Pipeline (Bridge-local, 16kHz):
+    Input PCM → VAD → STT → text → agent → text → TTS → output PCM
 
-  Media path (audio RTP):
-    Phone ◀── TURN relay (or direct) ──▶ Bridge
+  Agent boundary:
+    Agent receives TEXT only (NetworkMode: none)
+    Agent returns TEXT only
 
-  Budget path:
-    Bridge tracks tokens + duration per session, enforces hard stop
+  Error codes:
+    -32007: voice pipeline not configured
+    -32008: voice rate limit / quota exceeded
 ```
 
 The signaling layer uses Matrix rooms for SDP exchange and ICE candidate trickling. The media layer runs over RTP through TURN or direct UDP. Budget enforcement runs as a background goroutine that checks every 30 seconds.
@@ -141,18 +148,21 @@ Default audio config: 48 kHz sample rate, mono, 16-bit depth, 960 samples per fr
 
 ### `bridge/pkg/voice/`
 
-Call budget tracking, security enforcement, and speech service wrappers. Prevents runaway token costs, enforces time limits, and defines abstraction over AI provider speech APIs.
+Call budget tracking, security enforcement, speech services, VAD, and PCM routing. Prevents runaway token costs, enforces time limits, and provides the full audio pipeline from microphone input to speaker output.
 
 | File | Purpose |
 |------|---------|
+| `stt_openai.go` | `OpenAISTTProvider` — OpenAI Whisper STT. Accepts PCM audio (16kHz), converts to WAV, calls `/v1/audio/transcriptions`, returns transcription with confidence, duration, word count, and latency. Handles 429/402 rate limits with error code `-32008`. |
+| `tts_openai.go` | `OpenAITTSProvider` — OpenAI TTS. Accepts text, calls `/v1/audio/speech` with tts-1 model (default voice: alloy), returns MP3 audio data. Handles rate limits and quota errors with `-32008`. |
+| `vad.go` | `EnergyThresholdVAD` — Energy-threshold voice activity detection. Computes RMS per frame, emits `speech_start`/`speech_end`/`silence` events. Frame-based processing with configurable threshold, frame duration, and silence duration. Also provides `ComputeRMS`, `BytesToInt16Samples`, `GenerateSilence`, and `GenerateTone` utilities. |
+| `pcm.go` | `PCMRouter` — Routes audio through the full pipeline: VAD→STT→agent→TTS. State machine (idle→listening→processing). `AgentTextBridge` interface for agent text I/O. `StreamReader`/`StreamWriter` for io.Reader/Writer integration. Callbacks: `OnSpeechStart`, `OnSpeechEnd`, `OnAgentResponse`, `OnOutputPCM`, `OnError`. |
+| `errors.go` | Voice error types and codes. `VoiceError` with code/message/cause. `-32007` (not configured), `-32008` (rate limited). `IsVoiceNotConfigured()`, `IsVoiceRateLimit()` type guards. |
+| `manager.go` | `Manager` orchestrates sessions, budget, security, and WebRTC. `CreatePCMRouter()` wires the PCM pipeline per call. `MatrixManager` field is `nil` (Matrix signaling unwired). |
 | `budget.go` | `BudgetTracker` manages per-session limits, `VoiceSessionTracker` tracks token usage (input + output) and duration, `TokenUsage` counters, `Config` with default/duration limits and warning thresholds, background `EnforceLimits` loop (30 s interval), security logging for budget events |
-| `stt_service.go` | `STTService` wraps `Transcriber` interface for speech-to-text. **Interface only, no provider.** |
-| `tts_service.go` | `TTSService` wraps `Synthesizer` interface for text-to-speech synthesis. **Interface only, no provider.** |
-| `vad_service.go` | `VADService` wraps `SpeechDetector` interface for voice activity detection. **Interface only, no provider.** |
-| `manager.go` | `Manager` orchestrates sessions, budget, security, and WebRTC. Implemented but commented out in `main.go`. `MatrixManager` field is `nil`. |
-| `matrix.go` | `MatrixManager` for Matrix call signaling (invite, answer, hangup, reject, ICE candidates). Implemented but never wired into the top-level `Manager`. |
+| `matrix.go` | `MatrixManager` for Matrix call signaling (invite, answer, hangup, reject, ICE candidates). Implemented but not wired into the top-level `Manager`. |
 | `security.go` | `SecurityEnforcer` (concurrent call limits, blocklists, rate limiting), `SecurityAudit` (call auditing, violation tracking, reports), `TTLManager` (session expiry enforcement). All fully implemented. |
-| `e2e_test.go` | Health check tests for STT/TTS/VAD HTTP sidecars. Expects services at ports 8001/8002/8003 that do not exist. Skipped unless `ARMORCLAW_E2E=1`. |
+| `e2e_providers_test.go` | Full pipeline E2E tests with mocked OpenAI HTTP. Covers STT/TTS lifecycle, rate limits (429→-32008), VAD events, PCM routing, feature flag off. |
+| `vad_pcm_test.go` | VAD and PCM unit tests. Energy threshold detection, frame processing, silence generation, tone generation, PCM routing state machine. |
 
 Key defaults:
 - Token limit: 100,000 per call
@@ -187,34 +197,56 @@ NAT traversal with ephemeral per-session TURN credentials. No static passwords.
 
 Credential format: username is `<unix_expiry>:<session_id>`, password is `base64(HMAC-SHA1(secret, username))`. Credentials are scoped to a single session and auto-expire. A cleanup goroutine runs every minute to purge stale entries.
 
-### Speech Services (`bridge/pkg/voice/`)
+## Speech Providers
 
-Three service wrappers define interfaces for AI provider speech APIs. **No concrete providers exist.** Each source file carries an `INTERFACE-ONLY` comment.
+### OpenAI Whisper STT (`stt_openai.go`)
 
-#### STTService (stt_service.go)
-- Wraps `Transcriber` interface for speech-to-text
-- `NewSTTService(client Transcriber)` creates service
-- `Transcribe(ctx, audioData []byte)` returns `*TranscriptionResult, error`
-- Uses `slog.Logger` for structured logging
+The STT provider converts raw PCM audio to text via OpenAI's Whisper API.
 
-#### TTSService (tts_service.go)
-- Wraps `Synthesizer` interface for text-to-speech synthesis
-- `NewTTSService(client Synthesizer)` creates service
-- `Synthesize(ctx, text string)` returns `*SynthesisResult, error`
+- **Constructor**: `NewOpenAISTTProvider(cfg OpenAISTTConfig)` — requires API key, optional base URL and model
+- **Environment**: Reads `OPEN_AI_KEY` or `OPENAI_API_KEY`
+- **Model**: `whisper-1` (default)
+- **Endpoint**: `POST /v1/audio/transcriptions`
+- **Audio path**: PCM (16kHz, mono, 16-bit) → WAV (44-byte header) → multipart upload
+- **Response**: `TranscriptionResult` with text, confidence, duration, word count, latency
+- **Rate limits**: HTTP 429/402 → `VoiceError` with code `-32008`
+- **Timeout**: 60 seconds
 
-#### VADService (vad_service.go)
-- Wraps `SpeechDetector` interface for voice activity detection
-- `NewVADService(client SpeechDetector)` creates service
-- `DetectSpeech(ctx, audioData []byte)` returns `*VADResult, error`
+### OpenAI TTS (`tts_openai.go`)
 
-#### Design Pattern
-All three services follow the same interface+wrapper pattern:
-1. Define a provider interface (`Transcriber`, `Synthesizer`, `SpeechDetector`)
-2. Service struct holds the provider client and a logger
-3. Constructor takes the provider, returns the service
-4. Methods delegate to provider with error passthrough
+The TTS provider converts agent text responses to audio via OpenAI's TTS API.
 
-This allows swapping AI providers (OpenAI Whisper, Google STT, etc.) without changing callers. But no providers are plugged in yet.
+- **Constructor**: `NewOpenAITTSProvider(cfg OpenAITTSConfig)` — requires API key, optional base URL, model, and voice
+- **Environment**: Reads `OPEN_AI_KEY` or `OPENAI_API_KEY`
+- **Model**: `tts-1` (default)
+- **Voice**: `alloy` (default), also supports `echo`, `fable`, `onyx`, `nova`, `shimmer`
+- **Endpoint**: `POST /v1/audio/speech`
+- **Response**: `SynthesisResult` with audio data (MP3), text length, latency
+- **Rate limits**: HTTP 429/402/403 (with quota/billing keywords) → `VoiceError` with code `-32008`
+- **Timeout**: 120 seconds
+
+### Energy-Threshold VAD (`vad.go`)
+
+Voice activity detection using RMS energy calculation per audio frame.
+
+- **Constructor**: `NewEnergyThresholdVAD(config EnergyVADConfig)`
+- **Algorithm**: Computes RMS (root mean square) of int16 samples per frame. Compares against configurable energy threshold.
+- **Events**: `VADEventSpeechStart` (energy crosses threshold), `VADEventSpeechEnd` (energy stays below threshold for N consecutive frames), `VADEventSilence`
+- **State machine**: Silence → Speech (on threshold cross) → Silence (on silence timeout)
+- **Processing**: `ProcessPCM([]byte)` splits raw PCM into frames, returns VAD events. Accumulates partial frames across calls.
+- **Utilities**: `ComputeRMS`, `BytesToInt16Samples`, `Int16SamplesToBytes`, `GenerateSilence`, `GenerateTone`
+
+### PCM Router (`pcm.go`)
+
+Routes audio through the full pipeline within the Bridge process.
+
+- **Constructor**: `NewPCMRouter(config, stt, tts, agent)` — takes STT provider, TTS provider, and `AgentTextBridge`
+- **`AgentTextBridge`** interface: `SendText(ctx, text) (string, error)` — the agent's text I/O
+- **State machine**: `routerIdle` → `routerListening` (VAD speech start) → `routerProcessing` (VAD speech end, STT running) → `routerIdle` (TTS output complete)
+- **Flow**: `ProcessInputPCM(pcmData)` → VAD events → buffer speech → STT → agent.SendText → TTS → `OnOutputPCM` callback
+- **Callbacks**: `OnSpeechStart`, `OnSpeechEnd`, `OnAgentResponse`, `OnOutputPCM`, `OnError`
+- **Stream I/O**: `StreamReader` (io.Reader for output PCM), `StreamWriter` (io.Writer for input PCM)
+- **VAD bypass**: If `VADEnabled=false`, passes raw PCM directly to STT without VAD gating
 
 ## Configuration
 
@@ -229,6 +261,18 @@ This allows swapping AI providers (OpenAI Whisper, Google STT, etc.) without cha
 | `TURN_REALM` | Authentication realm | `armorclaw` |
 | `TURN_DEFAULT_TTL` | Credential lifetime | `10m` |
 | `TURN_MAX_TTL` | Maximum credential lifetime | `1h` |
+| `OPEN_AI_KEY` / `OPENAI_API_KEY` | OpenAI API key for STT/TTS | _(none)_ |
+
+### VAD Configuration
+
+Configured under `[voice.vad]` in TOML or via environment variables:
+
+| Setting | TOML Key | Env Variable | Default | Description |
+|---------|----------|--------------|---------|-------------|
+| Energy Threshold | `energy_threshold` | `ARMORCLAW_VOICE_VAD_ENERGY_THRESHOLD` | `0.01` | RMS energy level to trigger speech detection. Lower = more sensitive. |
+| Frame Duration | `frame_duration_ms` | `ARMORCLAW_VOICE_VAD_FRAME_DURATION_MS` | `20` | Duration of each analysis frame in milliseconds |
+| Silence Duration | `silence_duration_ms` | `ARMORCLAW_VOICE_VAD_SILENCE_DURATION_MS` | `300` | Consecutive silence frames before declaring speech end |
+| Sample Rate | `sample_rate` | `ARMORCLAW_VOICE_VAD_SAMPLE_RATE` | `16000` | PCM sample rate (Hz). Must match STT input expectation. |
 
 ### Budget Configuration
 
@@ -255,6 +299,13 @@ This allows swapping AI providers (OpenAI Whisper, Google STT, etc.) without cha
 | `FEC` | enabled | Forward error correction |
 | `DTX` | disabled | Discontinuous transmission |
 
+### Voice Error Codes
+
+| Code | Name | Trigger |
+|------|------|---------|
+| `-32007` | `voice_not_configured` | Voice pipeline is not configured (flag off or API key missing) |
+| `-32008` | `voice_rate_limited` | OpenAI API rate limit (429) or quota exceeded (402/403 with billing keywords) |
+
 ## Integration Points
 
 ### Matrix Rooms
@@ -267,7 +318,7 @@ The `voice.BudgetTracker` integrates with the Bridge's security logger. Every se
 
 ### Agent Runtime
 
-Audio frames flow between the Bridge and agent containers through the `AudioPipeline`. The pipeline creates a `StreamPair` (inbound + outbound) for each session. The agent container receives decoded PCM audio and produces PCM audio back, without needing to know about WebRTC, Opus, or TURN. The Bridge handles all codec and protocol work.
+The PCM router sends **text only** to agent containers via the `AgentTextBridge` interface. The agent receives transcribed text from STT and returns text responses for TTS. No audio enters or leaves the agent container — containers run with `NetworkMode: none` and have no network access.
 
 ### TURN Infrastructure
 
