@@ -2330,6 +2330,43 @@ func runBridgeServer(cliCfg cliConfig) {
 		}
 	}
 
+	// Wire E2EE encryption and key exchange services on MatrixAdapter
+	if matrixAdapter != nil {
+		e2eeEnabled := cfg.Features.E2EEBackup
+
+		if e2eeEnabled {
+			cryptoStorePath := filepath.Join(filepath.Dir(cfg.Keystore.DBPath), "crypto.db")
+			cryptoStore, storeErr := crypto.NewKeystoreBackedStore(cryptoStorePath)
+			if storeErr != nil {
+				log.Printf("Warning: E2EE crypto store init failed (%v), E2EE services disabled", storeErr)
+			} else {
+				cryptoEngine, engineErr := crypto.NewCryptoEngine(shutdownCtx, crypto.CryptoEngineConfig{
+					UserID:        matrixAdapter.GetUserID(),
+					DeviceID:      "armorclaw-bridge",
+					HomeserverURL: cfg.Matrix.HomeserverURL,
+					AccessToken:   matrixAdapter.GetAccessToken(),
+					Store:         cryptoStore,
+					E2EEEnabled:   true,
+				})
+				if engineErr != nil {
+					log.Printf("Warning: E2EE CryptoEngine init failed (%v), E2EE services disabled", engineErr)
+				} else if cryptoEngine != nil {
+					roomCache := crypto.NewRoomEncryptionCache(true)
+					encryptionService := crypto.NewEncryptionService(cryptoEngine, roomCache, nil)
+					keyExchangeService := crypto.NewKeyExchangeService(cryptoEngine, nil)
+
+					matrixAdapter.SetEncryptionService(encryptionService)
+					matrixAdapter.SetKeyExchangeService(keyExchangeService)
+					log.Println("E2EE encryption and key exchange services wired on MatrixAdapter")
+				}
+			}
+		} else {
+			// Even with E2EE disabled, wire nil-safe services for dual-mode messaging
+			matrixAdapter.SetEncryptionService(nil)
+			matrixAdapter.SetKeyExchangeService(nil)
+		}
+	}
+
 	if voiceMgr != nil && matrixAdapter != nil {
 		mm := voice.NewMatrixManager(matrixAdapter, sessionMgr, voice.DefaultConfig())
 		voiceMgr.SetMatrixManager(mm)
