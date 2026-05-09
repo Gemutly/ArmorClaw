@@ -1,6 +1,6 @@
 # ArmorClaw System Architecture
 
-**Version**: v1.0.0 | **Status**: Production Ready | **Updated**: 2026-05-07
+**Version**: v1.0.0 | **Status**: Production Ready | **Updated**: 2026-05-09
 
 This document is the authoritative architecture reference for ArmorClaw. It describes every component, how they connect, how data flows, and the key decisions that shape the system.
 
@@ -342,7 +342,44 @@ Extends document processing to legacy Microsoft Office formats.
 
 ---
 
-### 6. OpenClaw (Agent Runtime)
+### 6. Java Sidecar (DOC/PPT Extraction)
+
+| Field | Value |
+|-------|-------|
+| Language | Java |
+| Location | `sidecar-java/` |
+| Status | Production Candidate |
+| Communication | gRPC over Unix Domain Socket |
+| Socket | `/run/armorclaw/sidecar-java/sidecar-java.sock` |
+
+Handles legacy Microsoft Office format extraction (DOC, PPT) as the preferred backend, replacing Python for these formats when available.
+
+**Supported formats:** DOC, PPT (OLE container formats)
+
+**Role in extraction routing:**
+
+- Preferred over Python sidecar for DOC and PPT formats
+- Probed at startup via `ProbeExtractionMode()` (socket existence check)
+- When Java socket is reachable, `ExtractionMode` transitions to `java_primary`
+- When unavailable, routing falls back to Python sidecar (`python_fallback_degraded`)
+- When neither is available, `ExtractionMode` is `unavailable`
+
+**ExtractionMode states** (defined in `bridge/pkg/sidecar/extraction_mode.go`):
+
+| Mode | Value | Meaning |
+|------|-------|---------|
+| Detecting | `detecting` | Startup state; sidecar probes not yet run |
+| Java Primary | `java_primary` | Java sidecar socket reachable; preferred for DOC/PPT |
+| Python Fallback | `python_fallback_degraded` | Java unavailable; Python sidecar handles DOC/PPT |
+| Unavailable | `unavailable` | Neither Java nor Python sidecar socket found |
+
+**Health reporting:** The current `ExtractionMode` is exposed via `health.check` RPC response field `sidecar.extraction_mode`. `GetExtractionMode()` returns the in-process mode. `ProbeExtractionMode()` runs once at startup to detect sidecar availability.
+
+**Security:** Same container hardening as Python sidecar — `NetworkMode: none`, `cap_drop: ALL`, HMAC-SHA256 token validation.
+
+---
+
+### 7. OpenClaw (Agent Runtime)
 
 | Field | Value |
 |-------|-------|
@@ -372,7 +409,7 @@ The agent runtime that executes inside isolated containers. Ships with a rich sk
 
 ---
 
-### 7. Matrix Conduit (Homeserver)
+### 8. Matrix Conduit (Homeserver)
 
 | Field | Value |
 |-------|-------|
@@ -396,7 +433,7 @@ The Bridge registers as a Matrix AppService. When users create agents, the Bridg
 
 ---
 
-### 8. Admin Panel (React)
+### 9. Admin Panel (React)
 
 | Field | Value |
 |-------|-------|
@@ -416,7 +453,7 @@ Web dashboard for server administration.
 
 ---
 
-### 9. ArmorTerminal (Android Terminal)
+### 10. ArmorTerminal (Android Terminal)
 
 | Field | Value |
 |-------|-------|
@@ -428,7 +465,7 @@ A minimal Android pairing client. Used for initial device registration and basic
 
 ---
 
-### 10. Setup Wizard (React)
+### 11. Setup Wizard (React)
 
 | Field | Value |
 |-------|-------|
@@ -445,7 +482,7 @@ The initial configuration interface. Walks new users through:
 
 ---
 
-### 11. Rust Vault
+### 12. Rust Vault
 
 | Field | Value |
 |-------|-------|
@@ -458,7 +495,7 @@ Encrypted key-value storage backed by SQLCipher. Used for persisting governance 
 
 ---
 
-### 12. License Server
+### 13. License Server
 
 | Field | Value |
 |-------|-------|
@@ -471,7 +508,7 @@ Manages license tiers and enforcement. The Bridge checks with the License Server
 
 ---
 
-### 13. browser-service (TypeScript/Playwright)
+### 14. browser-service (TypeScript/Playwright)
 
 | Field | Value |
 |-------|-------|
@@ -483,7 +520,7 @@ The original browser automation service. Still available as a fallback via `ARMO
 
 ---
 
-### 14. Container Security
+### 15. Container Security
 
 Not a separate component, but a cross-cutting concern applied to all agent containers.
 
@@ -713,6 +750,7 @@ Not yet implemented: `e2ee.restore_backup` (intentionally omitted for security; 
 | Jetski (CDP Proxy) | Production Ready | `jetski/` |
 | Rust Sidecar | Production Ready | `sidecar/` |
 | Python Sidecar | Production Ready | `sidecar-python/` |
+| Java Sidecar (DOC/PPT) | Production Candidate | `sidecar-java/` |
 | browser-service (TS) | Production Ready (Legacy) | `browser-service/` |
 | Secretary / Workflow | Production Ready | `bridge/pkg/secretary/` |
 | Email HITL | Production Ready | `bridge/pkg/email/` |
@@ -1111,3 +1149,4 @@ When an agent requests to send outbound email containing PII, the Bridge emits `
 - **Matrix E2EE**: Key backup is implemented and wired in main.go (lines 2592-2603) when `feature_e2ee_backup = true`, using BackupStore + BackupManager. The `e2ee.restore_backup` method is intentionally not implemented (security constraint: restore must go through manual device verification, not automated RPC).
 - **Voice**: Voice manager initializes when `VoicePipeline` flag is enabled (`feature_voice_pipeline = "cloud"` in config). RPC methods (`voice.start_session`, `voice.stop_session`, `voice.status`) are flag-gated and return `-32601` when off, `-32007` when manager fails to start. The full STT/TTS/VAD pipeline routes through OpenAI cloud (Whisper STT, tts-1 TTS, energy-threshold VAD). Audio terminates at the Bridge. Agent containers (NetworkMode: none) only receive text. Voice rate limits use error code `-32008`.
 - **Azure Blob**: Re-enabled with rustls in v0.9.0, no native-tls/openssl dependency.
+- **Extraction Observability**: ExtractionMode (detecting → java_primary / python_fallback_degraded / unavailable) is now implemented. Startup probing via `ProbeExtractionMode()` checks Java then Python sidecar socket availability. Current mode exposed via `health.check` response field `sidecar.extraction_mode` and `GetExtractionMode()`. DOC/PPT routing automatically prefers Java when available, degrades to Python, or reports unavailable.
