@@ -3,14 +3,16 @@ name: Sidecar CI
 on:
   push:
     branches: [main, develop]
-    paths: ['sidecar/**']
+    paths: ['sidecar/**', 'sidecar-java/**', 'bridge/pkg/sidecar/**']
   pull_request:
     branches: [main, develop]
-    paths: ['sidecar/**']
+    paths: ['sidecar/**', 'sidecar-java/**', 'bridge/pkg/sidecar/**']
 
 jobs:
-  build:
+  build-rust:
+    name: Rust Sidecar
     runs-on: ubuntu-latest
+    if: hashFiles('sidecar/Cargo.toml') != ''
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
@@ -42,3 +44,43 @@ jobs:
         with:
           name: armorclaw-sidecar-${{ runner.os }}
           path: sidecar/target/release/armorclaw-sidecar
+
+  build-java:
+    name: Java Sidecar Build + E2E Tests
+    runs-on: ubuntu-latest
+    if: hashFiles('sidecar-java/pom.xml') != ''
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Java 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - name: Cache Maven
+        uses: actions/cache@v4
+        with:
+          path: ~/.m2/repository
+          key: ${{ runner.os }}-maven-${{ hashFiles('sidecar-java/pom.xml') }}
+          restore-keys: ${{ runner.os }}-maven-
+
+      - name: Build Java sidecar (skip tests)
+        run: cd sidecar-java && mvn package -DskipTests -q
+
+      - name: Verify sidecar.jar exists
+        run: test -f sidecar-java/target/sidecar.jar || (echo "sidecar.jar not built" && exit 1)
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: 1.25
+
+      - name: Run Java E2E tests
+        run: cd bridge && go test -v -run 'TestE2E_Java' ./pkg/sidecar/
+        env:
+          # Ensure tests do NOT skip — java 21 is on PATH and jar is built.
+          # The tests use t.Skip when java or sidecar.jar is unavailable;
+          # in CI both are guaranteed, so tests must pass or fail (never skip).
+          SIDECAR_JAVA_SOCKET_PATH: /tmp/sidecar-java-e2e.sock
