@@ -2549,6 +2549,9 @@ func runBridgeServer(cliCfg cliConfig) {
 		log.Printf("Warning: failed to provision Java socket dir: %v", err)
 	}
 
+	// --- SIDECAR STARTUP VALIDATION (non-fatal) ---
+	validateSidecarSockets()
+
 	// Log RPC dependency status
 	log.Printf("RPC dependencies: studio=%v, provisioning=%v, skills=%v",
 		studioService != nil, provisioningMgr != nil, skillMgr != nil)
@@ -3648,4 +3651,32 @@ func (a *toolsidecarDockerAdapter) ContainerExecAttach(ctx context.Context, exec
 
 func (a *toolsidecarDockerAdapter) ContainerExecInspect(ctx context.Context, execID string) (container.ExecInspect, error) {
 	return a.client.ContainerExecInspect(ctx, execID)
+}
+
+func validateSidecarSockets() {
+	dialTimeout := 1 * time.Second
+
+	tryDial := func(name, path string) {
+		conn, err := net.DialTimeout("unix", path, dialTimeout)
+		if err != nil {
+			log.Printf("Warning: %s sidecar socket not dialable at %s (%s may be degraded)", name, path, name)
+			return
+		}
+		conn.Close()
+		log.Printf("%s sidecar socket OK at %s", name, path)
+	}
+
+	if _, err := os.Stat("/run/armorclaw"); os.IsNotExist(err) {
+		log.Printf("Warning: /run/armorclaw does not exist — sidecar sockets cannot be validated")
+		return
+	}
+
+	tryDial("office", sidecar.OfficeSocketPath)
+	tryDial("java", sidecar.JavaSocketPath)
+
+	if info, err := os.Stat("/run/armorclaw/office-sidecar"); err == nil && info.IsDir() {
+		log.Printf("Warning: deprecated path /run/armorclaw/office-sidecar/ exists — migrate to %s", sidecar.OfficeSocketPath)
+	}
+
+	sidecar.CheckRustSidecarHealth()
 }
