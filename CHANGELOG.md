@@ -1,9 +1,30 @@
 # ArmorClaw Changelog
 
-> **Last Updated:** 2026-05-07
+> **Last Updated:** 2026-05-09
 > **Current Version:** 1.0.0
 
 All notable changes to ArmorClaw are documented here with commit references.
+
+---
+
+## [1.0.0-stabilization] - 2026-05-09 - Wiring Gap Fixes, Consistency, CI Gating
+
+### Fixed
+
+- **7 rpc.Config wiring gaps** — `EventBus`, `VoiceManager`, `BudgetTracker`, `ExtractionMode`, `SidecarSocketPath`, `AgentStatusVersion`, and `E2EDefault` fields now populated. RPC handlers that depend on these fields no longer nil-deref at runtime.
+- **Socket path canonicalization** — Java and Python sidecar socket paths use canonical `/run/armorclaw/` prefixes with consistent naming. `ProbeExtractionMode()` resolves paths through a single constant.
+- **BudgetTracker dead construction** — `BudgetTracker` constructor returns nil when voice is disabled instead of spawning a background goroutine that exits immediately.
+
+### Changed
+
+- **BREAKING: Voice error code `-32603` changed to `-32007`** — Voice RPC methods (`voice.start_session`, `voice.stop_session`, `voice.status`) now return `-32007` (`voice_not_configured`) instead of `-32603` (generic internal error) when the voice manager fails to start. ArmorChat clients matching on `-32603` must update to handle `-32007`.
+- **BEHAVIOR CHANGE: E2EE default-on for fresh installs** — New installations enable Matrix E2EE by default. Existing installations are unaffected. Deployments scripted to expect E2EE off on first run should verify behavior.
+
+### Added
+
+- **ExtractionMode observability** — `health.check` response includes `sidecar.extraction_mode` field (`java_primary`, `python_fallback_degraded`, or `unavailable`). `GetExtractionMode()` returns current mode programmatically.
+- **Agent status via versioned files** — Agent status changes emitted as `com.armorclaw.agent.status` Matrix events with a schema version field. Consumers can version-gate parsing.
+- **CI gating for Java sidecar** — Java sidecar build and integration tests run in CI pipeline. Failures block merge to main.
 
 ---
 

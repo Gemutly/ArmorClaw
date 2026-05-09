@@ -1145,8 +1145,21 @@ When an agent requests to send outbound email containing PII, the Bridge emits `
 
 ## Known Gaps (v1.0.0 Scope)
 
+### Resolved in Stabilization Pass
+
+- ~~**Voice error codes inconsistent**~~ — Voice RPC methods now consistently return `-32007` (`voice_not_configured`) when the manager fails to start. Previously mixed `-32603` (internal error) with `-32007`. This is a **breaking change** for ArmorChat clients that matched on `-32603`.
+- ~~**Sidecar socket paths non-canonical**~~ — Java and Python sidecar socket paths now use canonical `/run/armorclaw/` prefixes with consistent naming. `ProbeExtractionMode()` resolves paths through a single canonical constant.
+- ~~**Java sidecar not CI-gated**~~ — Java sidecar build and integration tests now run in CI. Failures block merge.
+- ~~**E2EE not default-on for fresh installs**~~ — Fresh installations now enable E2EE by default. Existing installs unaffected. This is a **behavior change** for new deployments only.
+- ~~**Agent status not via versioned files**~~ — Agent status changes now emitted as versioned `com.armorclaw.agent.status` Matrix events with schema version field. Consumers can version-gate parsing.
+- ~~**BudgetTracker dead construction**~~ — `BudgetTracker` no longer constructs a background goroutine that immediately exits on missing config. Constructor returns nil when voice is disabled, preventing dead goroutine leaks.
+- ~~**rpc.Config wiring gaps**~~ — 7 missing fields in `rpc.Config` now populated: `EventBus`, `VoiceManager`, `BudgetTracker`, `ExtractionMode`, `SidecarSocketPath`, `AgentStatusVersion`, `E2EDefault`. All RPC handlers that depend on these fields no longer nil-deref.
+
+### Remaining Gaps
+
 - **BrowserBroker**: All browser ops route through BrowserBroker (15 methods) via JetskiBroker. Legacy browser-service available as temporary fallback via `ARMORCLAW_BROWSER_BACKEND=legacy`. NavChart pipeline supports single-tab replay. Multi-tab replay's `browser.replay_diagnostics` is implemented and gated by the `MultiTabReplay` feature flag.
 - **Matrix E2EE**: Key backup is implemented and wired in main.go (lines 2592-2603) when `feature_e2ee_backup = true`, using BackupStore + BackupManager. The `e2ee.restore_backup` method is intentionally not implemented (security constraint: restore must go through manual device verification, not automated RPC).
-- **Voice**: Voice manager initializes when `VoicePipeline` flag is enabled (`feature_voice_pipeline = "cloud"` in config). RPC methods (`voice.start_session`, `voice.stop_session`, `voice.status`) are flag-gated and return `-32601` when off, `-32007` when manager fails to start. The full STT/TTS/VAD pipeline routes through OpenAI cloud (Whisper STT, tts-1 TTS, energy-threshold VAD). Audio terminates at the Bridge. Agent containers (NetworkMode: none) only receive text. Voice rate limits use error code `-32008`.
+- **Voice signaling unwired**: `MatrixManager` in the voice package is implemented but not wired into the top-level `Manager`. Voice calls require out-of-band SDP exchange until this is connected.
 - **Azure Blob**: Re-enabled with rustls in v0.9.0, no native-tls/openssl dependency.
+- **Local STT/TTS**: Voice pipeline uses OpenAI cloud providers only. Local ONNX-based providers deferred to a future release.
 - **Extraction Observability**: ExtractionMode (detecting → java_primary / python_fallback_degraded / unavailable) is now implemented. Startup probing via `ProbeExtractionMode()` checks Java then Python sidecar socket availability. Current mode exposed via `health.check` response field `sidecar.extraction_mode` and `GetExtractionMode()`. DOC/PPT routing automatically prefers Java when available, degrades to Python, or reports unavailable.
