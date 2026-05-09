@@ -969,7 +969,7 @@ func DefaultConfig() *Config {
 				MaxCallDuration:     "1h",
 				RateLimitCalls:      10,
 				RateLimitWindow:     "1h",
-				RequireE2EE:         true,
+				RequireE2EE:         false, // resolved in Validate() based on E2EE state
 				RequireSignalingTLS: true,
 			},
 			Budget: VoiceBudgetConfig{
@@ -1252,6 +1252,8 @@ func (c *Config) Validate() error {
 	if err := c.Features.Validate(); err != nil {
 		return err
 	}
+
+	c.Voice.Security.RequireE2EE = c.IsE2EEEnabled()
 
 	return nil
 }
