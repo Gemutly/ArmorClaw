@@ -2583,6 +2583,13 @@ func runBridgeServer(cliCfg cliConfig) {
 	rpcCfg.Metrics = metrics
 	rpcCfg.MCPRouter = mcpRouter
 	rpcCfg.Translator = mcpTranslator
+	rpcCfg.VoiceMgr = voiceMgr
+	rpcCfg.DockerClient = dockerClient
+	rpcCfg.AuditLog = nil // TODO: wire audit.AuditLog when constructed
+	rpcCfg.Guard = nil    // TODO: wire trust.TrustedProxyGuard when constructed
+	rpcCfg.NavChartStore = nil // TODO: wire navchart.MultiTabStore when constructed
+	rpcCfg.SkillGate = nil     // TODO: wire interfaces.SkillGate when constructed
+	rpcCfg.GovernanceRoomID = "" // TODO: wire governance room ID when available
 
 	rpcCfg.ZeroTrustKS = cfg.Features.ZeroTrustKeystore
 	rpcCfg.VoicePipeline = cfg.Features.VoicePipeline
