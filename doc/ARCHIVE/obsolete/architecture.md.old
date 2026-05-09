@@ -1,0 +1,3067 @@
+# ArmorClaw System Architecture
+<!-- Source: armorclaw.md (architecture sections), communication-infra.md, client-applications.md -->
+
+## Table of Contents
+
+- [Context Routing Rules](#context-routing-rules)
+- [Deprecation Notices](#deprecation-notices)
+- [Executive Summary](#executive-summary)
+- [System Architecture](#system-architecture)
+- [Go Bridge Component](#go-bridge-component)
+- [Matrix Conduit Control Plane](#matrix-conduit-control-plane)
+- [Component Integration Patterns](#component-integration-patterns)
+- [Agent Studio](#agent-studio)
+- [Browser Automation (BrowserBroker)](#browser-automation-browserbroker)
+- [Jetski Browser Sidecar](#jetski-browser-sidecar)
+- [OpenClaw Agent Runtime](#openclaw-agent-runtime)
+- [ArmorChat Android Client](#armorchat-android-client)
+- [Agent State Machine (Go Bridge)](#agent-state-machine-go-bridge)
+- [RPC API Reference](#rpc-api-reference)
+- [Event Types Reference](#event-types-reference)
+- [Configuration Reference](#configuration-reference)
+- [Deployment Modes](#deployment-modes)
+- [Local Development Guide](#local-development-guide)
+- [Communication Infrastructure](#communication-infrastructure)
+- [Client Applications](#client-applications)
+- [Document Index](#document-index)
+
+---
+
+## Context Routing Rules
+
+> **RULE**: Before modifying any subsystem, you MUST read the source files listed below. Do not plan changes from this document alone.
+
+| Task | Required Reading |
+|------|-----------------|
+| Modify PII injection / BlindFill | `bridge/pkg/pii/` and Jetski CDP proxy (`jetski/`) |
+| Add or change RPC methods | `bridge/pkg/rpc/server.go` and `docs/reference/rpc-api.md` |
+| Change agent state transitions | `bridge/pkg/agent/state.go` and `bridge/pkg/agent/state_machine.go` |
+| Modify Matrix event handling | `bridge/internal/adapter/` and `bridge/pkg/matrix/` |
+| Update JetSki CDP proxy | `jetski/internal/cdp/proxy.go` and `jetski/internal/security/pii_scanner.go` |
+| Change keystore encryption | `bridge/pkg/keystore/keystore.go` (Go) and `rust-vault/src/db/` (Rust) |
+| Add browser skills | `container/openclaw-src/skills/` and `browser-service/src/` |
+| Modify container hardening | `container/Dockerfile.openclaw`, `container/seccomp-profile.json`, `container/apparmor-profile` |
+| Update Android client | `applications/ArmorChat/app/` |
+| Change deployment scripts | `deploy/` and `.skills/` |
+| Modify MCP Router / tool routing | `bridge/pkg/mcp/router.go` and `bridge/pkg/interfaces/skillgate.go` |
+| Change vault governance integration | `bridge/pkg/vault/proto/` and `rust-vault/src/governance/` |
+| Add tool sidecar isolation | `bridge/pkg/toolsidecar/toolsidecar.go` (implemented, v6-gated) |
+| Modify Governor-Shield PII interception | `bridge/pkg/governor/skillgate.go`, `bridge/pkg/governor/types.go`, and `bridge/pkg/pii/` |
+| Add or modify voice services (STT/TTS/VAD) | `bridge/pkg/voice/stt_service.go`, `bridge/pkg/voice/tts_service.go`, `bridge/pkg/voice/vad_service.go` |
+| Modify Python office sidecar | `sidecar-python/worker.py`, `sidecar-python/interceptor.py`, `bridge/pkg/sidecar/office_client.go` |
+| Add or manage scheduled tasks | `bridge/pkg/secretary/store.go` and `bridge/pkg/secretary/task_scheduler.go` |
+| Execute or modify workflow steps | `bridge/pkg/secretary/orchestrator_integration.go` |
+| Modify sovereign email pipeline | `bridge/pkg/email/` and `bridge/cmd/mta-recv/` and `doc/email-pipeline.md` |
+| Change PII masking rules | `bridge/pkg/pii/masker.go` |
+| Modify OAuth token storage | `bridge/pkg/keystore/oauth.go` |
+| Change bridge-local step execution | `bridge/pkg/secretary/bridge_local_registry.go` |
+| Modify browser broker or chart pipeline | `bridge/pkg/browser/broker.go`, `bridge/pkg/browser/jetski_broker.go`, `bridge/pkg/browser/chart_types.go` |
+| Add or modify NavChart validation | `bridge/pkg/browser/chart_validator.go` and `bridge/pkg/browser/normalizer.go` |
+| Change chart persistence | `bridge/pkg/browser/chart_store.go` and `bridge/pkg/secretary/store.go` |
+
+---
+
+## Deprecation Notices
+
+- **Warm dispatch** (removed v0.7.0): `warmDispatch()`, `GetRunningInstance()`, `EventTypeTaskDispatch`, `BuildTaskDispatchPayload()`, and `task_dispatch.go` were deleted from `bridge/pkg/secretary/`. All dispatch is cold-only. This was required because `NetworkMode: none` prevents containers from receiving inbound Matrix events, making warm dispatch architecturally impossible.
+
+---
+
+<component id="executive-summary">
+## Executive Summary
+</component>
+
+### What is ArmorClaw?
+
+ArmorClaw is a **VPS-based AI secretary platform** that runs AI agents 24/7 on your server, controlled from your phone. It enables automated web browsing, form filling, and task management with **human-in-the-loop approval** for sensitive operations.
+
+### Core Value Proposition
+
+**Problem**: Traditional AI agents see your passwords and credit cards when you give them access to perform tasks.
+
+**Solution**: ArmorClaw's **BlindFill™** technology injects secrets directly into the browser. The agent requests "credit card" but never sees the actual number—it goes straight from encrypted storage to the form field.
+
+### Key Features
+
+| Feature | Description |
+|---------|-------------|
+| **BlindFill™** | Memory-only secret injection, agents never see raw values |
+| **Placeholder Masking** | Strict `{{VAULT:field:hash}}` format prevents secret exposure |
+| **Prompt Injection Detection** | 3 pattern detectors (unicode tricks, random chars, repetition) |
+| **Kill-on-Violation** | Terminate compromised containers via RPC *(post-hoc: detected via exit code, not reactive)* |
+| **USB Security Validation** | 2 security tests for ShadowMap gatekeeper and vault hold-to-reveal |
+| **E2EE Messaging** | All communication via Matrix protocol with Megolm encryption |
+| **Container Isolation** | Each agent runs in hardened Docker container |
+| **Human-in-the-Loop** | Mobile approval for sensitive operations (payments, PII) |
+| **SQLCipher Keystore** | Hardware-bound encrypted credential storage |
+| **No-Code Agent Studio** | Define agents via chat commands or dashboard |
+| **52 Browser Skills** | Chrome DevTools MCP integration for web automation via Jetski sidecar |
+| **Sentinel Mode** | Automatic VPS deployment with Let's Encrypt TLS |
+| **Split-Storage RAG** | Document chunks stored separately from vector embeddings |
+| **YARA Content Disarm** | Malicious content detected and neutralized before processing |
+| **TTL Proxy Guard** | Ephemeral tokens (30 min TTL) for sidecar communication |
+| **Jetski CDP Proxy** | Tethered Mode browser proxy with PII scrubbing and encrypted sessions |
+
+<component id="component-overview">
+### Component Overview
+
+| Component | Language | Purpose | Entry Point |
+|-----------|----------|---------|-------------|
+| **Go Bridge** | Go | Central orchestrator, RPC server, container manager | `bridge/cmd/bridge/main.go` |
+| **SQLCipher Keystore** | Go | Encrypted credential storage with hardware binding | `bridge/pkg/keystore/keystore.go` |
+| **Matrix Conduit** | Rust | Matrix homeserver for E2EE messaging | Conduit binary |
+| **BrowserBroker** | Go | Browser automation abstraction layer over Jetski CDP proxy | `bridge/pkg/browser/broker.go` |
+| **OpenClaw Runtime** | TypeScript/Node | AI agent runtime in containers | `container/openclaw-src/openclaw.mjs` |
+| **License Server** | Go | Enterprise license validation | `license-server/main.go` |
+| **ArmorChat** | Kotlin | Android mobile client | `applications/ArmorChat/` |
+| **Jetski Sidecar** | Go | CDP proxy with Tethered Mode security | `jetski/cmd/observer/main.go` |
+| **Rust Vault** | Rust | Security enclave, governance gRPC, BlindFill service | `rust-vault/src/main.rs` |
+| **Python MarkItDown Sidecar** | Python | Legacy Office format conversion (MSG, XLS). DOC/PPT migrated to Java. XLSX/PPTX migrated to Rust. | `sidecar-python/worker.py` |
+| **Java Apache POI Sidecar** | Java | Legacy DOC/PPT text extraction via Apache POI (HWPFDocument, HSLFSlideShow) | `sidecar-java/src/main/java/com/armorclaw/sidecar/` |
+| **Email Approval** | Go (Bridge) | Email-based HITL approval for sensitive operations | `bridge/pkg/rpc/email_approval.go`, `bridge/pkg/email/` |
+</component>
+
+---
+
+## System Architecture
+
+### High-Level Architecture Diagram
+
+```
+┌───────────────────────────────────────────────────────────────────────┐
+│                         THE VPS (Office)                              │
+│                                                                       │
+│  Agent containers: env vars → container (NetworkMode: "none") → exit code + result.json  │
+│  Browser automation: Agent → Bridge RPC → Jetski CDP proxy → Lightpanda browser       │
+│                                                                       │
+│  ┌─────────────┐  env vars   ┌─────────────┐       ┌─────────────┐   │
+│  │ ArmorClaw   │────────────▶│  OpenClaw    │       │   Jetski    │   │
+│  │ Bridge      │◀──exit code─│  (Agent)     │ CDP   │ CDP Proxy   │   │
+│  │ (Orchestr.) │             │ NetworkMode: │ :9222 │ (Tethered)  │   │
+│  └──────┬──────┘             │  "none"      │       └──────┬──────┘   │
+│         │                    └──────┬──────┘              │           │
+│         │                           │                     │           │
+│         │   BlindFill Engine        │                     │           │
+│         │   (Memory-Only)           │                     │           │
+│         │                           │                     │           │
+│         │    ┌──────────────────────┘                     │           │
+│         │    │ Rust Vault Sidecar                         │           │
+│         │    │ (gRPC/Unix Socket)                         │           │
+│         │    │ - Zeroization                              │           │
+│         │    │ - Network BlindFill                        │           │
+│         │    │ - Circuit Breaking                         │           │
+│         │    └────────────────────────────────────────────┘           │
+│         │                                                             │
+│         │    ┌───────────────────┐                                    │
+│         │    │ Phase 2 Pipeline  │                                    │
+│         │    │ - Split-Storage   │                                    │
+│         │    │ - YARA CDR        │                                    │
+│         │    │ - TTL Proxy Guard │                                    │
+│         │    └───────────────────┘                                    │
+│         │                                                             │
+└─────────┼─────────────────────────────────────────────────────────────┘
+          │
+          │ Secure Matrix Tunnel (E2EE)
+          │
+┌─────────▼─────────────────────────────────────────────────────────────┐
+│                         USER (Mobile)                                 │
+│   ArmorChat App                                                      │
+│   "Book a flight to NYC"  [Approve Credit Card] 🔐                   │
+└───────────────────────────────────────────────────────────────────────┘
+```
+
+### Directory Structure
+
+```
+armorclaw-omo/
+├── bridge/                    # Go Bridge orchestrator (67 packages)
+│   ├── cmd/bridge/main.go    # Primary entry point (3,538 lines)
+│   ├── pkg/                  # Public packages
+│   │   ├── rpc/              # JSON-RPC 2.0 server (93 registered methods)
+│   │   ├── keystore/         # SQLCipher encrypted storage
+│   │   ├── pii/              # BlindFill engine
+│   │   ├── studio/           # Agent container management
+│   │   ├── eventbus/         # Event broadcasting
+│   │   ├── matrix/           # Matrix client
+│   │   ├── browser/          # Browser automation
+│   │   │   ├── broker.go       # BrowserBroker interface (15 methods)
+│   │   │   ├── broker_types.go # JobID, StartJobRequest, FillRequest, etc.
+│   │   │   ├── jetski_broker.go # JetskiBroker implementation + ReplayChart
+│   │   │   ├── broker_handler.go # BrokerHandler + FallbackHandler adapters
+│   │   │   ├── chart_types.go  # NavChart Go types matching chartmaker schema
+│   │   │   ├── chart_store.go  # ChartStore persistence (SQLite)
+│   │   │   ├── chart_validator.go # PII/policy validation
+│   │   │   ├── chart_audit.go  # Lifecycle audit trail
+│   │   │   ├── normalizer.go   # CDP-to-NavChart normalization pipeline
+│   │   │   ├── pii_scanner.go  # Chart PII diagnostic scanner
+│   │   │   ├── processor.go    # Browser job processor (queue integration, agent state machine)
+│   │   │   ├── context_manager.go # Agent-to-browser-context mapping
+│   │   │   ├── handler.go      # Bridge-local browser_execute handler (BrowserIntent artifact)
+│   │   │   ├── client.go       # HTTP client for legacy browser-service communication
+│   │   │   └── browser.go      # Browser status tracking and event emission
+│   │   ├── provisioning/     # Mobile provisioning
+│   │   ├── trust/            # Zero-trust verification
+│   │   ├── audit/            # Audit logging
+│   │   ├── mcp/              # MCP Router with SkillGate (v6 microkernel)
+│   │   ├── vault/proto/      # Governance gRPC client (v6 microkernel)
+│   │   ├── toolsidecar/      # Tool sidecar provisioning (v6-gated)
+│   │   └── ... (50 more)
+│   └── internal/             # Internal implementation (17 packages)
+│       ├── adapter/          # Matrix/Slack adapters
+│       ├── ai/               # AI service
+│       ├── skills/           # Built-in skills
+│       └── agent/            # Agent runtime
+│
+├── rust-vault/               # Rust security enclave (library crate, not a deployed service)
+│   ├── src/
+│   │   ├── db/               # SQLCipher vault + matrix state databases
+│   │   ├── governance/       # gRPC governance service (ephemeral tokens)
+│   │   └── grpc/             # gRPC server with mTLS auth
+│   ├── proto/governance.proto
+│   └── tests/                # 33 tests (config, vault, mTLS — blindfill tests removed v0.9.0)
+│
+├── jetski/                    # Go CDP proxy with Tethered Mode security
+│   ├── cmd/observer/main.go  # Primary entry point
+│   ├── internal/cdp/          # CDP proxy, router, translator, PII scanner
+│   ├── internal/rpc/          # RPC API (port 9223)
+│   ├── internal/security/     # SQLCipher sessions, PII scanning, session management
+│   ├── internal/approval/     # Matrix HITL approval client
+│   ├── internal/sonar/        # Telemetry recorder, reporter, buffer
+│   ├── internal/subprocess/   # Process manager, watchdog, health checker, restarter
+│   ├── internal/network/      # Proxy manager, circuit breaker
+│   ├── pkg/config/            # Jetski configuration package
+│   ├── pkg/logger/            # Structured logging package
+│   ├── lighthouse/            # Nav-Chart REST API (Go sub-project)
+│   ├── jetski-chartmaker/     # Browser interaction recorder (TypeScript CLI)
+│   ├── configs/config.yaml    # Configuration
+│   ├── Dockerfile             # Container build
+│   └── go.mod                 # Standalone module (github.com/armorclaw/jetski)
+│
+├── go.work                    # Multi-module Go workspace
+│
+├── container/openclaw-src/   # OpenClaw agent runtime
+│   ├── extensions/           # 37 platform adapters
+│   └── skills/               # Browser skills
+│
+├── applications/             # Client applications
+│   ├── ArmorChat/           # Android Kotlin client
+│   ├── ArmorTerminal/       # Play Store publishing assets and checklist
+│   └── admin-panel/         # Web dashboard
+│
+├── deploy/                   # Deployment scripts (32 scripts)
+│   └── install.sh           # One-command installer
+│
+├── sidecar-python/           # Python MarkItDown sidecar (legacy Office formats)
+│   ├── worker.py            # gRPC server with ExtractText, threshold streaming, TTL recycling
+│   ├── interceptor.py       # HMAC-SHA256 token validation interceptor
+│   ├── conftest.py          # Test fixtures for 6 document formats
+│   ├── test_worker.py       # 27 server unit tests
+│   ├── test_edge_cases.py   # 16 edge case tests
+│   ├── test_interceptor.py  # 12 interceptor tests
+│   └── proto/               # Generated gRPC stubs from sidecar.proto
+│
+├── sidecar-java/             # Java Apache POI sidecar (legacy DOC/PPT extraction)
+│   ├── pom.xml              # Maven build with POI 5.3.0, gRPC-Java, JUnit 5, Mockito
+│   ├── src/main/java/com/armorclaw/sidecar/  # ServerMain, ExtractorServiceImpl, interceptors
+│   ├── src/test/java/com/armorclaw/sidecar/  # 8 JUnit 5 tests + TestFixtures (base64 DOC/PPT)
+│   └── src/main/proto/         # sidecar.proto (Apache POI + gRPC stubs)
+│
+├── .skills/                  # AI CLI deployment skills
+│   ├── deploy.yaml
+│   ├── status.yaml
+│   ├── cloudflare.yaml
+│   ├── provision.yaml
+│   ├── ops.yaml
+│   └── TEMPLATE.yaml
+│
+└── tests/                    # Test suites
+    ├── ssh/                 # VPS testing suite (10 categories)
+    ├── e2e/                 # E2E test utilities (common.sh)
+    ├── unit/                # Unit tests
+    ├── integration/         # Installer integration tests
+    ├── adversarial/         # Security adversarial tests
+    ├── voice/               # Voice soak/load testing
+    ├── voice-services/      # Voice service configs
+    ├── config/              # Test configuration files
+    ├── e2ee/                # E2EE cross-client testing
+    ├── matrix-test-server/  # Matrix test server
+    ├── lib/                 # Shared test fixtures (load_env, assert_json, restart_bridge, etc.)
+    ├── fixtures/            # Shared test data
+    ├── test-eventbus-streaming.sh      # T1: EventBus + WebSocket (Tier A)
+    ├── test-trust-layer.sh             # T2: Security / Trust Layer (Tier A)
+    ├── test-system-health-baseline.sh  # T2.5: Health baseline (Tier A)
+    ├── test-secretary-workflow-core.sh # T3a: Workflow core (Tier A)
+    ├── test-email-pipeline.sh          # T4: Email approval (Tier A)
+    ├── test-secretary-workflow-deep.sh # T3b: Workflow deep (Tier B)
+    ├── test-sidecar-docs.sh            # T5: Document pipeline (Tier B)
+    ├── test-voice-stack.sh             # T6: Voice stack (Tier B)
+    ├── test-jetski-sidecar.sh          # T7: Browser sidecar (Tier B)
+    ├── test-license-enforcement.sh     # T8: License enforcement (Tier B)
+    ├── test-platform-adapters.sh       # T9: Platform adapters (Tier B)
+    ├── test-agent-runtime.sh           # T10: Agent runtime (Tier B)
+    ├── test-deployment-usb.sh          # T11: Deployment / USB (Tier B)
+    └── test-cross-*.sh                # X1-X4: Cross-subsystem integration
+```
+
+### Communication Patterns
+
+| Pattern | Protocol | Purpose | Port/Path |
+|---------|----------|---------|-----------|
+| **Matrix Protocol** | Matrix Client-Server API v3 | E2EE messaging, control plane | 6167 |
+| **JSON-RPC 2.0 (Native)** | Unix domain socket | Internal component communication | `/run/armorclaw/bridge.sock` |
+| **JSON-RPC 2.0 (Sentinel)** | TCP | Public API access (via Caddy proxy) | `0.0.0.0:8080` |
+| **Docker Socket** | Docker Engine API | Container lifecycle management | `/var/run/docker.sock` |
+| **gRPC (v6 Vault)** | gRPC over Unix socket | Vault governance: ephemeral tokens, zeroization (v6 only) | `/run/armorclaw/rust-vault.sock` |
+| **HTTP/WebSocket** | REST + WebSocket | Health checks, metrics, real-time event streaming (v0.7.0: EventBus wired) | 8080 |
+| **WebRTC** | ICE/STUN/TURN | Voice/video calls | Dynamic |
+| **CDP WebSocket** | Chrome DevTools Protocol | Browser automation (agent → Bridge → Jetski CDP proxy → Lightpanda) | 9222 |
+| **Jetski RPC** | JSON-RPC 2.0 (HTTP) | Jetski sidecar status, sessions, health | 9223 |
+| **Lightpanda Engine** | CDP over WebSocket | Headless browser engine (Jetski internal) | 9333 |
+
+---
+
+---
+
+## Go Bridge Component
+
+### Purpose
+
+The Go Bridge is the **central orchestrator** that coordinates between the host system and isolated AI agent containers. It provides:
+- Secure credential management via SQLCipher
+- JSON-RPC 2.0 API (93 registered methods across 18 domains)
+- Matrix integration for encrypted messaging
+- Browser automation job queue
+- Skill execution with allowlist control
+- PII approval workflow
+
+### Main Structure
+
+**File**: `bridge/pkg/rpc/server.go`
+
+```go
+type Server struct {
+    // Integration dependencies
+    keystore          Keystore
+    matrix            MatrixAdapter
+    aiService         *ai.AIService
+    aiSemaphore       chan struct{}
+    aiMaxConcurrent   int
+    bridgeMgr         BridgeManager
+    browserJobs       *BrowserJobManager
+    browserBroker     browser.BrowserBroker
+    studio            StudioService
+    appService        AppService
+    provisioningMgr   ProvisioningManager
+    skillMgr          SkillManager
+    skillGate         interfaces.SkillGate
+    mcpRouter         *mcp.MCPRouter
+    translator        *translator.RPCToMCPTranslator
+    eventBus          *eventbus.EventBus
+    hardeningStore    trust.Store
+    deviceStore       *trust.DeviceStore
+    inviteStore       *invite.InviteStore
+    secretaryHandler  secretaryRPCHandler
+    heartbeats        sync.Map
+    metrics           *Metrics
+    
+    // Network / lifecycle
+    handlers          map[string]HandlerFunc  // 93 registered methods
+    listener          net.Listener
+    shutdownCh        chan struct{}
+    rpcTransport      string
+    listenAddr        string
+    
+    // Security / governance
+    dockerClient      *docker.Client
+    guard             *trust.TrustedProxyGuard
+    auditLog          *audit.AuditLog
+    governanceRoomID  string
+    tlsInfoProvider   TLSInfoProvider
+    
+    // PII
+    piiRequestManager *keystore.PIIRequestManager
+}
+```
+
+### Package Index
+
+#### Control Plane
+| Package | Purpose |
+|---------|---------|
+| `pkg/rpc/` | JSON-RPC 2.0 server with all method handlers |
+| `pkg/eventbus/` | Event broadcasting to WebSocket clients (v0.7.0: wired to WebSocket for live push) |
+| `pkg/config/` | TOML configuration management |
+| `pkg/logger/` | Structured logging |
+| `pkg/secretary/` | Workflow engine with 29 source files: RPC dispatch (13 secretary.* + 4 task.* methods), orchestrator (sequential + parallel + dependencies), approval engine, PII approval blocking, event reader (_events.jsonl tailer), task scheduler (15s tick), template engine, BlindFill integration, browser integration, calendar service, WebDAV service, rolodex, trusted workflows, bridge-local registry, doc query registration, studio integration, audit, cleanup, notifications, store (SQLite), result types, secretary commands (v0.7.0: WorkflowStep.Input for inter-step data passing) |
+| `pkg/health/` | Health check and readiness monitoring |
+| `pkg/runtime/` | Bridge runtime configuration and lifecycle |
+
+#### AI & Skills
+| Package | Purpose |
+|---------|---------|
+| `internal/ai/` | AI provider clients (OpenAI, Anthropic, OpenRouter, etc.) |
+| `internal/skills/` | Built-in skills (web_search, calendar, email, data_analyze) |
+| `pkg/skills/` | Skill registry and management |
+| `pkg/interfaces/skillgate.go` | PII interception interface |
+
+#### Security & Trust
+| Package | Purpose |
+|---------|---------|
+| `pkg/pii/` | BlindFill engine for secure PII injection |
+| `pkg/keystore/` | SQLCipher encrypted credential storage |
+| `pkg/trust/` | Zero-trust device verification |
+| `pkg/security/` | Website guard and security policies |
+| `pkg/enforcement/` | License validation and enforcement |
+| `pkg/lockdown/` | Admin reset mode |
+| `pkg/yara/` | YARA-based content disarm and reconstruction scanner |
+| `pkg/securerandom/` | Cryptographically secure random number generation |
+| `pkg/crypto/` | Encryption and key management utilities |
+
+#### Communication
+| Package | Purpose |
+|---------|---------|
+| `internal/adapter/` | Matrix, Slack adapters (messaging platforms) |
+| `internal/sdtw/` | SDTW adapters — Slack, Discord, Teams, WhatsApp (uniform interface, HMAC signatures) |
+| `internal/queue/` | Persistent message queue (SQLite WAL) for SDTW adapters |
+| `pkg/matrix/` | Matrix client library |
+| `pkg/appservice/` | Matrix AppService bridges |
+| `pkg/provisioning/` | Mobile device provisioning via QR |
+| `pkg/ghost/` | Ghost user management |
+| `pkg/push/` | Mobile push notifications via Matrix Sygnal |
+| `pkg/sso/` | Single sign-on authentication |
+| `pkg/websocket/` | WebSocket server for real-time event streaming (v0.7.0: wired to EventBus) |
+| `pkg/translator/` | Message format translation between platforms |
+| `pkg/matrixcmd/` | Matrix command parser and handler |
+| `pkg/notification/` | Cross-channel notification dispatch |
+
+#### Container & Runtime
+| Package | Purpose |
+|---------|---------|
+| `pkg/studio/` | Agent container lifecycle (Docker) |
+| `pkg/browser/` | BrowserBroker interface, JetskiBroker implementation, NavChart pipeline (types, normalizer, store, validator, audit, scanner), job processor, context manager, bridge-local handler, legacy HTTP client, status tracking |
+| `pkg/queue/` | Job queue for browser tasks |
+| `pkg/docker/` | Docker client wrapper with resource governance |
+| `internal/agent/` | Agent runtime state machine |
+| `internal/executor/` | Task execution engine |
+| `pkg/sidecar/` | Go gRPC client for Rust document pipeline sidecar |
+| `pkg/setup/` | Initial configuration and Docker setup |
+
+#### Observability & Governance
+| Package | Purpose |
+|---------|---------|
+| `pkg/audit/` | Critical operation audit logging |
+| `pkg/budget/` | AI spend budget tracking |
+| `pkg/governor/` | Rate limiting and throttling |
+| `pkg/metrics/` | Metrics collection |
+| `pkg/eventlog/` | Structured event logging and segment management |
+
+#### Real-Time Communication
+| Package | Purpose |
+|---------|---------|
+| `pkg/audio/` | Opus and PCM audio encoding/decoding |
+| `pkg/voice/` | Voice call budget tracking and management |
+| `pkg/webrtc/` | WebRTC session engine and management |
+| `pkg/turn/` | TURN/STUN relay configuration |
+
+> See [doc/voice-stack.md](voice-stack.md) for full documentation.
+
+### Voice STT/TTS/VAD Services
+
+**Package**: `bridge/pkg/voice/`
+
+**Purpose**: Service wrappers for speech-to-text (STT), text-to-speech (TTS), and voice activity detection (VAD) with structured logging.
+
+#### STT Service (Speech-to-Text)
+
+**File**: `bridge/pkg/voice/stt_service.go`
+
+| Component | Description |
+|-----------|-------------|
+| **STTService** | Wrapper service around Transcriber interface |
+| **Transcriber** | Interface for speech-to-text conversion |
+
+**Interface**:
+```go
+type Transcriber interface {
+    Transcribe(ctx context.Context, audioData []byte) (*TranscriptionResult, error)
+}
+```
+
+**Service Methods**:
+- `NewSTTService(client Transcriber)` - Create new STT service with client
+- `Transcribe(ctx context.Context, audioData []byte)` - Convert audio to text
+
+**Return Type** (`bridge/pkg/interfaces/voice.go`):
+```go
+type TranscriptionResult struct {
+    Text       string
+    Confidence float64
+    Duration   time.Duration
+    WordCount  int
+    Timestamp  time.Time
+    Latency    time.Duration
+}
+```
+
+#### TTS Service (Text-to-Speech)
+
+**File**: `bridge/pkg/voice/tts_service.go`
+
+| Component | Description |
+|-----------|-------------|
+| **TTSService** | Wrapper service around Synthesizer interface |
+| **Synthesizer** | Interface for text-to-speech conversion |
+
+**Interface**:
+```go
+type Synthesizer interface {
+    Synthesize(ctx context.Context, text string) (*SynthesisResult, error)
+}
+```
+
+**Service Methods**:
+- `NewTTSService(client Synthesizer)` - Create new TTS service with client
+- `Synthesize(ctx context.Context, text string)` - Convert text to audio
+
+**Return Type** (`bridge/pkg/interfaces/voice.go`):
+```go
+type SynthesisResult struct {
+    AudioData  []byte
+    TextLength int
+    Duration   time.Duration
+    Timestamp  time.Time
+    Latency    time.Duration
+}
+```
+
+#### VAD Service (Voice Activity Detection)
+
+**File**: `bridge/pkg/voice/vad_service.go`
+
+| Component | Description |
+|-----------|-------------|
+| **VADService** | Wrapper service around SpeechDetector interface |
+| **SpeechDetector** | Interface for voice activity detection |
+
+**Interface**:
+```go
+type SpeechDetector interface {
+    DetectSpeech(ctx context.Context, audioData []byte) (*VADResult, error)
+}
+```
+
+**Service Methods**:
+- `NewVADService(client SpeechDetector)` - Create new VAD service with client
+- `DetectSpeech(ctx context.Context, audioData []byte)` - Detect speech in audio
+
+**Return Type** (`bridge/pkg/interfaces/voice.go`):
+```go
+type VADResult struct {
+    SpeechDetected bool
+    Confidence     float64
+    Timestamp      time.Time
+    Latency        time.Duration
+}
+```
+
+#### Common Pattern
+
+All three voice services follow the same architectural pattern:
+1. Define an interface for the core functionality (`Transcriber`, `Synthesizer`, `SpeechDetector`)
+2. Create a service wrapper with `slog` logging
+3. Implement a simple constructor (`NewXxxService`)
+4. Delegate to the underlying client with context propagation
+
+**Example Usage**:
+```go
+// Create STT service
+sttClient := &MyTranscriber{} // Implements Transcriber interface
+sttService := voice.NewSTTService(sttClient)
+
+// Transcribe audio
+result, err := sttService.Transcribe(ctx, audioData)
+if err != nil {
+    return err
+}
+fmt.Printf("Transcribed: %s (confidence: %.2f)\n", result.Text, result.Confidence)
+
+// Create TTS service
+ttsClient := &MySynthesizer{} // Implements Synthesizer interface
+ttsService := voice.NewTTSService(ttsClient)
+
+// Synthesize text
+audioResult, err := ttsService.Synthesize(ctx, "Hello, world")
+if err != nil {
+    return err
+}
+fmt.Printf("Audio data length: %d bytes\n", len(audioResult.AudioData))
+
+// Create VAD service
+vadClient := &MySpeechDetector{} // Implements SpeechDetector interface
+vadService := voice.NewVADService(vadClient)
+
+// Detect speech activity
+vadResult, err := vadService.DetectSpeech(ctx, audioData)
+if err != nil {
+    return err
+}
+if vadResult.SpeechDetected {
+    fmt.Printf("Speech detected (confidence: %.2f)\n", vadResult.Confidence)
+}
+```
+
+#### Integration
+
+| Component | Integration Point |
+|-----------|------------------|
+| **Voice Manager** | `bridge/pkg/interfaces/voice.go` - `VoiceManager` interface for Matrix call events |
+| **WebRTC** | `bridge/pkg/webrtc/` - Session engine for voice calls |
+| **Audio Encoding** | `bridge/pkg/audio/` - Opus and PCM encoding/decoding |
+
+#### Identity & Access
+| Package | Purpose |
+|---------|---------|
+| `pkg/license/` | License client and state management |
+| `pkg/permissions/` | Permission prediction and access control |
+| `pkg/invite/` | Room invitation and role management |
+| `pkg/admin/` | Admin claim and privilege management |
+
+> See [doc/license-system.md](license-system.md) for full documentation.
+
+#### v6 Microkernel (feature-flagged, off by default)
+| Package | Purpose |
+|---------|---------|
+| `pkg/mcp/` | MCP Router — routes tool calls through SkillGate, consent, and vault governance |
+| `pkg/vault/proto/` | Generated gRPC client for Rust Vault governance (ephemeral tokens, zeroization) |
+| `pkg/toolsidecar/` | Tool sidecar provisioning — isolated tool execution containers (v6-gated) |
+
+### Initialization Flow
+
+**CLI Commands:**
+```
+init              → Generate example config
+validate          → Validate configuration
+setup             → Interactive setup wizard
+daemon            → Daemon management (start/stop/restart/status)
+add-key           → Add API key to keystore
+generate-qr       → Generate QR for mobile app
+(no command)      → Start bridge server
+```
+
+**Server Initialization Sequence:**
+1. Parse CLI flags and load configuration
+2. Setup logging from config
+3. Pre-flight Docker availability check
+4. Create runtime directory (`/run/armorclaw/`)
+5. Initialize encrypted keystore (with recovery for corruption)
+6. Initialize audit logger
+7. Create Matrix adapter (if enabled)
+8. Initialize AI service with keystore
+9. Initialize event bus
+10. Initialize browser job manager
+11. Initialize studio (agent factory)
+12. Initialize provisioning manager
+13. Initialize skill manager
+14. Register RPC handlers
+15. Start RPC server (Unix socket or TCP)
+16. Start event bus broadcaster
+17. Start Matrix sync loop
+18. Wait for shutdown signal
+19. Graceful shutdown
+
+### Key Interfaces
+
+```go
+// Bridge management
+type BridgeManager interface {
+    Start() error
+    Stop() error
+    RegisterAdapter(platform, adapter) error
+    BridgeChannel(roomID, platform, channelID) error
+    UnbridgeChannel(roomID string) error
+    GetBridgedChannels() []*BridgedChannel
+    GetStats() *BridgeStats
+}
+
+// PII interception
+type SkillGate interface {
+    InterceptToolCall(ctx, call) (*ToolCall, error)
+    InterceptPrompt(ctx, prompt) (string, *PIIMapping, error)
+    RestoreOutput(ctx, output, mapping) (string, error)
+    ValidateArgs(ctx, toolName, args) ([]PIIViolation, error)
+}
+
+// Matrix communication
+type MatrixAdapter interface {
+    SendMessage(roomID, message, msgType) (string, error)
+    SendEvent(roomID, eventType, content) error
+    Login(username, password) error
+    JoinRoom(ctx, roomIDOrAlias, viaServers, reason) (string, error)
+    GetUserID() string
+    IsLoggedIn() bool
+}
+```
+
+---
+
+## Matrix Conduit Control Plane
+
+### Purpose
+
+Matrix serves as the **primary control plane** for ArmorClaw, providing:
+- End-to-end encrypted messaging
+- Real-time event streaming
+- Admin command processing
+- Agent control commands
+- Voice call signaling
+
+### Event Types
+
+**Standard Matrix Events:**
+- `m.room.message` - Text messages and commands
+- `m.room.member` - Membership changes
+- `m.room.power_levels` - RBAC (admin=50)
+- `m.typing` - Typing notifications
+- `m.receipt` - Read receipts
+
+**Voice Call Events:**
+- `m.call.invite` - Call initiation
+- `m.call.answer` - Call acceptance
+- `m.call.hangup` - Call termination
+- `m.call.candidates` - ICE candidates
+- `m.call.negotiate` - SDP renegotiation
+
+**Custom ArmorClaw Events:**
+- `app.armorclaw.alert` - System alerts
+- `app.armorclaw.pii_request` - PII access request
+- `app.armorclaw.pii_response` - PII access response
+- `app.armorclaw.consent.request` - Three-way consent request
+- `app.armorclaw.consent.response` - Three-way consent response
+- ~~`app.armorclaw.task_dispatch`~~ - **Removed v0.7.0** (warm dispatch deleted; see deprecation notes)
+- `app.armorclaw.workflow_step_progress` - Step execution progress during workflow run
+- `app.armorclaw.workflow_completed` - Workflow completed successfully (all steps done)
+- `app.armorclaw.workflow_failed` - Workflow failed with error (includes step ID and recoverability)
+
+### Control Plane Commands
+
+#### Admin Commands (`/` prefix)
+
+| Command | Description |
+|---------|-------------|
+| `/claim_admin [device_name]` | Claim admin rights (lockdown mode only) |
+| `/status` | Show system status |
+| `/verify <code>` | Verify challenge code |
+| `/approve <claim_id>` | Approve admin claim |
+| `/reject <claim_id> [reason]` | Reject claim |
+| `/help` | Show available commands |
+
+#### AI Management Commands (`/ai` prefix)
+
+| Command | Description |
+|---------|-------------|
+| `/ai providers` | List available AI providers |
+| `/ai models <provider>` | List models for provider |
+| `/ai switch <provider> <model>` | Switch runtime provider/model |
+| `/ai status` | Show current AI configuration |
+
+#### Agent Studio Commands (`!agent` prefix)
+
+| Command | Description |
+|---------|-------------|
+| `!agent help` | Show help |
+| `!agent list-skills` | List available skills |
+| `!agent create name=... skills=...` | Create new agent |
+| `!agent list` | List all agents |
+| `!agent start <agent_id>` | Start agent |
+| `!agent stop <agent_id>` | Stop agent |
+| `!agent remove <agent_id>` | Remove agent |
+
+---
+
+## Component Integration Patterns
+
+### Bridge ↔ Matrix Conduit
+
+**Communication Pattern**: HTTP-based Matrix Client API with long-poll sync
+
+**Key Components:**
+- **Matrix Client** (`bridge/pkg/matrix/client.go`): Login, incremental sync, message sending
+- **Authentication** (`bridge/pkg/auth/matrix_auth.go`): Token-based auth with power level RBAC
+- **Command Handlers** (`bridge/pkg/matrixcmd/handler.go`): Regex-based command parsing
+
+**Data Flow:**
+```
+Bridge → Conduit: POST /_matrix/client/v3/login, PUT /rooms/{id}/send
+Bridge ← Conduit: GET /_matrix/client/v3/sync?filter={}&since={token}
+```
+
+#### Matrix E2EE (v0.9.0)
+
+The Bridge now implements full Matrix E2EE via `bridge/pkg/crypto/`:
+
+- **CryptoEngine** wraps mautrix-go `OlmMachine` with `SyncResponseAdapter` for custom sync response conversion
+- **Dual-mode messaging**: `SendMessage()` encrypts for encrypted rooms, sends plaintext for unencrypted rooms
+- **Device key management**: Upload, query, and claim via `KeyExchangeService`
+- **SAS verification**: Full emoji verification flow with 64 emoji
+- **Cross-signing**: Bootstrap with Ed25519 key generation and UIAA handling
+- **Kill switch**: `matrix.e2ee.enabled` config (default false), runtime toggle, audit logging
+- **Crypto store**: SQLCipher v2 schema with 5 tables (additive migration from v1)
+
+### Bridge ↔ Browser Service
+
+**Communication Pattern**: Event-based job queue with status emissions
+
+**Key Components:**
+- **Browser Queue** (`bridge/pkg/queue/browser_queue.go`): Priority queue with workers
+- **Browser Skill** (`bridge/pkg/browser/browser.go`): Status tracking interface
+- **Studio Protocol** (`bridge/pkg/studio/browser_skill.go`): Event namespace `com.armorclaw.browser.*`
+
+**Job States**: PENDING → RUNNING → COMPLETED/FAILED/CANCELLED/AWAITING_PII
+
+### Bridge ↔ OpenClaw Agents
+
+**Communication Pattern**: Env-var injection + exit-code polling + `result.json` backward channel
+
+The Bridge communicates with agent containers via **environment variables only**. There is no Matrix connection inside the container, no HTTP callback, no Unix socket, and no stdout capture. The container runs with `NetworkMode: "none"` (factory.go:121) — it has zero network access.
+
+```
+Bridge (Go)                           Container (Docker)
+┌─────────────────────┐              ┌──────────────────────────┐
+│ AgentFactory        │              │ armorclaw/agent-base     │
+│   │                 │  Spawn()     │                          │
+│   ├─factory.Spawn()──────────────▶│  Reads env vars:         │
+│   │                 │ env vars     │   TASK_DESCRIPTION       │
+│   │                 │ NetworkMode: │   STEP_CONFIG (JSON)     │
+│   │                 │   "none"     │   PII_xxx values         │
+│   │                 │              │   ENABLED_SKILLS         │
+│   │                 │              │                          │
+│   │  waitForComp()  │              │  STEP_CONFIG present?    │
+│   │  polls every    │              │    → Step mode: execute, │
+│   │  500ms via      │              │      write result.json,  │
+│   │  ContainerInspect              │      exit                │
+│   │  checks exit ◀─│──────────────│    → Agent mode: Matrix  │
+│   │   code          │              │      polling loop        │
+│   │                 │              │                          │
+│   │  ParseContainer │  result.json │  Exit code:              │
+│   │  StepResult() ◀─│◀────────────│    0 = completed         │
+│   │  (state dir)    │              │    !0 = failed           │
+│   └─StepResult      │              │                          │
+│     + ContainerResult│              │  result.json (step mode) │
+└─────────────────────┘              └──────────────────────────┘
+```
+
+**Key Components:**
+- **AgentFactory** (`bridge/pkg/studio/factory.go`): `Spawn()` creates container with env vars, returns immediately. `GetStatus()` polls Docker `ContainerInspect` to check if container exited.
+- **StepExecutor** (`bridge/pkg/secretary/orchestrator_integration.go`): `executeStep()` calls `factory.Spawn()` then `waitForCompletion()` which polls `GetStatus()` every 500ms until `StatusCompleted` or `StatusFailed`.
+- **Agent Integration** (`bridge/pkg/agent/integration.go`): StateMachine + HITLConsentManager (used by the agent runtime for browser-based flows, not workflow steps).
+
+**Agent States**: OFFLINE, INITIALIZING, IDLE, BROWSING, FORM_FILLING, AWAITING_APPROVAL, AWAITING_CAPTCHA, AWAITING_2FA, PROCESSING_PAYMENT, COMPLETE, ERROR
+
+**Data flow**: In step mode, the container writes structured results to `result.json` in the state dir before exit. The Bridge reads this via `ParseContainerStepResult()`. In agent mode (no STEP_CONFIG), the agent output is not captured — only the exit code is observed.
+
+> ⚠️ **Mode A Communication**: Agent containers spawned by the studio factory run with `NetworkMode: "none"`. They receive task configuration via environment variables (`STEP_CONFIG`) and report results via exit code + `result.json` (step mode) or exit code only (agent mode). See [State Directory](#state-directory) below for details on the bind-mounted state directory.
+
+**State directory**: Each agent gets a bind-mounted directory at `/var/lib/armorclaw/agent-state/{id}` mapped to `/home/claw/.openclaw` inside the container. In step mode, the container writes `result.json` here before exit. The Bridge reads it via `ParseContainerStepResult()` after container exit.
+
+**Task Scheduler**: The secretary includes a persistent task scheduler with a 15-second tick interval. It is a stateless dispatcher that reads due tasks from `rolodex.db`, dispatches them, and updates `next_run`. All dispatch is cold-only (ephemeral container spawn). Warm dispatch was removed in v0.7.0 because containers cannot receive inbound Matrix events under `NetworkMode: none`. Uses `robfig/cron/v3` for cron expression parsing.
+
+### Workflow Execution Lifecycle
+
+The secretary workflow engine turns task templates into multi-step workflows, executing each step as an isolated agent container.
+
+**Source**: `bridge/pkg/secretary/orchestrator_integration.go`
+
+**Lifecycle flow**:
+
+```
+Template → Workflow Creation → StartWorkflow (status=Running)
+  → StartWorkflowExecution (goroutine)
+    → StepExecutor.ExecuteSteps()
+      → For each step: DependencyValidator → ApprovalChecker (if PII) → factory.Spawn(agent)
+      → waitForCompletion (500ms polling)
+      → On complete: AdvanceWorkflow
+      → On fail: FailWorkflow
+    → On all steps complete: CompleteWorkflow
+```
+
+**Two dispatch paths for scheduled tasks** (routing in `task_scheduler.go:dispatchTask`):
+
+| Condition | Path | What happens |
+|-----------|------|--------------|
+| `TemplateID != ""` | Workflow engine | Creates a `Workflow` from the `TaskTemplate`, calls `StartWorkflow` then `StartWorkflowExecution`. Steps execute sequentially through `StepExecutor`. Inter-step data passing via `WorkflowStep.Input` template variables (v0.7.0). |
+| `TemplateID == ""` | Cold dispatch only | Spawns a new container via `factory.Spawn()`. No warm dispatch (removed v0.7.0). |
+
+**Room ID semantics**:
+
+- Workflows store the Matrix room ID of the triggering context in the `room_id` column.
+- Scheduler-triggered workflows (from `templateDispatch`) set `room_id=""` because there is no user in the loop. These are fire-and-forget.
+- User-triggered workflows (from `!secretary start workflow`) persist the room ID from the triggering Matrix room. Workflow-spawned agents use this stored `room_id` for Matrix communication.
+- When `StepExecutor.executeStep` spawns an agent, it passes `workflow.RoomID` as the `RoomID` in the `SpawnRequest`, so the agent can respond in the original room.
+
+**Key components**:
+
+| Component | File | Purpose |
+|-----------|------|---------|
+| `StepExecutor` | `orchestrator_integration.go` | Executes workflow steps sequentially, spawns agents, waits for completion |
+| `OrchestratorIntegration` | `orchestrator_integration.go` | Manages goroutine lifecycle per workflow, cancellation, status tracking |
+| `DependencyValidator` | `orchestrator.go` | Validates step ordering and resolves execution order |
+| `NotificationService` | `notifications.go` | Emits `workflow.started`, `workflow.progress`, `workflow.completed`, `workflow.failed`, `workflow.cancelled` notifications |
+| `ApprovalChecker` | `orchestrator_integration.go` | Evaluates PII approval requirements per step before execution |
+
+**Error handling**:
+
+- Recoverable errors (agent spawn timeout, transient failure) retry up to `StepRetryCount` times (default: 1) with `StepRetryDelay` (default: 1s).
+- Unrecoverable errors (no agent for step, invalid execution order) fail the workflow immediately.
+- Context cancellation triggers `CancelWorkflow` and stops all running steps via `CancelAllForWorkflow`.
+
+### Multi-Agent Execution (v0.6.0)
+
+Parallel execution and step failover are now **implemented** via `orchestrator_parallel.go`:
+
+- **Parallel execution**: Uses `errgroup` goroutine pool with configurable `MaxParallelContainers` (default: 2). Steps with multiple `AgentIDs` are dispatched in parallel when the workflow declares them as parallel-safe.
+- **Step failover**: When an agent fails mid-step, the executor falls back to the next agent in `AgentIDs[1:]` and retries from the last checkpoint.
+- **Single-container scope**: All agents run on the same host. No distributed execution across nodes yet.
+
+> See [doc/secretary-workflow.md](secretary-workflow.md) for the full workflow engine deep dive: two dispatch paths, step execution lifecycle, PII approval flow, and event system.
+
+### Bridge ↔ ArmorChat Mobile
+
+**Communication Pattern**: QR code deep link + Matrix messaging + RPC with bearer tokens
+
+**Key Components:**
+- **Provisioning Manager** (`bridge/pkg/provisioning/manager.go`): QR token lifecycle with HMAC-SHA256 signatures
+- **Token Structure**: `armorclaw://config?d={base64(json)}` with signature
+- **Role Persistence**: Roles saved to `provisioning_roles.json`
+
+**Admin Levels**: NONE, MODERATOR, ADMIN, OWNER
+
+### Event Bus Patterns
+
+**Communication Pattern**: Pub/sub with WebSocket push (v0.7.0)
+
+The EventBus (`bridge/pkg/eventbus/eventbus.go`) initializes a WebSocket connection during startup. All events published to the `MatrixEventBus` ring buffer are pushed to connected WebSocket clients in real time. This enables live status updates in ArmorChat and the admin panel without polling.
+
+**Crash-only design**: EventBus wiring uses `log.Fatalf` when WebSocket initialization fails. The Bridge must crash rather than run in a degraded state where events are silently lost. Do not add graceful fallback or retry logic to this path without CTO approval.
+
+**Handler registration**: Bridge-side event handlers are registered via `RegisterBridgeHandler()` (see `doc/communication-infra.md` for full details). This mechanism provides type-safe handler registration with panic recovery — if a handler panics, the EventBus captures a snapshot of registered handlers and continues, preventing cascading failures.
+
+**Event Types:**
+- **Matrix**: `matrix.message`, `matrix.receipt`, `matrix.typing`, `matrix.presence`
+- **Agent**: `agent.started`, `agent.stopped`, `agent.status_changed`, `agent.command`, `agent.error`
+- **Workflow**: `workflow.started`, `workflow.progress`, `workflow.completed`, `workflow.failed`, `workflow.cancelled`
+- **HITL**: `hitl.pending`, `hitl.approved`, `hitl.rejected`, `hitl.expired`, `hitl.escalated`
+- **Budget**: `budget.alert`, `budget.limit`, `budget.updated`
+- **Platform**: `platform.connected`, `platform.disconnected`, `platform.message`, `platform.error`
+
+### Bridge ↔ Rust Vault
+
+**Communication Pattern**: gRPC over Unix domain socket (when v6 microkernel enabled)
+
+**Key Components:**
+- **Vault Governance Client** (`bridge/pkg/vault/proto/governance_grpc.pb.go`): Generated gRPC stubs
+- **Governance Service** (`rust-vault/src/governance/`): Ephemeral token lifecycle, event streaming
+- **MCP Router** (`bridge/pkg/mcp/router.go`): Consumes vault client for token issuance/zeroization
+
+**Data Flow (v6 microkernel only):**
+```
+Bridge → Rust Vault: IssueEphemeralToken (grant scoped secret access)
+Bridge → Rust Vault: ConsumeEphemeralToken (one-time use, then invalidated)
+Bridge → Rust Vault: ZeroizeToolSecrets (secure memory erasure)
+Rust Vault → Bridge: SubscribeEvents (gRPC stream for governance events)
+```
+
+**Important**: This integration is **inactive by default** (`v6_microkernel = false`). When disabled, the MCP Router skips all vault governance calls and falls back to direct SkillGate behavior.
+
+### Bridge ↔ Jetski
+
+**Communication Pattern**: CDP WebSocket + JSON-RPC HTTP
+
+**Key Components:**
+- **Jetski Container** (`docker-compose.jetski.yml`): Standalone Docker service
+- **CDP Proxy** (`jetski/internal/cdp/proxy.go`): Agent-facing on port 9222
+- **RPC API** (`jetski/internal/rpc/rpc.go`): Management on port 9223
+- **Bridge Browser Queue** (`bridge/pkg/queue/browser_queue.go`): Dispatches jobs to agents
+
+**Data Flow:**
+```
+OpenClaw Agent → Jetski:9222 (CDP WebSocket connect)
+Jetski → Lightpanda:9333 (proxied CDP)
+Bridge → Jetski:9223 (RPC: status, sessions, health)
+Jetski → Matrix (HITL approval requests)
+```
+
+**Network**: Jetski runs on `browser-net` (172.23.0.0/16) and `bridge-net` (armorclaw-bridge), enabling both agent-to-Jetski CDP and Bridge-to-Jetski RPC communication.
+
+---
+
+## Agent Studio
+
+### Purpose
+
+Agent Studio provides **no-code agent creation and management**. Users can define, deploy, and manage AI agents through Matrix chat commands or the web dashboard.
+
+### Agent Definition
+
+```yaml
+name: "Travel Booker"
+skills:
+  - web_browsing
+  - form_filling
+  - email
+provider: openrouter
+model: anthropic/claude-3.5-sonnet
+system_prompt: |
+  You are a travel booking assistant...
+constraints:
+  - require_approval_for: [payment, pii]
+  - max_budget: 10.00  # USD per day
+```
+
+### Agent Lifecycle
+
+```
+Create → Deploy → Start → [Running] → Stop → Remove
+         │                   │
+         └─── Containers ────┘
+              (Docker)
+```
+
+### Studio Service Interface
+
+```go
+type StudioService interface {
+    HandleRPCMethod(method string, params json.RawMessage) *RPCResponse
+}
+
+// Methods: studio.deploy, studio.stats
+```
+
+---
+
+## Browser Automation (BrowserBroker)
+
+### Purpose
+
+The BrowserBroker interface provides a **unified abstraction layer** for all browser automation operations in ArmorClaw. All browser ops, whether from the legacy browser-service or the Jetski sidecar, route through this interface.
+
+### BrowserBroker Interface
+
+**File**: `bridge/pkg/browser/broker.go`
+
+The `BrowserBroker` interface defines 15 methods:
+
+| Method | Description |
+|--------|-------------|
+| `Navigate` | Navigate browser to a URL |
+| `Fill` | Inject values into form fields (sensitive fields route through PII approval) |
+| `Click` | Click an element by selector |
+| `WaitForElement` | Wait for an element to appear (with timeout) |
+| `WaitForCaptcha` | Wait for CAPTCHA resolution (with timeout) |
+| `WaitFor2FA` | Wait for 2FA code entry (with timeout) |
+| `Extract` | Extract data from page via `ExtractSpec` |
+| `Screenshot` | Capture page screenshot (full-page option) |
+| `StartJob` | Start a new browser automation job |
+| `Status` | Get current job status |
+| `Complete` | Mark job as completed |
+| `Fail` | Mark job as failed with reason |
+| `List` | List all jobs for an agent |
+| `Cancel` | Cancel a running job |
+| `ReplayChart` | Replay all actions from a NavChart (PII actions route through approval) |
+
+### Implementations
+
+**JetskiBroker** (`bridge/pkg/browser/jetski_broker.go`): Primary implementation that routes all operations through the Jetski CDP proxy. Implements all 15 methods including `ReplayChart`.
+
+**FallbackHandler** (`bridge/pkg/browser/broker_handler.go`): Temporary adapter that falls back to the legacy browser-service when Jetski is unavailable. Planned removal in Phase 4.
+
+### Backend Feature Flag
+
+The browser backend is controlled by the `ARMORCLAW_BROWSER_BACKEND` environment variable:
+
+| Value | Backend | Description |
+|-------|---------|-------------|
+| `jetski` (default) | JetskiBroker | All ops route through Jetski CDP proxy |
+| `legacy` | FallbackHandler | Ops route through legacy browser-service |
+
+### Architecture
+
+```
+┌─────────────┐     ┌──────────────────────┐     ┌─────────────┐
+│   Bridge    │────▶│   BrowserBroker      │────▶│  Jetski     │
+│   RPC       │     │   Interface           │     │  CDP Proxy  │
+└─────────────┘     │                      │     └─────────────┘
+                    │  JetskiBroker ────────│───▶  :9222
+                    │  FallbackHandler ─────│───▶  browser-service
+                    └──────────────────────┘     (legacy, Phase 4 removal)
+```
+
+### Browser Skills
+
+> All browser skills route through the BrowserBroker interface, regardless of backend. Agent containers (always `NetworkMode: "none"`) never perform browser operations directly.
+
+| Skill | Description |
+|-------|-------------|
+| `navigate` | Navigate to URL |
+| `fill` | Fill form fields |
+| `click` | Click element |
+| `wait_for_element` | Wait for element |
+| `wait_for_captcha` | Wait for CAPTCHA |
+| `wait_for_2fa` | Wait for 2FA |
+| `extract` | Extract data |
+| `screenshot` | Take screenshot |
+
+### Job States
+
+```
+PENDING → RUNNING → COMPLETED
+                 → FAILED
+                 → CANCELLED
+                  → AWAITING_PII
+```
+
+> **Note**: `AWAITING_PII` is a browser **job** state (the job is waiting for the user to approve PII injection). This is distinct from the agent state machine's `AWAITING_APPROVAL` state (see [Agent State Machine](#agent-state-machine-go-bridge)), which tracks the agent-level lifecycle phase. A browser job enters `AWAITING_PII` during form-filling; the agent state machine enters `AWAITING_APPROVAL` at the agent level.
+
+---
+
+## Jetski Browser Sidecar
+
+### Purpose
+
+Jetski is a **Go-based CDP (Chrome DevTools Protocol) proxy** that provides secure browser automation for ArmorClaw agents. It sits between AI agents and the browser engine, implementing **Tethered Mode** security with PII scrubbing, encrypted sessions, and human-in-the-loop approval.
+
+> **Architectural role**: Jetski is the **active CDP security layer** in the deployed system. It supersedes the Rust Vault's Phase 1 CDP interception design (removed v0.9.0) by operating as a full WebSocket proxy with richer security (PII scrubbing at the CDP message level, SQLCipher-encrypted sessions, and Matrix HITL approval). The Go-side BlindFill engine (`bridge/pkg/pii/`) handles placeholder resolution at the Bridge level.
+
+### Key Features
+
+| Feature | Description |
+|---------|-------------|
+| **CDP Proxy** | WebSocket proxy between agents (port 9222) and Lightpanda engine (port 9333) |
+| **Translator** | CDP method translation and routing |
+| **PII Scanner** | Active scrubbing of SSN, credit card, email, password patterns |
+| **SQLCipher Sessions** | Encrypted session storage (PBKDF2-HMAC-SHA512, 256k iterations) |
+| **Matrix HITL Approval** | Human-in-the-loop approval for sensitive browser operations (60s timeout) |
+| **Sonar Telemetry** | Session monitoring and event recording |
+| **RPC API** | Status, sessions, health, and approval endpoints on port 9223 |
+
+### Architecture
+
+```
+┌─────────────┐     CDP :9222    ┌─────────────┐     CDP     ┌─────────────┐
+│   Agent     │◀────────────────▶│   Jetski    │◀──────────▶│ Lightpanda  │
+│  (OpenClaw) │   WebSocket      │ CDP Proxy   │  :9333     │  Engine      │
+└─────────────┘                  └──────┬──────┘             └─────────────┘
+                                        │
+                         ┌──────────────┼──────────────┐
+                         ▼              ▼              ▼
+                  ┌────────────┐ ┌───────────┐ ┌────────────┐
+                  │ PII Scanner│ │ SQLCipher │ │  Matrix    │
+                  │ (scrub)    │ │ Sessions  │ │  HITL      │
+                  └────────────┘ └───────────┘ └────────────┘
+                         │              │              │
+                         ▼              ▼              ▼
+                  ┌────────────┐ ┌───────────┐ ┌────────────┐
+                  │ Clean CDP  │ │ Encrypted │ │ User       │
+                  │ Traffic    │ │ Storage   │ │ Approval   │
+                  └────────────┘ └───────────┘ └────────────┘
+```
+
+### Component Structure
+
+```
+jetski/
+├── cmd/observer/main.go       # Primary entry point - wires all components
+├── internal/
+│   ├── cdp/
+│   │   ├── proxy.go           # CDP WebSocket proxy with PII scrubbing
+│   │   ├── router.go          # Method router with Translator injection
+│   │   ├── translator.go      # CDP method translation
+│   │   └── fallback.go        # FallbackHandler for unsupported CDP methods
+│   ├── rpc/
+│   │   └── rpc.go             # JSON-RPC 2.0 server (port 9223)
+│   ├── security/
+│   │   ├── sqlcipher_session.go  # SQLCipher session store (PBKDF2, key zeroization)
+│   │   ├── session.go            # Session management (rewritten from age to SQLCipher)
+│   │   ├── pii_scanner.go        # 4-pattern PII detection (SSN, CC, email, password)
+│   │   ├── store_cgo.go          # SQLCipher store (cgo build tag)
+│   │   └── store_nocgo.go        # SQLCipher store (nocgo stub)
+│   ├── approval/
+│   │   └── matrix_client.go   # Matrix HITL approval client (channel-based, 60s timeout)
+│   ├── sonar/
+│   │   ├── recorder.go        # Telemetry event recorder
+│   │   ├── reporter.go        # WreckageReport generation
+│   │   ├── telemetry.go       # Telemetry types
+│   │   └── buffer.go          # CDPFrame buffer for sonar capture
+│   ├── subprocess/
+│   │   ├── manager.go         # ProcessManager for engine lifecycle
+│   │   ├── watchdog.go        # Watchdog for health monitoring
+│   │   ├── health.go          # CDPHealthChecker interface
+│   │   └── restart.go         # Restarter for engine recovery
+│   └── network/
+│       ├── proxy.go           # ProxyManager for outbound proxy rotation
+│       └── circuit_breaker.go # CircuitBreaker for proxy failover
+├── pkg/
+│   ├── config/config.go       # Jetski configuration package
+│   └── logger/logger.go       # Structured logging package
+├── lighthouse/                # Nav-Chart REST API (Go sub-project)
+├── jetski-chartmaker/         # Browser interaction recorder (TypeScript CLI)
+├── configs/config.yaml        # Configuration file
+├── Dockerfile                 # Container build (real SHA256)
+└── go.mod                     # Standalone module (github.com/armorclaw/jetski)
+```
+
+### RPC API (Port 9223)
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/rpc` | `status` | Get observer status |
+| `/rpc` | `sessions` | List active sessions |
+| `/rpc` | `health` | Health check |
+| `/rpc` | `approval.request` | Request HITL approval |
+| `/rpc` | `approval.respond` | Respond to approval request |
+
+### Tethered Mode
+
+Tethered Mode is the security enforcement layer in Jetski. When enabled:
+
+1. **PII Scrubbing**: All CDP traffic is scanned for PII patterns (SSN, credit card, email, password). Detected values are replaced with `[REDACTED_TYPE]` tokens.
+2. **SQLCipher Sessions**: Browser sessions are encrypted using SQLCipher with PBKDF2-HMAC-SHA512 key derivation (256,000 iterations). Keys are zeroized from memory after use. `encryptSession=true` by default in Tethered Mode config.
+3. **Matrix HITL Approval**: Sensitive browser operations (form submissions with PII, navigation to financial sites) require human approval via Matrix. Pending requests timeout after 60 seconds. Approval gating is active for PII input (`Input.insertText` with PII patterns) and navigation (`Page.navigate`).
+4. **Free-Ride Mode**: When Tethered Mode is disabled, CDP traffic passes through without scrubbing (for development/testing).
+
+### Configuration
+
+**File**: `jetski/configs/config.yaml`
+
+```yaml
+server:
+  host: "0.0.0.0"
+  port: "9222"
+  readTimeout: 30s
+  writeTimeout: 30s
+
+browser:
+  enginePath: "/usr/local/bin/lightpanda"
+  enginePort: "9333"
+  healthCheck: true
+  checkInterval: 5s
+  watchdog:
+    enabled: true
+    checkInterval: 5s
+    maxFailures: 3
+    autoRestart: true
+    restartDelay: 5s
+
+security:
+  passphrase: ""
+  sessionDir: "./sessions"
+  piiScanning: true
+  encryptSession: true
+
+network:
+  proxyList: []
+  proxyEnabled: false
+  proxyHealthCheckURL: "http://www.google.com"
+  proxyHealthInterval: 60s
+  circuitBreaker:
+    failureThreshold: 3
+    resetTimeout: 30s
+    halfOpenThreshold: 1
+
+logging:
+  level: "INFO"
+  format: "text"
+  output: "stdout"
+  structured: false
+
+approval:
+  enabled: true
+  bridgeURL: "http://127.0.0.1:8080"
+  roomID: ""
+  timeout: 60s
+  sensitiveOperations:
+    - "session_create"
+    - "navigation"
+    - "file_download"
+```
+
+**Environment Variable Overrides**:
+
+| Variable | Field | Default |
+|----------|-------|---------|
+| `JETSKI_PORT` | `server.port` | `9222` |
+| `JETSKI_HOST` | `server.host` | `0.0.0.0` |
+| `JETSKI_ENGINE_PATH` | `browser.enginePath` | `/usr/local/bin/lightpanda` |
+| `JETSKI_ENGINE_PORT` | `browser.enginePort` | `9333` |
+| `JETSKI_PASSPHRASE` | `security.passphrase` | (empty) |
+| `JETSKI_SESSION_DIR` | `security.sessionDir` | `./sessions` |
+| `JETSKI_PII_SCANNING` | `security.piiScanning` | `true` |
+| `JETSKI_ENCRYPT_SESSION` | `security.encryptSession` | `true` |
+| `JETSKI_PROXY_LIST` | `network.proxyList` | (comma-separated) |
+| `JETSKI_LOG_LEVEL` | `logging.level` | `INFO` |
+| `JETSKI_LOG_FORMAT` | `logging.format` | `text` |
+| `JETSKI_LOG_OUTPUT` | `logging.output` | `stdout` |
+| `JETSKI_APPROVAL_ENABLED` | `approval.enabled` | `false` |
+| `JETSKI_BRIDGE_URL` | `approval.bridgeURL` | `http://127.0.0.1:8080` |
+| `JETSKI_ROOM_ID` | `approval.roomID` | (empty) |
+| `JETSKI_APPROVAL_TIMEOUT` | `approval.timeout` | `60` (seconds) |
+
+### Ports
+
+| Port | Service | Protocol |
+|------|---------|----------|
+| 9222 | CDP WebSocket (agent-facing) | WebSocket |
+| 9223 | RPC API (management) | HTTP/JSON-RPC |
+| 9333 | Lightpanda engine | CDP over WebSocket |
+
+### Sub-Projects
+
+#### Lighthouse (Nav-Chart API)
+
+- **Language**: Go (`github.com/armorclaw/lighthouse`)
+- **Purpose**: REST API for navigation chart data
+- **Files**: 17 Go source files
+- **Port**: 8081 (planned)
+
+#### Chartmaker (TypeScript CLI)
+
+- **Language**: TypeScript (`@armorclaw/jetski-chartmaker`)
+- **Purpose**: Record and replay browser interactions
+- **Files**: 13 TypeScript source files
+- **Build**: `npm install && npm run build`
+
+### Docker Integration
+
+**Compose File**: `docker-compose.jetski.yml`
+**Network**: `browser-net` (172.23.0.0/16)
+**Memory Limit**: 150MB
+**Integration**: Included via `docker-compose.yml` with `include` directive
+
+### Testing
+
+| Test Suite | File | Tests | Status |
+|------------|------|-------|--------|
+| Router/Translator | `internal/cdp/router_test.go` | 4 | ✅ Pass |
+| Proxy/PII Scanner | `internal/cdp/proxy_test.go` | 6 | ✅ Pass |
+| PII Scrubbing | `internal/cdp/pii_scrub_test.go` | 8 | ✅ Pass |
+| RPC API | `internal/rpc/rpc_test.go` | 8 | ✅ Pass |
+| Sonar Telemetry | `internal/sonar/sonar_test.go` | 4 | ✅ Pass |
+| SQLCipher Sessions | `internal/security/sqlcipher_session_test.go` | 10 | ✅ Pass |
+| Session Round-trip | `internal/security/session_test.go` | 3 | ✅ Pass |
+| Matrix HITL Approval | `internal/approval/matrix_client_test.go` | 12 | ✅ Pass |
+| E2E Tethered Mode | `tests/e2e_tethered_test.go` | 5 | ✅ Pass |
+
+**Total**: 183 Go tests, all passing
+
+### NavChart Pipeline
+
+The NavChart pipeline converts raw CDP interactions into reusable, validated, and audited navigation charts that can be replayed for future browser tasks on the same domain.
+
+#### NavChart Go Types
+
+**File**: `bridge/pkg/browser/chart_types.go`
+
+Go types matching the chartmaker TypeScript schema:
+
+| Type | Purpose |
+|------|---------|
+| `NavChart` | Top-level chart with version, target domain, metadata, and action map |
+| `ChartAction` | Individual action (click, input, navigate, wait, assert) with selector and value |
+| `ChartSelector` | 3-tier selector: primary CSS, secondary XPath, fallback JS |
+| `ChartMetadata` | Generation source, timestamp, session ID |
+| `FrameRouting` | iframe targeting (selector, name, origin) |
+| `WaitCondition` | Post-action wait with type, selector, timeout |
+| `Assertion` | Post-action assertion with type and expected value |
+| `ActionType` | Enum: click, input, navigate, wait, assert |
+| `SelectorTier` | Enum: primary, secondary, fallback, failed |
+
+#### CDP-to-NavChart Normalization Pipeline
+
+**File**: `bridge/pkg/browser/normalizer.go`
+
+Raw CDP frames pass through a 6-stage pipeline:
+
+1. **Filter** — Remove non-essential CDP events (network, console, DOM mutations)
+2. **Group** — Correlate related CDP events into logical action boundaries
+3. **Detect PII** — Scan values for SSN, credit card, email, and password patterns
+4. **Replace** — Substitute detected PII with `{{VAULT:field:hash}}` placeholders
+5. **Extract Selectors** - Derive CSS, XPath, and JS selectors from CDP target info
+6. **Attach Metadata** — Add frame routing, wait conditions, and assertions
+
+#### Chart Persistence
+
+**File**: `bridge/pkg/browser/chart_store.go`
+
+Charts are stored in the `learned_charts` table in the secretary SQLite database (`rolodex.db`).
+
+**ChartStore interface**:
+
+| Method | Purpose |
+|--------|---------|
+| `Save` | Store a new NavChart (creates new version) |
+| `FindForDomain` | Find best-matching chart for a domain |
+| `RecordOutcome` | Record replay success/failure, adjust confidence |
+| `Get` | Retrieve a specific chart by ID |
+| `Delete` | Remove a chart and all versions |
+| `ListVersions` | List all versions of a chart |
+| `RevertToVersion` | Roll back to a previous chart version |
+
+#### Chart Validator
+
+**File**: `bridge/pkg/browser/chart_validator.go`
+
+Two validation modes:
+
+**`ValidateForStorage`**: Checks charts before saving. Rejects charts containing PII values (must use placeholders). Enforces minimum selector requirements (primary CSS required).
+
+**`ValidateForReplay`**: Checks charts before replay. Ensures all PII placeholders have resolved values. Validates domain policy (chart domain must match target domain).
+
+#### Replay-Through-Approval
+
+**`ReplayChart`** method on BrowserBroker replays all actions from a NavChart. Sensitive input actions (those with PII placeholders) are routed through the Bridge PII approval path. There are no shortcuts. If the user denies approval for any PII field, the entire replay aborts.
+
+This guarantees that replay follows the same approval gates as manual browser operations.
+
+#### Audit Trail
+
+**File**: `bridge/pkg/browser/chart_audit.go`
+
+The `chart_audit` table tracks 5 chart lifecycle events:
+
+| Event | When |
+|-------|------|
+| `created` | New chart saved |
+| `updated` | Chart version updated |
+| `replayed` | Chart replayed (success or failure) |
+| `rejected` | Validation rejected a chart |
+| `deleted` | Chart removed |
+
+Audit details never contain PII values. Only placeholder references, domain, and outcome are logged.
+
+#### Selector Fallback
+
+When replaying a chart action, selectors are tried in a 3-tier fallback order:
+
+| Tier | Type | Confidence Adjustment |
+|------|------|-----------------------|
+| Primary | CSS selector | +0.05 on success |
+| Secondary | XPath | +0.02 on success |
+| Fallback | JavaScript expression | +0.01 on success |
+| Failed | All tiers exhausted | -0.1 on failure |
+
+Confidence scores are persisted with the chart and used by `FindForDomain` to rank candidates.
+
+#### Chart Versioning
+
+Charts use linear versioning. Each `Save` creates a new version. `ListVersions` returns all versions for a chart ID. `RevertToVersion` restores a previous version as the current active version.
+
+#### PII Scanner
+
+**File**: `bridge/pkg/browser/pii_scanner.go`
+
+The `ScanChartsForPII` diagnostic tool scans all stored charts for PII values that should have been replaced with placeholders during normalization. Used for auditing and validation of the normalization pipeline.
+
+#### Chart Injection
+
+**File**: `bridge/pkg/secretary/orchestrator_integration.go`
+
+The `ChartFinder` interface integrates with the workflow executor. Before spawning a browser step, relevant charts for the target domain are injected into the step configuration alongside learned skills. This lets the agent reuse proven interaction patterns.
+
+#### NavChart Pipeline Test Coverage
+
+**Go Unit Tests** (`bridge/pkg/browser/`):
+
+| Test Suite | File | Tests | Status |
+|------------|------|-------|--------|
+| NavChart Types | `chart_types_test.go` | 4 | ✅ Pass |
+| Normalizer Pipeline | `normalizer_test.go` | 13 | ✅ Pass |
+| Chart Store | `chart_store_test.go` | 19 | ✅ Pass |
+| Chart Validator | `chart_validator_test.go` | 37 | ✅ Pass |
+| Chart Audit | `chart_audit_test.go` | 7 | ✅ Pass |
+| PII Scanner | `pii_scanner_test.go` | 14 | ✅ Pass |
+
+**Bash Harness Tests** (`tests/`):
+
+| Test Suite | File | Scenarios | Status |
+|------------|------|-----------|--------|
+| Browser Broker Harness | `test-browser-broker.sh` | 14 (BB0-BB13) | ✅ Pass |
+| NavChart Security | `test-navchart-security.sh` | 6 (NS0-NS5) | ✅ Pass |
+| NavChart Pipeline | `test-navchart-pipeline.sh` | 6 (NP0-NP5) | ✅ Pass |
+
+### Relationship to browser-service
+
+Jetski **complements** (does not replace) the existing `browser-service/`:
+
+| Aspect | browser-service | jetski |
+|--------|----------------|--------|
+| **Level** | Playwright automation API | CDP protocol proxy |
+| **Purpose** | High-level browser tasks | Low-level browser control |
+| **Security** | Job queue + PII approval | CDP message-level PII scrubbing |
+| **Language** | TypeScript | Go |
+| **Engine** | Playwright (Chromium) | Lightpanda |
+
+---
+
+## OpenClaw Agent Runtime
+
+### Purpose
+
+OpenClaw is the **agent runtime** that executes inside isolated Docker containers. It provides:
+- AI model integration
+- Skill execution
+- Browser automation
+- Secure PII handling
+
+### Container Security
+
+```yaml
+security_opt:
+  - no-new-privileges:true
+  - seccomp:seccomp-profile.json
+  - apparmor:armorclaw-agent
+cap_drop:
+  - ALL
+read_only: true
+pids_limit: 100
+memory: 512M
+```
+
+### Skills
+
+OpenClaw includes **52 browser skills** for web automation:
+- Navigation, form filling, clicking
+- Data extraction, screenshots
+- CAPTCHA/2FA handling
+- File operations
+
+### Context Management Architecture
+
+OpenClaw manages LLM context windows through a **reactive overflow → compaction** pipeline. There is currently **no proactive (pre-overflow) compression**.
+
+#### Context Window Resolution
+
+The context window for each model is resolved through a priority chain:
+
+1. **Per-provider config overrides** (`modelsConfig.providers.<provider>.models[].contextWindow`)
+2. **Model's own `contextWindow`** field from the model registry
+3. **`agents.defaults.contextTokens`** config cap
+4. **`DEFAULT_CONTEXT_TOKENS = 200,000`** fallback
+
+**Files**:
+- `container/openclaw-src/src/agents/context-window-guard.ts` — `resolveContextWindowInfo()`, guards: `HARD_MIN=16,000`, `WARN_BELOW=32,000`
+- `container/openclaw-src/src/agents/context.ts` — `MODEL_CACHE` (Map), `lookupContextTokens()`
+- `container/openclaw-src/src/agents/defaults.ts` — `DEFAULT_CONTEXT_TOKENS = 200_000`
+
+#### In-Memory Chat History
+
+The conversation history lives in `activeSession.messages` (type `AgentMessage[]`):
+
+- **Created**: `pi-embedded-runner/run/attempt.ts:575` — `createAgentSession()`
+- **Replaced after trimming**: `attempt.ts:691` — `activeSession.agent.replaceMessages(limited)`
+- **Persisted to disk**: Via `SessionManager.open(params.sessionFile)` — JSONL session file
+- **Pre-compaction snapshot**: `pi-embedded-runner/compact.ts:582` — `const preCompactionMessages = [...session.messages]`
+
+#### Compaction Pipeline (Post-Overflow, Reactive)
+
+When a prompt exceeds the model's context window, the runtime detects the overflow error and triggers auto-compaction:
+
+1. **Overflow detection** — `pi-embedded-runner/run.ts:585-601`:
+   - Checks `promptError` and `assistantErrorText` for overflow patterns via `isLikelyContextOverflowError()`
+2. **Auto-compaction trigger** — `run.ts:603-681`:
+   - Up to `MAX_OVERFLOW_COMPACTION_ATTEMPTS = 3` retries
+   - Calls `compactEmbeddedPiSessionDirect()` which opens the session file, runs `session.compact()`, and uses `estimateTokens()` + `generateSummary()` from `@mariozechner/pi-coding-agent`
+3. **Fallback: tool-result truncation** — `run.ts:685-731`:
+   - If compaction fails, truncates oversized tool results
+4. **Final fallback** — `run.ts:744-765`:
+   - Returns "Context overflow" error to user with `/reset` suggestion
+
+#### Bridge-Side Pre-Dispatch Compaction (v0.6.0)
+
+In addition to the reactive container-side compaction above, the Bridge now performs **pre-dispatch pruning** before sending prompts to the LLM:
+
+- **Source**: `bridge/internal/ai/compaction.go`
+- **Threshold**: `CompactionThresholdTokens` (default: 100,000) in VaultConfig, separate from `MaxTokens`
+- **Behavior**: When estimated token count exceeds the threshold, the Bridge requests a summary from the LLM and replaces older messages with the summary before dispatch
+- **Fallback**: Falls back to windowed truncation (keep most recent N messages) on LLM failure
+- **Relationship**: This runs **before** the container-side reactive pipeline. Both layers cooperate: Bridge prunes proactively, container compacts reactively on overflow errors
+
+#### Compaction Engine
+
+**File**: `container/openclaw-src/src/agents/compaction.ts`
+
+| Function | Purpose |
+|----------|---------|
+| `estimateMessagesTokens()` | Sum `estimateTokens(msg)` for all messages (strips `toolResult.details`) |
+| `summarizeInStages()` | Split into N parts → summarize each → merge summaries |
+| `pruneHistoryForContextShare()` | Drop oldest chunks until budget fits (50% of context by default) |
+| `chunkMessagesByMaxTokens()` | Group messages into token-budgeted chunks |
+| `computeAdaptiveChunkRatio()` | Adjust chunk size based on average message size |
+| `summarizeWithFallback()` | Progressive: full → partial (skip oversized) → notes-only |
+
+#### Proactive Compression: Available Hooks
+
+> **Update**: The OpenClaw runtime **does** have internal task-completion signals, independent of the Bridge state machine. The capability gap is smaller than initially assessed — it is not "no proactive compression" but "no plugin leveraging the existing `agent_end` hook for proactive compression."
+
+**Three-Trigger Architecture for Layer 0:**
+
+| Tier | Hook | When It Fires | Purpose |
+|------|------|---------------|---------|
+| **Primary** | `agent_end` (success === true) | After task completes | Compaction at natural task boundaries |
+| **Safety net** | `before_prompt_build` | Before every LLM call | Catches long single-task sessions |
+| **Future** | External Bridge signal | On state machine → IDLE/COMPLETE | Reserved; requires Bridge→Container plumbing |
+
+**`agent_end` plugin hook** — Fires at `attempt.ts:1151` after every LLM run completes. Receives `{messages, success, error, durationMs}`. Plugins register via `api.on("agent_end", handler)`.
+
+**Why `agent_end` is the correct primary trigger:**
+
+| Aspect | `before_prompt_build` | `agent_end` |
+|--------|-----------------------|-------------|
+| When it fires | Before every LLM call | After task completes |
+| Risk of mid-task compaction | **Yes** — fires during multi-step tasks | **No** — `success === true` means task is done |
+| Token cost of compaction itself | Charged against current task's context | Charged in a clean window after task is done |
+| Message snapshot freshness | Messages about to be sent anyway | Completed task's final state — ideal for summarization |
+
+**`success === true` gate with context-overflow exclusion:**
+`agent_end` fires on *every* run completion, including failures and aborts. The handler must gate on `success === true` to avoid compacting corrupted or incomplete history. **Critical exclusion**: if the run failed *because* of context overflow (the existing `isLikelyContextOverflowError` path at `run.ts:585`), the handler must skip — the reactive compaction retry loop at `run.ts:603-681` already handles this case.
+
+**`session.state` diagnostic event** — Fires via `clearActiveEmbeddedRun()` at `runs.ts:143` with `{state: "idle", reason: "run_completed"}`. Observable through `emitDiagnosticEvent()`.
+
+**Full plugin lifecycle** — The system supports 20 hooks: `before_prompt_build`, `llm_input`, `llm_output`, `agent_end`, `before_compaction`, `after_compaction`, `session_start`, `session_end`, `before_model_resolve`, `before_agent_start`, `before_reset`, `message_received`, `message_sending`, `message_sent`, `before_tool_call`, `after_tool_call`, `tool_result_persist`, `before_message_write`, `gateway_start`, `gateway_stop`. All defined in `plugins/types.ts:298-318`.
+
+**Recommended approach for Layer 0**: Register an `agent_end` plugin that gates on `success === true`, checks `estimateMessagesTokens(messages)` against the context window (~75% threshold), and calls `compactEmbeddedPiSessionDirect()`. Add a `before_prompt_build` safety net at `attempt.ts:838` for long single-task sessions. No Bridge changes needed.
+
+> See [doc/agent-runtime.md](agent-runtime.md) for agent runtime internals: memory store, LRU cache, tool executor, and speculative execution.
+
+---
+
+## ArmorChat Android Client
+
+### Purpose
+
+ArmorChat is the **Android mobile client** that provides:
+- End-to-end encrypted messaging with agents
+- Human-in-the-loop approval for sensitive operations
+- QR code provisioning
+- Push notifications
+
+### Key Features
+
+| Feature | Description |
+|---------|-------------|
+| **E2EE Messaging** | Megolm encryption via Matrix |
+| **QR Provisioning** | Scan to connect to VPS |
+| **PII Approval** | Approve/deny sensitive data access |
+| **Push Notifications** | Real-time alerts via Sygnal |
+| **Biometric Auth** | Secure keystore access |
+| **Email Approval Card** (v0.6.0) | Email-based HITL approval flow with `EmailApprovalCard` |
+| **Dynamic PII Masking** (v0.6.0) | `BlockerResponseDialog` masks 8 sensitive keywords using `PasswordVisualTransformation` |
+| **Workflow Blocker Events** (v0.6.0) | Parses `workflow.blocker_warning` Matrix events for live blocker status |
+| **Deep Link Navigation** (v0.7.0) | `DeepLinkHandler.kt` routes notification taps to correct screen |
+| **Persistent Credentials** (v0.7.0) | `BridgeRepository` persists credentials via encrypted SharedPreferences |
+| **Security Config Persistence** (v0.7.0) | `SecurityConfigViewModel` wired to `SecurityConfigScreen`, permissions survive app restarts |
+
+### Provisioning Flow
+
+```
+Bridge: generate QR with setup_token
+   ↓
+ArmorChat: scan QR
+   ↓
+ArmorChat: POST /provisioning.claim
+   ↓
+Bridge: return admin_token
+   ↓
+ArmorChat: store credentials, connect to Matrix
+```
+
+> See [doc/client-applications.md](client-applications.md) for other client applications: Admin Panel, ArmorTerminal, Setup Wizard, and OpenClaw UI.
+
+---
+
+## RPC API Reference
+
+### Health & System (2 active + 5 planned)
+
+| Method | Parameters | Returns | Description |
+|--------|------------|---------|-------------|
+| `health.check` | - | `{status, components}` | Health check |
+| `mobile.heartbeat` | `{user_id}` | `{acknowledged}` | Mobile heartbeat |
+| `system.health` | - | `{status, timestamp, uptime, checks}` | System health |
+| `system.config` | - | `{version, features, endpoints, limits}` | System configuration |
+| `system.info` | - | `{server, protocol, capabilities}` | System info |
+| `system.time` | - | `{server_time, server_time_utc}` | System time |
+| `device.validate` | `{device_id}` | `{valid, trust_level}` | Device validation |
+
+> † `system.health`, `system.config`, `system.info`, `system.time`, `device.validate` are defined in `public_handlers.go` but not yet wired into the RPC handler map.
+
+### AI (1 method)
+
+| Method | Parameters | Returns | Description |
+|--------|------------|---------|-------------|
+| `ai.chat` | `{messages[], model, temperature, max_tokens, key_id}` | `{id, choices[], model, usage}` | Chat completion (rate-limited) |
+
+### Matrix (5 methods)
+
+| Method | Parameters | Returns | Description |
+|--------|------------|---------|-------------|
+| `matrix.status` | - | `{enabled, connected, logged_in, homeserver, user_id}` | Connection status |
+| `matrix.login` | `{username, password}` | `{success, user_id}` | Login to homeserver |
+| `matrix.send` | `{room_id, message, msgtype}` | `{event_id, room_id}` | Send message |
+| `matrix.receive` | `{cursor, timeout_ms}` | `{events[], cursor, count}` | Receive events (long-poll) |
+| `matrix.join_room` | `{room_id, via_servers, reason}` | `{room_id}` | Join room |
+
+### Browser Automation (11 of 15 methods exposed via RPC)
+
+| Method | Parameters | Returns | Description |
+|--------|------------|---------|-------------|
+| `browser.navigate` | `{url, agent_id, job_id}` | `{job_id, status, url}` | Navigate to URL |
+| `browser.fill` | `{job_id, selector, value}` | `{job_id, status, selector, success}` | Fill form field |
+| `browser.click` | `{job_id, selector}` | `{job_id, status, selector, success}` | Click element |
+| `browser.status` | `{job_id}` | `{job_id, status, url, session}` | Get job status |
+| `browser.wait_for_element` | `{job_id, selector, timeout}` | `{job_id, status, success}` | Wait for element |
+| `browser.wait_for_captcha` | `{job_id}` | `{job_id, status}` | Wait for CAPTCHA |
+| `browser.wait_for_2fa` | `{job_id}` | `{job_id, status}` | Wait for 2FA |
+| `browser.complete` | `{job_id}` | `{job_id, status, completed_at}` | Mark complete |
+| `browser.fail` | `{job_id, reason}` | `{job_id, status, error}` | Mark failed |
+| `browser.list` | - | `{jobs[], count}` | List all jobs |
+| `browser.cancel` | `{job_id}` | `{job_id, status, cancelled_at}` | Cancel job |
+
+> **Note**: The `BrowserBroker` interface defines 15 methods (see [BrowserBroker Interface](#browserbroker-interface)). The 4 methods not exposed as standalone RPC calls (`StartJob`, `Screenshot`, `Extract`, `ReplayChart`) are invoked internally by the Bridge during job lifecycle management and NavChart replay.
+
+### PII Management (9 methods)
+
+| Method | Parameters | Returns | Description |
+|--------|------------|---------|-------------|
+| `pii.request` | `{agent_id, skill_id, profile_id, variables[], ttl}` | `{request_id, status, expires_at}` | Request PII access |
+| `pii.approve` | `{request_id, user_id, approved_fields[]}` | `{request_id, status, approved_at}` | Approve access |
+| `pii.deny` | `{request_id, user_id, reason}` | `{request_id, status, denied_at}` | Deny access |
+| `pii.status` | `{request_id}` | `{request_id, status, fields}` | Get request status |
+| `pii.list_pending` | - | `{requests[], count}` | List pending requests |
+| `pii.stats` | - | `{stats}` | PII statistics |
+| `pii.cancel` | `{request_id}` | `{request_id, status}` | Cancel request |
+| `pii.fulfill` | `{request_id, resolved_vars}` | `{request_id, status}` | Mark fulfilled |
+| `pii.wait_for_approval` | `{request_id, timeout}` | `{request_id, status}` | Wait for approval |
+
+### Skills (14 methods)
+
+| Method | Parameters | Returns | Description |
+|--------|------------|---------|-------------|
+| `skills.execute` | `{skill_name, params}` | `SkillResult` | Execute skill |
+| `skills.list` | - | `{skills[], count}` | List enabled skills |
+| `skills.get_schema` | `{skill_name}` | `{skill_name, schema}` | Get skill schema |
+| `skills.allow` | `{skill_name}` | `{skill_name, status}` | Allow skill |
+| `skills.block` | `{skill_name}` | `{skill_name, status}` | Block skill |
+| `skills.allowlist_add` | `{type, value}` | `{type, value, status}` | Add to allowlist |
+| `skills.allowlist_remove` | `{type, value}` | `{type, value, status}` | Remove from allowlist |
+| `skills.allowlist_list` | - | `{ips[], cidrs[]}` | List allowlist |
+| `skills.web_search` | `{params}` | `SkillResult` | Web search |
+| `skills.web_extract` | `{params}` | `SkillResult` | Web extraction |
+| `skills.email_send` | `{params}` | `SkillResult` | Send email |
+| `skills.slack_message` | `{params}` | `SkillResult` | Slack message |
+| `skills.file_read` | `{params}` | `SkillResult` | Read file |
+| `skills.data_analyze` | `{params}` | `SkillResult` | Data analysis |
+
+### Bridge Management (9 methods)
+
+| Method | Parameters | Returns | Description |
+|--------|------------|---------|-------------|
+| `bridge.start` | - | `{status, message}` | Start bridge |
+| `bridge.stop` | - | `{status, message}` | Stop bridge |
+| `bridge.status` | `{user_id}` | `{enabled, status, stats}` | Get bridge status |
+| `bridge.channel` | `{matrix_room_id, platform, channel_id}` | `{status}` | Bridge channel |
+| `bridge.unchannel` | `{platform, channel_id}` | `{status}` | Unbridge channel |
+| `bridge.list` | - | `{channels[], count}` | List bridges |
+| `bridge.ghost_list` | - | `{ghosts[], count}` | List ghost users |
+| `bridge.appservice_status` | - | `{status}` | AppService status |
+| `store_key` | `{id, provider, token, display_name, base_url}` | `{success, id}` | Store API key |
+
+### Events (2 methods)
+
+| Method | Parameters | Returns | Description |
+|--------|------------|---------|-------------|
+| `events.replay` | `{offset, limit}` | `EventLogRecords[]` | Replay events |
+| `events.stream` | `{offset, timeout_ms}` | `EventLogRecords[]` | Stream events (long-poll) |
+
+### Studio (2 methods)
+
+| Method | Parameters | Returns | Description |
+|--------|------------|---------|-------------|
+| `studio.deploy` | `{method_name, params}` | Varies | Deploy agent |
+| `studio.stats` | - | `{agents, instances, skills}` | Studio statistics |
+
+### Provisioning (2 methods)
+
+| Method | Parameters | Returns | Description |
+|--------|------------|---------|-------------|
+| `provisioning.start` | - | `{setup_token, qr_data, expires_in}` | Start provisioning |
+| `provisioning.claim` | `{setup_token, device_id, device_name}` | `{success, role, device_id}` | Claim device |
+
+### Hardening (3 methods)
+
+| Method | Parameters | Returns | Description |
+|--------|------------|---------|-------------|
+| `hardening.status` | - | `HardeningState` | Hardening status |
+| `hardening.ack` | `{step}` | `HardeningState` | Acknowledge step |
+| `hardening.rotate_password` | `{new_password}` | `{success}` | Rotate password |
+
+### Secretary / Workflow (13 methods)
+
+| Method | Parameters | Returns | Description |
+|--------|------------|---------|-------------|
+| `secretary.create_workflow` | `{template_id, variables, user_id?}` | `{workflow_id, status, steps[]}` | Create a new workflow instance from a template |
+| `secretary.start_workflow` | `{template_id, variables}` | `{workflow_id, status, steps[]}` | Start a new workflow from template |
+| `secretary.get_workflow` | `{workflow_id}` | `{workflow_id, status, state, steps[], current_step}` | Get workflow status and state |
+| `secretary.cancel_workflow` | `{workflow_id}` | `{workflow_id, status, cancelled_at}` | Cancel a running workflow |
+| `secretary.advance_workflow` | `{workflow_id, step_id, input}` | `{workflow_id, status, advanced_to}` | Manually advance a workflow step |
+| `secretary.list_templates` | - | `{templates[], count}` | List available workflow templates |
+| `secretary.create_template` | `{name, description, steps[]}` | `{template_id, status}` | Create a new workflow template |
+| `secretary.get_template` | `{template_id}` | `{template_id, name, steps[]}` | Get template definition |
+| `secretary.delete_template` | `{template_id}` | `{template_id, status}` | Delete a workflow template |
+| `secretary.update_template` | `{template_id, name?, description?, steps[]?}` | `{template_id, status}` | Update template definition |
+| `secretary.is_running` | `{workflow_id}` | `{running: bool}` | Check if a workflow is currently running |
+| `secretary.get_active_count` | - | `{count: int}` | Get number of actively running workflows |
+| `secretary.shutdown` | `{workflow_id}` | `{status}` | Gracefully shutdown a running workflow |
+
+### Task Management (4 methods)
+
+| Method | Parameters | Returns | Description |
+|--------|------------|---------|-------------|
+| `task.create` | `{title, description, priority, due_date}` | `{task_id, status, created_at}` | Create a new task |
+| `task.list` | `{status?, limit?, offset?}` | `{tasks[], count, total}` | List tasks |
+| `task.get` | `{task_id}` | `{task_id, title, status, steps[], created_at}` | Get task details |
+| `task.cancel` | `{task_id}` | `{task_id, status, cancelled_at}` | Cancel a task |
+
+### Device Management (4 methods)
+
+| Method | Parameters | Returns | Description |
+|--------|------------|---------|-------------|
+| `device.list` | - | `{devices[], count}` | List registered devices |
+| `device.get` | `{device_id}` | `{device_id, name, status, trust_level, last_seen}` | Get device details |
+| `device.approve` | `{device_id}` | `{device_id, status, approved_at}` | Approve a pending device |
+| `device.reject` | `{device_id, reason?}` | `{device_id, status, rejected_at}` | Reject a pending device |
+
+### Invite Management (4 methods)
+
+| Method | Parameters | Returns | Description |
+|--------|------------|---------|-------------|
+| `invite.create` | `{max_uses?, expires_in?}` | `{code, expires_at, max_uses}` | Create an invite code |
+| `invite.list` | - | `{invites[], count}` | List active invites |
+| `invite.revoke` | `{code}` | `{code, status, revoked_at}` | Revoke an invite |
+| `invite.validate` | `{code}` | `{valid, expires_at, uses_remaining}` | Validate an invite code |
+
+### Email Approval (4 methods)
+
+| Method | Parameters | Returns | Description |
+|--------|------------|---------|-------------|
+| `approve_email` | `{approval_id, user_id}` | `{approval_id, status, approved_at}` | Approve a pending email |
+| `deny_email` | `{approval_id, user_id, reason?}` | `{approval_id, status, denied_at}` | Deny a pending email |
+| `email_approval_status` | `{approval_id}` | `{approval_id, status, email, created_at}` | Check email approval status |
+| `email.list_pending` | - | `{approvals[], count}` | List pending email approvals |
+
+### Container Management (2 methods)
+
+| Method | Parameters | Returns | Description |
+|--------|------------|---------|-------------|
+| `container.terminate` | `{container_id}` | `{container_id, status, terminated_at}` | Terminate a running container (SIGKILL) |
+| `container.list` | - | `{containers[], count}` | List running containers |
+
+### Account (1 method)
+
+| Method | Parameters | Returns | Description |
+|--------|------------|---------|-------------|
+| `account.delete` | `{user_id, confirmation}` | `{status, deleted_at}` | Delete user account |
+
+### Standalone Methods (1 method)
+
+| Method | Parameters | Returns | Description |
+|--------|------------|---------|-------------|
+| `resolve_blocker` | `{workflow_id, blocker_id, resolution}` | `{workflow_id, blocker_id, status, resolved_at}` | Resolve a workflow blocker |
+
+---
+
+## Event Types Reference
+
+### Matrix Events
+| Event | Description |
+|-------|-------------|
+| `matrix.message` | New message received |
+| `matrix.receipt` | Read receipt |
+| `matrix.typing` | Typing notification |
+| `matrix.presence` | Presence update |
+
+### Agent Events
+| Event | Description |
+|-------|-------------|
+| `agent.started` | Agent started |
+| `agent.stopped` | Agent stopped |
+| `agent.status_changed` | Status transition |
+| `agent.command` | Command received |
+| `agent.error` | Error occurred |
+
+### Workflow Events
+| Event | Description |
+|-------|-------------|
+| `workflow.started` | Workflow started |
+| `workflow.progress` | Progress update |
+| `workflow.completed` | Workflow completed |
+| `workflow.failed` | Workflow failed |
+| `workflow.cancelled` | Workflow cancelled |
+| `workflow.paused` | Workflow paused |
+| `workflow.resumed` | Workflow resumed |
+
+### HITL Events
+| Event | Description |
+|-------|-------------|
+| `hitl.pending` | Approval pending |
+| `hitl.approved` | Approval granted |
+| `hitl.rejected` | Approval rejected |
+| `hitl.expired` | Approval expired |
+| `hitl.escalated` | Approval escalated |
+
+### Budget Events
+| Event | Description |
+|-------|-------------|
+| `budget.alert` | Budget alert |
+| `budget.limit` | Budget limit reached |
+| `budget.updated` | Budget updated |
+
+### Platform Events
+| Event | Description |
+|-------|-------------|
+| `platform.connected` | Platform connected |
+| `platform.disconnected` | Platform disconnected |
+| `platform.message` | Platform message |
+| `platform.error` | Platform error |
+
+> See [doc/communication-infra.md](communication-infra.md) for communication infrastructure internals: push notifications, SSO, WebSocket server, event bus, and platform adapters.
+
+---
+
+## Configuration Reference
+
+### Environment Variables
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `ARMORCLAW_KEYSTORE_SECRET` | Base64-encoded keystore master key | - |
+| `OPENROUTER_API_KEY` | OpenRouter API key | - |
+| `ZAI_API_KEY` | xAI API key | - |
+| `OPEN_AI_KEY` | OpenAI API key | - |
+| `ARMORCLAW_SERVER_MODE` | Deployment mode (native/sentinel) | `native` |
+| `ARMORCLAW_RPC_TRANSPORT` | RPC transport (unix/tcp) | `unix` |
+| `ARMORCLAW_SOCKET_PATH` | Unix socket path | `/run/armorclaw/bridge.sock` |
+| `ARMORCLAW_LISTEN_ADDR` | TCP listen address | `0.0.0.0:8080` |
+| `ARMORCLAW_PUBLIC_BASE_URL` | Public base URL | - |
+| `ARMORCLAW_EMAIL` | Admin email (Let's Encrypt) | - |
+| `CF_API_TOKEN` | Cloudflare API token | - |
+| `CF_TUNNEL_DOMAIN` | Cloudflare tunnel domain | - |
+
+### TOML Configuration
+
+**File**: `/etc/armorclaw/config.toml`
+
+```toml
+[server]
+mode = "native"                    # native | sentinel
+socket_path = "/run/armorclaw/bridge.sock"
+listen_addr = "0.0.0.0:8080"
+public_base_url = "https://your-domain.com"
+
+[matrix]
+enabled = true
+homeserver_url = "http://localhost:6167"
+username = "bridge"
+password = ""
+
+[ai]
+default_provider = "openrouter"
+default_model = "anthropic/claude-3.5-sonnet"
+max_concurrent = 4
+
+[keystore]
+path = "/var/lib/armorclaw/keystore.db"
+
+[logging]
+level = "info"
+format = "json"
+
+[audit]
+enabled = true
+retention_days = 30
+
+[browser]
+enabled = true                           # Enable browser automation
+service_url = "http://localhost:3002"     # Legacy browser-service HTTP API URL
+cdp_url = "ws://localhost:9222"          # CDP WebSocket URL (Jetski)
+rpc_url = "http://localhost:9223"        # JSON-RPC management URL (Jetski)
+legacy_url = "http://localhost:3002"     # Legacy browser-service fallback URL
+backend = "jetski"                       # Browser backend: "jetski" or "legacy"
+fallback = false                         # Auto-fallback from jetski to legacy on failure
+timeout = 30                             # Default timeout for browser operations (seconds)
+max_retries = 3                          # Max retries for failed operations
+retry_delay = 1                          # Delay between retries (seconds)
+
+[browser.stealth]
+enabled = false                          # Enable stealth anti-detection mode
+fingerprint_seed = ""                    # Seed for deterministic fingerprint generation
+human_like_typing = false                # Enable human-like typing delays
+human_like_mouse = false                 # Enable human-like mouse movements
+webgl_noise = false                      # Enable WebGL fingerprint noise
+canvas_noise = false                     # Enable canvas fingerprint noise
+
+[browser.queue]
+max_workers = 4                          # Max concurrent browser workers
+max_queue_size = 100                     # Max pending jobs in queue
+job_timeout = 300                        # Max time a job can run (seconds)
+priority_levels = 3                      # Number of priority levels (1-10)
+```
+
+**Browser Environment Variables**:
+
+| Variable | Field | Default |
+|----------|-------|---------|
+| `ARMORCLAW_BROWSER_ENABLED` | `browser.enabled` | `false` |
+| `ARMORCLAW_BROWSER_SERVICE_URL` | `browser.service_url` | (empty) |
+| `ARMORCLAW_BROWSER_CDP_URL` | `browser.cdp_url` | (empty) |
+| `ARMORCLAW_BROWSER_RPC_URL` | `browser.rpc_url` | (empty) |
+| `ARMORCLAW_BROWSER_LEGACY_URL` | `browser.legacy_url` | (empty) |
+| `ARMORCLAW_BROWSER_BACKEND` | `browser.backend` | `jetski` |
+| `ARMORCLAW_BROWSER_FALLBACK` | `browser.fallback` | `false` |
+| `ARMORCLAW_BROWSER_TIMEOUT` | `browser.timeout` | `30` |
+| `ARMORCLAW_BROWSER_MAX_RETRIES` | `browser.max_retries` | `3` |
+| `ARMORCLAW_BROWSER_RETRY_DELAY` | `browser.retry_delay` | `1` |
+| `ARMORCLAW_BROWSER_STEALTH_ENABLED` | `browser.stealth.enabled` | `false` |
+| `ARMORCLAW_BROWSER_FINGERPRINT_SEED` | `browser.stealth.fingerprint_seed` | (empty) |
+| `ARMORCLAW_BROWSER_HUMAN_TYPING` | `browser.stealth.human_like_typing` | `false` |
+| `ARMORCLAW_BROWSER_HUMAN_MOUSE` | `browser.stealth.human_like_mouse` | `false` |
+| `ARMORCLAW_BROWSER_WEBGL_NOISE` | `browser.stealth.webgl_noise` | `false` |
+| `ARMORCLAW_BROWSER_CANVAS_NOISE` | `browser.stealth.canvas_noise` | `false` |
+| `ARMORCLAW_BROWSER_MAX_WORKERS` | `browser.queue.max_workers` | `4` |
+| `ARMORCLAW_BROWSER_MAX_QUEUE_SIZE` | `browser.queue.max_queue_size` | `100` |
+| `ARMORCLAW_BROWSER_JOB_TIMEOUT` | `browser.queue.job_timeout` | `300` |
+| `ARMORCLAW_BROWSER_PRIORITY_LEVELS` | `browser.queue.priority_levels` | `3` |
+
+---
+
+## Deployment Modes
+
+### Mode Comparison
+
+| Feature | Native | Sentinel | Cloudflare Tunnel | Cloudflare Proxy | Self-Hosted |
+|---------|--------|----------|-------------------|------------------|-------------|
+| **Use Case** | Development | Production VPS | NAT/firewall | Existing CF | Home server, LAN |
+| **Communication** | Unix socket | TCP + TLS | cloudflared tunnel | HTTP(S) proxy | TCP + HTTPS (Caddy) |
+| **Access** | Local-only | Public | Public | Public | mDNS (LAN only) |
+| **TLS** | None | Let's Encrypt | Cloudflare SSL | Cloudflare SSL | Self-signed |
+| **Public IP Required** | No | Yes | No | Yes | No |
+| **Setup Time** | ~2 min | ~5 min | ~3 min | ~5 min | ~5 min |
+
+### Native Mode
+
+**Configuration:**
+```bash
+ARMORCLAW_SERVER_MODE=native
+ARMORCLAW_RPC_TRANSPORT=unix
+ARMORCLAW_SOCKET_PATH=/run/armorclaw/bridge.sock
+```
+
+### Sentinel Mode
+
+**Configuration:**
+```bash
+ARMORCLAW_SERVER_MODE=sentinel
+ARMORCLAW_RPC_TRANSPORT=tcp
+ARMORCLAW_LISTEN_ADDR=0.0.0.0:8080
+ARMORCLAW_PUBLIC_BASE_URL=https://your-domain.com
+ARMORCLAW_EMAIL=admin@your-domain.com
+```
+
+### Cloudflare Tunnel Mode
+
+**Configuration:**
+```bash
+CF_API_TOKEN=your-token
+CF_TUNNEL_DOMAIN=armorclaw.example.com
+```
+
+### Self-Hosted Mode (LAN Appliance)
+
+**Configuration:**
+```bash
+# Single-command setup
+sudo bash deploy/deploy-selfhosted.sh --auto
+
+# Custom hostname
+ARMORCLAW_HOSTNAME=myserver.local sudo bash deploy/deploy-selfhosted.sh --auto
+```
+
+**Key files:**
+- `docker-compose.selfhosted.yml` -- Docker Compose stack
+- `configs/Caddyfile.selfhosted` -- Reverse proxy with self-signed TLS
+- `deploy/scripts/generate-certs.sh` -- Self-signed cert generation and rotation
+- `.env.selfhosted` -- Environment template
+
+**mDNS service types:** `_armorclaw._tcp` and `_openclaw-gw._tcp` (both advertised for discovery).
+
+### TLS Mode Detection
+
+ArmorClaw derives TLS mode from deployment topology:
+
+| Deployment | TLS Mode | Trust Type | bridge.status.tls.health |
+|------------|----------|------------|--------------------------|
+| Native (Unix socket) | `none` | `""` | `ok` |
+| Sentinel + self-signed cert | `private` | `self_signed` | `ok` / `degraded` |
+| Sentinel + CA-issued cert | `public` | `public_ca` | `ok` / `degraded` |
+
+**Shared-cert model**: Caddy reverse proxy and Bridge read the same certificate files from `/etc/armorclaw/certs/server.crt` and `server.key`. When both files are present, `bridge.status.tls.cert_source == "shared_cert"` and `health == "ok"`. If the cert file is missing, `cert_source == "proxy_only"` and `health == "degraded"` — the mode stays stable (topology doesn't change due to health).
+
+**Fingerprint format**: Standard SHA-256 of DER-encoded certificate bytes (64 lowercase hex characters). Operators upgrading from pre-TLS versions should expect different fingerprint values than the old signature truncation method.
+
+**Native mode zero-value semantics**: `bridge.status.tls` is always present in the RPC response. In native mode: `mode="none"`, `fingerprint_sha256=""`, `trust_type=""`, `expires_at=0`, `san_includes_public_ip=false`. Scripts can use simple string/numeric checks without null handling.
+
+**QR payload versioning**: `/qr/config` emits v1 by default (no TLS fields). Set `ARMORCLAW_QR_VERSION=2` to enable v2 emission with `tls_mode`, `tls_fingerprint_sha256` (signed), `tls_trust_hint`, and `cert_expires_at` (unsigned informational metadata).
+
+**/.well-known**: `/.well-known/matrix/client` includes `com.armorclaw.tls_mode` field reflecting the current TLS mode. In self-hosted/private topology, both `/.well-known` and API endpoints (`/api`, `/discover`, `/qr/config`) resolve to the same VPS host with Caddy routing by path.
+
+**TLS environment variables**:
+- `ARMORCLAW_TLS_MODE` — Override TLS mode (precedence over auto-detection)
+- `ARMORCLAW_PUBLIC_IP` — External IP to include in certificate SANs
+- `ARMORCLAW_QR_VERSION` — Set to `2` for QR v2 payload with TLS fields
+
+**Client-side note**: ArmorChat's `QRConfigPayload` and `DiscoveredServer` models (separate codebase) do not yet consume TLS metadata fields. Server-side changes produce v2 QR payloads and extended well-known responses; ArmorChat needs updating to consume these.
+
+---
+
+## Local Development Guide
+
+ArmorClaw provides a complete local development environment using Docker Desktop. This enables developers to run, test, and modify the system without provisioning a VPS.
+
+### Quick Start
+
+```bash
+# 1. Install Docker Desktop (https://www.docker.com/products/docker-desktop)
+# 2. Clone the repository
+git clone https://github.com/Gemutly/ArmorClaw.git
+cd armorclaw
+
+# 3. Start all services
+docker-compose up -d
+
+# 4. Verify deployment
+curl http://localhost:8080/health
+# Should return health status
+
+# 5. View logs
+docker-compose logs -f bridge
+```
+
+### Development Workflow
+
+| Action | Command |
+|--------|---------|
+| Start all services | `docker-compose up -d` |
+| Stop all services | `docker-compose down` |
+| View logs (all services) | `docker-compose logs -f` |
+| View logs (specific service) | `docker-compose logs -f bridge` |
+| Restart service | `docker-compose restart bridge` |
+| Rebuild service | `docker-compose up -d --build bridge` |
+| Execute command in container | `docker exec -it armorclaw-bridge bash` |
+| Clean up | `docker system prune -a --volumes -f` |
+
+### Hot Reload Development
+
+For Bridge development, you can enable hot-reloading:
+
+```bash
+# Install inotify-tools (Linux)
+sudo apt-get install inotify-tools
+
+# Watch for changes and rebuild
+while inotifywait -e modify -r bridge/; do
+  docker-compose up -d --build bridge
+done
+```
+
+### Running Tests Locally
+
+```bash
+# Run all test suites
+make test-all
+
+# Run specific test suites
+make test-hardening
+make test-secrets
+make test-exploits
+make test-e2e
+
+# Quick smoke test (hardening only)
+make smoke
+
+# Run Go unit tests
+cd bridge
+go test ./...
+
+# Run Rust Vault tests
+cd rust-vault
+cargo test --all
+
+# Run JetSki tests
+cd jetski
+go test ./...
+
+# Run Python MarkItDown sidecar tests
+cd sidecar-python
+python -m pytest test_worker.py test_edge_cases.py test_interceptor.py -v
+
+# Run Java Apache POI sidecar tests (requires Java 21)
+cd sidecar-java
+JAVA_HOME="$(asdf where java temurin-21.0.11+10.0.LTS)" mvn test
+
+# Run Go routing + E2E tests (includes Java DOC/PPT routing paths)
+cd bridge
+go test -v -run "TestRouteExtractText|TestE2E|TestJavaSidecarE2E" ./pkg/sidecar/...
+```
+
+### Environment Variables for Development
+
+Create a `.env` file in the project root:
+
+```bash
+ARMORCLAW_ENV=development
+LOG_LEVEL=debug
+# Add any API keys needed for testing:
+# OPENROUTER_API_KEY=sk-or-...
+# OPENAI_API_KEY=sk-...
+```
+
+### Ports Used in Local Development
+
+| Port | Service | Protocol |
+|------|---------|----------|
+| 8080 | Bridge API (TCP) | HTTP |
+| 6167 | Matrix Conduit | HTTP |
+| 80 | Caddy HTTP Proxy | HTTP |
+| 443 | Caddy HTTPS Proxy | HTTPS |
+| 9222 | JetSki CDP Proxy (agent-facing) | WebSocket |
+| 9223 | JetSki RPC API | HTTP/JSON-RPC |
+| 9333 | Lightpanda Engine | CDP over WebSocket |
+| Unix socket | Python MarkItDown Sidecar | gRPC (`/run/armorclaw/sidecar-office.sock`) |
+| Unix socket | Java Apache POI Sidecar | gRPC (`/run/armorclaw/sidecar-java.sock`) |
+
+---
+
+## Document Index
+
+### Primary Documentation
+- **README.md** - System overview and quick start
+- **ARMORCLAW.md** - AI-powered deployment skills introduction
+- **AGENTS.md** - Agent OS orchestration guidance
+- **CLAUDE.md** - Claude Code development standards
+
+### Sidecar Documentation
+- **doc/sidecar-pipeline.md** - Document processing pipeline (Rust + Python + Java sidecars, Go routing, YARA)
+- **sidecar/README.md** - Rust sidecar internals (connectors, encryption, provenance)
+- **sidecar-python/worker.py** - Python MarkItDown sidecar (MSG, XLS conversion; DOC/PPT migrated to Java)
+- **sidecar-java/** - Java Apache POI sidecar (DOC, PPT extraction via HWPFDocument/HSLFSlideShow)
+- **bridge/pkg/sidecar/office_client.go** - 3-layer routing logic with Java DOC/PPT path (native bypass, compound validation, strict drop)
+
+### Review Documentation
+- `applications/ArmorChat-review.md` - Android client review
+- `applications/ArmorTerminal-review.md` - Terminal client review
+- `DEPLOYMENT_SKILLS_REVIEW.md` - Deployment skills audit
+
+### Jetski Documentation
+- **Jetski Sidecar**: `jetski/README.md` - Browser sidecar documentation
+- **Jetski Integration Plan**: `.sisyphus/plans/jetski-integration.md` - Integration plan and status
+
+---
+
+---
+
+## Agent State Machine (Go Bridge)
+
+The Go Bridge manages agent lifecycle through a **state machine** (`bridge/pkg/agent/state.go`) with **11 states** and validated transitions.
+
+**Agent State Persistence**: Agent state directory is bind-mounted at `/var/lib/armorclaw/agent-state/{definitionID}/` to `/home/claw/.openclaw` inside containers. This overrides `ReadonlyRootfs` for the state path specifically. JSONL sessions, agent configuration, and logs persist across container lifecycle events (stop, remove, re-spawn).
+
+### States
+
+| State | Description | Category |
+|-------|-------------|----------|
+| `IDLE` | Agent not performing any task | Rest |
+| `INITIALIZING` | Agent starting up | Active |
+| `BROWSING` | Navigating to a URL | Active |
+| `FORM_FILLING` | Filling form fields | Active |
+| `AWAITING_CAPTCHA` | Needs human CAPTCHA solving | Terminal (needs user) |
+| `AWAITING_2FA` | Needs a 2FA code | Terminal (needs user) |
+| `AWAITING_APPROVAL` | Waiting for BlindFill PII approval | Terminal (needs user) |
+| `PROCESSING_PAYMENT` | Submitting a payment | Active |
+| `ERROR` | Recoverable error | Recovery |
+| `COMPLETE` | Task finished successfully | Terminal (final) |
+| `OFFLINE` | Agent not reachable | Terminal (final) |
+
+### Transitions Leading to IDLE or COMPLETE
+
+Every path that ends a task cycle:
+
+| From | To | Trigger | Code Path |
+|------|----|---------|-----------|
+| `INITIALIZING` | `IDLE` | Agent startup finished | `state_machine.go:231` `SetReady()` |
+| `BROWSING` | `COMPLETE` | Browser task finished successfully | `browser.go:291` `integration.CompleteTask()` |
+| `BROWSING` | `IDLE` | Browser navigation ended without task | `state.go:58` (valid transition) |
+| `FORM_FILLING` | `COMPLETE` | Form submission succeeded | `browser.go:291` |
+| `FORM_FILLING` | `IDLE` | Form filling cancelled/ended | `state.go:68` |
+| `AWAITING_CAPTCHA` | `IDLE` | Captcha resolution abandoned | `state.go:74` |
+| `AWAITING_2FA` | `IDLE` | 2FA resolution abandoned | `state.go:81` |
+| `AWAITING_APPROVAL` | `IDLE` | Approval abandoned | `state.go:87` |
+| `PROCESSING_PAYMENT` | `COMPLETE` | Payment succeeded | `state.go:90`, `processor.go:165` |
+| `PROCESSING_PAYMENT` | `IDLE` | Payment cancelled | `state.go:93` |
+| `ERROR` | `IDLE` | Error recovered | `state_machine.go:293` `Reset()` |
+| `COMPLETE` | `IDLE` | Post-completion reset (terminal drain) | `state.go:100` |
+
+### Event Flow: Bridge → Matrix → OpenClaw
+
+When a state transition occurs:
+
+1. **`StateMachine.Transition()`** (`state_machine.go:59`) validates the transition, emits a `StatusEvent` to:
+   - `sm.eventChan` (buffered channel, 100 capacity)
+   - All subscribers via `sm.subscribers`
+2. **`Integration.processEvents()`** (`integration.go:232`) reads from the event channel and calls `onStatusChange` callback (if set)
+3. **`StatusEvent`** has `EventType()` → `"com.armorclaw.agent.status"` (Matrix event type)
+
+### State Signal Propagation (v0.6.0 Partial Close)
+
+The `onStatusChange` callback is now wired through state inference in v0.6.0. The Bridge infers agent state from container lifecycle events and workflow progress:
+
+- `OnStatusChange()` (`integration.go:66`) accepts a callback. In v0.6.0, the workflow executor sets this callback when orchestrating multi-step workflows.
+- `AgentCoordinator.BroadcastStatus()` (`integration.go:339`) was previously a stub. In v0.6.0, state inference is implemented: the Bridge infers agent state from container lifecycle events and workflow progress rather than relying on network push. The eventbus now publishes agent state machine events.
+- The eventbus `EventTypeAgentStatusChanged` (`eventbus/events.go:22`) now receives published agent state events
+- OpenClaw TypeScript code has **zero references** to `com.armorclaw.agent.status`, `state_machine`, or `StatusEvent` (container-side awareness unchanged)
+
+### Implication for Layer 0 (Context Window Persistence)
+
+The Bridge state machine's `→ IDLE` / `→ COMPLETE` transitions do not reach the container. However, the OpenClaw runtime has its own `agent_end` plugin hook (see [Context Management Architecture](#context-management-architecture)) that fires after every LLM run with `{messages, success, error, durationMs}`. This is the natural compression trigger — no Bridge changes needed.
+
+**Three-trigger approach for Layer 0:**
+
+1. **Register an `agent_end` plugin** (primary trigger — recommended): The plugin gates on `success === true`, checks `estimateMessagesTokens(messages)` against the context window (~75% threshold), and calls `compactEmbeddedPiSessionDirect()`. Compaction runs at natural task boundaries where summaries are most coherent. **Critical exclusion**: skip when the error is a context overflow — the existing reactive compaction retry loop at `run.ts:585-681` already handles this. No cross-process plumbing needed — the hook already fires in-process with the message snapshot.
+
+2. **Add a `before_prompt_build` token check** (safety net): At `attempt.ts:838`, check `estimateMessagesTokens(activeSession.messages)` vs `ctxInfo.tokens * 0.75` before each LLM call. This catches long single-task sessions that never cross a task boundary. Note: this fires mid-task, so compaction here is more disruptive — use only as fallback.
+
+3. **External Bridge signal** (future): A Bridge→Container RPC or Matrix event triggered on state machine `→ IDLE` / `→ COMPLETE`. Reserved; requires new cross-process plumbing.
+
+Tiers 1 and 2 coexist today — `agent_end` gives compaction at task boundaries (cheaper, more coherent), while `before_prompt_build` is a safety net. Tier 3 is a future extension point if cross-boundary events become necessary.
+
+#### Agent State Visibility Wiring (v0.9.0)
+
+Agent state inference is now wired end-to-end from Jetski CDP events through to Matrix event broadcast:
+
+```
+Jetski CDP Events (SSE)
+  → JetskiStateEventSubscriber (bridge/pkg/agent/jetski_subscriber.go)
+    → handleCDPEvent() parses CDP events to CDPEvent structs
+      → InferAgentState() derives state from event patterns
+        → ApplyInferredState() calls ForceTransition()
+          → BroadcastStatus() publishes com.armorclaw.agent.status Matrix event
+```
+
+Additional wiring:
+- **Side-channel signals** (`bridge/pkg/agent/side_channel.go`): Browser step events and form submission signals feed into state inference.
+- **Disconnect handling** (`DisconnectTimeout` 60s): Graceful reconnect when Jetski connection drops.
+- **Transition logging**: `slog` on every ForceTransition, `TransitionRecord` ring buffer (100 entries) for debugging.
+- **17 E2E tests** (`bridge/pkg/agent/state_e2e_test.go`) covering full CDP → state → Matrix flow.
+
+
+---
+
+## Communication Infrastructure
+
+> Part of the [ArmorClaw System Documentation](armorclaw.md)
+
+## Overview
+
+**These are independent subsystems.** They do not share a common architecture. Each solves a distinct communication problem within ArmorClaw. They were initially grouped under "operational governance" but code analysis confirmed zero cross-dependencies between them. Treat each one as a standalone module with its own lifecycle, configuration, and error handling.
+
+The six subsystems covered here:
+
+| Subsystem | Package | Purpose |
+|-----------|---------|---------|
+| Push Notifications | `pkg/push/` | Mobile push via FCM, APNS, Web Push, and Matrix Sygnal |
+| Single Sign-On | `pkg/sso/` | Enterprise SAML 2.0 and OIDC authentication |
+| WebSocket Server | `pkg/websocket/` | Real-time event streaming to clients via EventBus adapter |
+| Event Bus Internals | `pkg/eventbus/` | In-process pub/sub with optional durable log |
+| Platform Adapters | `internal/adapter/` | Matrix and Slack message routing |
+| Additional Platform Adapters | `internal/sdtw/` | Discord, Telegram, Teams, WhatsApp adapters |
+
+## Subsystems
+
+### Push Notifications (`pkg/push/`)
+
+The push subsystem delivers mobile and browser notifications to ArmorClaw users. It centers on the `Gateway` type, which manages device registrations and routes notifications to platform-specific providers.
+
+**Supported platforms:**
+
+- **FCM** (Firebase Cloud Messaging) for Android and iOS via Google's infrastructure
+- **APNS** (Apple Push Notification Service) for iOS devices
+- **Web Push** (VAPID) for browser notifications using ECDSA P-256 key pairs
+- **Unified Push** as an abstract platform identifier (constant defined, no provider implementation)
+
+**How it works:**
+
+1. Devices register with the `Gateway` via `RegisterDevice`, associating a user ID, platform, and device token.
+2. The gateway maintains an in-memory map of user to device list, protected by a read-write mutex.
+3. To send a notification, call `SendToUser` with a user ID and a `Notification` struct. The gateway fans out to all registered devices for that user, selecting the correct provider per device.
+4. Each send attempt includes configurable retries (default 3) with a configurable delay (default 5 seconds).
+5. The gateway keeps the last 1,000 `PushResult` entries for stats.
+
+**Matrix Sygnal integration:**
+
+The `CreateMatrixPushNotification` method converts a Matrix room event (room ID, event ID, sender, content) into a set of per-device `Notification` structs. This is the bridge between Matrix message events and native mobile push. The `SygnalURL` and `SygnalAPIKey` fields in `Config` allow the gateway to delegate delivery to a Sygnal push gateway when configured.
+
+**Provider interface:**
+
+Each provider implements `PushProvider` with three methods: `Send`, `ValidateToken`, and `Platform`. Token validation is platform-specific (FCM tokens are long strings, APNS tokens are exactly 64 hex characters, Web Push subscription endpoints are long URLs). A `MockProvider` exists for testing.
+
+**Key types:** `Gateway`, `Notification`, `DeviceRegistration`, `PushResult`, `PushProvider` interface.
+
+### Single Sign-On (`pkg/sso/`)
+
+The SSO subsystem handles enterprise authentication via SAML 2.0 and OpenID Connect. It's managed by `SSOManager`, which wraps an `SSOProvider` implementation and a `StateStore` for OAuth state parameters.
+
+**Authentication flow:**
+
+1. `BeginAuth(redirect)` generates a cryptographic state parameter, stores it (with a 10-minute TTL), and returns the IdP authorization URL.
+2. After the user authenticates at the IdP, the callback handler calls `HandleCallback(ctx, code, state)`.
+3. The state is validated (one-time use, then deleted). The provider-specific handler processes the code or SAML response.
+4. User attributes are extracted and mapped to ArmorClaw roles via `RoleMapping` config. Unmapped users get the default "user" role.
+5. The resulting `SSOSession` is stored in memory and can be validated or refreshed.
+
+**SAML 2.0 provider:**
+
+Loads IdP metadata from a URL or file, builds `AuthnRequest` XML, and redirects to the IdP's SSO URL. Callbacks decode and validate the base64-encoded `SAMLResponse`, extract the `NameID` and assertion attributes. SAML sessions cannot be natively refreshed; users must re-authenticate. Supports Single Logout (SLO) when the IdP provides a SLO URL.
+
+**OIDC provider:**
+
+Discovers endpoints automatically from the issuer's `/.well-known/openid-configuration`. Supports PKCE (S256 challenge) for public clients. Token exchange, userinfo retrieval, and refresh token flows are all implemented. Sessions can be refreshed using the stored refresh token. Logout redirects to the IdP's end-session endpoint.
+
+**Security measures:**
+
+- State parameters are one-time use with automatic cleanup.
+- Redirect URLs are validated against dangerous schemes (`javascript:`, `data:`, `vbscript:`) and control characters.
+- Issuer URLs must use HTTPS except for localhost development.
+- Client IDs are length-limited and checked for control characters.
+
+**Key types:** `SSOManager`, `SSOSession`, `SSOProvider` interface, `SAMLProvider`, `OIDCProvider`, `StateStore`.
+
+### WebSocket Server (`pkg/websocket/`)
+
+> **Updated in v0.7.0**: The WebSocket server is no longer a stub. It now implements the `EventBroadcaster` interface, acting as an adapter between the EventBus and the HTTP server's existing `/ws` endpoint. See [EventBus–WebSocket Wiring](#eventbus--websocket-wiring-v070) below.
+
+The `Server` type accepts a `Config` with address, path, allowed origins, max connections, inactivity timeout, and handler callbacks. The `Broadcast` method sends serialized events to all connected WebSocket clients.
+
+The event bus (`pkg/eventbus`) consumes this package. When `WebSocketEnabled` is true in the EventBus config, published bridge events are forwarded to the WebSocket server for real-time streaming to connected clients.
+
+**Key types:** `Server`, `Config`, `EventBroadcaster` interface, `MessageHandler`, `ConnectHandler`, `DisconnectHandler`.
+
+#### EventBus–WebSocket Wiring (v0.7.0)
+
+The EventBus publishes events through the HTTP server's existing `/ws` endpoint using an adapter pattern:
+
+```
+EventBus.PublishBridgeEvent()
+  → websocketServer.Broadcast(data)        // EventBroadcaster interface
+    → http.Server.BroadcastEvent()          // implements EventBroadcaster
+      → gorilla/websocket WriteJSON         // to each connected client
+```
+
+- `websocket.EventBroadcaster` is an interface in `pkg/websocket/` that avoids circular imports between `eventbus` and `http` packages
+- `http.Server.BroadcastEvent()` implements this interface, sending JSON-framed events to all clients in the `clients` map
+- `EventBus.sendToSubscriber()` was previously discarding event data (`_ = data`). It now forwards data to the broadcaster when wired
+- The crash-only `log.Fatalf` in `eventbus.Start()` is preserved — if the broadcaster fails to initialize when WebSocket is enabled, the Bridge halts
+- Wire-up happens in `bridge/cmd/bridge/main.go` via `eventBus.SetBroadcaster(httpsServer)` before `eventBus.Start()`
+
+### Event Bus Internals (`pkg/eventbus/`)
+
+The event bus is the in-process pub/sub backbone for real-time Matrix event distribution. It enables containers and internal components to receive events without polling.
+
+> The main doc's Event Bus Patterns section covers event types (matrix.message, agent.started, workflow.progress, hitl.pending, budget.alert, etc.). This section covers the internal mechanism.
+
+**Core mechanism:**
+
+1. Subscribers call `Subscribe(filter)` and receive a `Subscriber` with a buffered channel (capacity 100).
+2. Publishers call `Publish(event)` with a `MatrixEvent`. The bus walks all subscribers, checks each filter (room ID, sender ID, event type), and sends matching events to subscriber channels.
+3. If a subscriber's channel is full (slow consumer), the event is dropped and logged. The bus does not block publishers on slow subscribers.
+4. A background goroutine cleans up subscribers inactive for more than 30 minutes.
+5. Optionally, a durable log (`eventlog.Log`) appends every published event for replay or auditing.
+6. Optionally, an embedded WebSocket server streams events to external clients via the `EventBroadcaster` adapter wired to the HTTP server's `/ws` endpoint (implemented in v0.7.0).
+
+**Filter model:**
+
+`EventFilter` has three optional fields: `RoomID`, `SenderID`, and `EventType` (slice). Empty fields match everything. All filter conditions must match (AND logic).
+
+**Bridge events:**
+
+`PublishBridgeEvent` handles non-Matrix events (agent, workflow, HITL, budget, platform, email). These events implement the `BridgeEvent` interface (`EventType()`, `Timestamp()`, `ToJSON()`). They are wrapped, serialized, and broadcast to WebSocket clients via the `EventBroadcaster` adapter when the server is enabled. Broadcast failures are logged but don't fail the publish operation.
+
+**In-process handlers**: `RegisterBridgeHandler(eventType, handler)` registers a callback for a specific event type. Handlers are dispatched in goroutines with panic recovery (panics are logged via securityLog). This is the mechanism used by EmailDispatcher to receive `email.received` events.
+
+**Error handling:**
+
+The `errors.go` file defines a structured error system. Every error has a domain, code, severity, message, source location, stack trace, and optional context hints. Error codes are organized by category:
+
+| Range | Category | Examples |
+|-------|----------|---------|
+| E001-E099 | Publisher | nil event, wrap failed, serialize failed, broadcast failed |
+| E101-E199 | Subscriber | not found, inactive, channel full, closed |
+| E201-E299 | WebSocket | not enabled, connect failed, message failed |
+| E301-E399 | Filter | invalid filter |
+
+Each error code is registered in `ErrorRegistry` with a description and resolution hint. The `IsErrorCode` and `AsError` helpers integrate with Go's `errors.Is`/`errors.As` patterns.
+
+**Key types:** `EventBus`, `Subscriber`, `EventFilter`, `MatrixEventWrapper`, `EventError`, `ErrorCode`, `ErrorDomain`.
+
+#### Dual-Bus Architecture
+
+The Bridge runs two separate event buses with different delivery semantics. They do not share code, state, or configuration. Each one exists because its consumers need fundamentally different guarantees.
+
+**Push Bus** (`pkg/eventbus`): fire-and-forget delivery. Events are pushed to subscriber channels and WebSocket clients as they arrive. If a subscriber is slow, the event is dropped. There are no sequence numbers, no cursors, and no replay. This works well for vault events and email events, where missing one update is acceptable and consumers care about the latest state, not a gap-free history. `RegisterBridgeHandler` is the main registration point for in-process consumers.
+
+**Stream Bus** (`internal/events`): ring buffer with cursor-based polling. Every published event gets a monotonically increasing sequence number. Consumers call `WaitForEvents(ctx, cursor)` to tail the buffer from their last seen position, reading batches of up to 128 events. Slow consumers can replay missed events by re-requesting from an earlier cursor. This is the bus that Matrix sync events, workflow progress, agent status updates, and RPC long-poll (ArmorChat streaming) flow through. The ordering guarantee matters because these consumers need a consistent view of what happened and when.
+
+| Aspect | Push Bus (`pkg/eventbus`) | Stream Bus (`internal/events`) |
+|--------|---------------------------|-------------------------------|
+| Delivery model | Fire-and-forget to channels | Cursor-based polling from ring buffer |
+| Consumers | WebSocket clients, in-process handlers | Long-poll RPC (ArmorChat), Matrix sync, workflow, agent status |
+| Ordering | None | Monotonic sequence numbers |
+| Replay | No | Yes, via cursor re-read |
+| Backpressure | Drop on slow consumer, log a warning | Skip slow channel subscribers, buffer remains readable |
+| Primary registration | `RegisterBridgeHandler(eventType, handler)` | `Subscribe()` returns channel, `GetEventsAfter(cursor)` for batched reads |
+| Use cases | Vault events, email events | Matrix sync, workflow progress, agent status, RPC streaming |
+
+> See package-level doc comments in `bridge/pkg/eventbus/eventbus.go` and `bridge/internal/events/matrix_event_bus.go` for the authoritative source-level descriptions.
+
+### Workflow Events (`pkg/secretary/`)
+
+The orchestrator events system (`orchestrator_events.go`) defines workflow lifecycle events that flow through the `MatrixEventBus`. These events are emitted by `WorkflowEventEmitter` during container execution and consumed by the Matrix adapter's `processEvents()` method, which routes them to Matrix rooms.
+
+**Core workflow events** (existed before v3):
+
+| Event Type | Constant | When Emitted |
+|------------|----------|-------------|
+| `workflow.started` | `WorkflowEventStarted` | Workflow begins execution |
+| `workflow.progress` | `WorkflowEventProgress` | Step progress update |
+| `workflow.blocked` | `WorkflowEventBlocked` | Workflow hits a human-in-the-loop blocker |
+| `workflow.completed` | `WorkflowEventCompleted` | Workflow finishes successfully |
+| `workflow.failed` | `WorkflowEventFailed` | Workflow fails (may be recoverable) |
+| `workflow.cancelled` | `WorkflowEventCancelled` | Workflow is cancelled by user or system |
+
+**Step-level events** (new in v3):
+
+These events are derived from container `StepEvent` objects (read from `_events.jsonl` files) and published by the `WorkflowEventEmitter` through the `MatrixEventBus`.
+
+| Event Type | Constant | When Emitted | Payload |
+|------------|----------|-------------|---------|
+| `workflow.step_progress` | `WorkflowEventStepProgress` | Container emits a step progress update | `progress` (float from `detail.percent`), `step_name`, `timestamp`, `status: running`, `metadata.progress_detail` with `event_seq`, `event_type`, `step_name`, `elapsed_ms`, `detail` |
+| `workflow.step_error` | `WorkflowEventStepError` | Container step fails | `error` (step name), `timestamp`, `status: failed`, `metadata` with `event_seq`, `event_type`, `detail` |
+| `workflow.blocker_warning` | `WorkflowEventBlockerWarning` | Container encounters a blocker condition | `status: blocked`, `timestamp`, `metadata` with `blocker_type`, `message`, `event_seq`, `event_type` |
+
+**Event structure:**
+
+All workflow events share the `WorkflowEvent` struct:
+
+```
+WorkflowID  string                 // The running workflow
+TemplateID  string                 // Template that spawned it (optional)
+Status      WorkflowStatus         // running, completed, failed, blocked, cancelled
+StepID      string                 // Current step (optional)
+StepName    string                 // Human-readable step name (optional)
+Progress    float64                // 0.0 to 1.0 (optional)
+Timestamp   int64                  // Unix milliseconds
+Error       string                 // Error message (optional)
+Recoverable bool                   // Whether a failure is recoverable
+Reason      string                 // Blocker or cancellation reason (optional)
+Result      string                 // Completion result (optional)
+Duration    int64                  // Total duration in milliseconds (optional)
+Metadata    map[string]interface{} // Extra context
+```
+
+**Emission pattern:**
+
+The `WorkflowEventEmitter` wraps the `events.MatrixEventBus` (a separate high-throughput ring buffer in `internal/events/`). Each emit method builds a `WorkflowEvent`, wraps it in a `MatrixEvent` with a generated ID (`{eventType}-{workflowID}-{nanotime}`), and calls `bus.Publish()`. The bus assigns a monotonically increasing sequence number and broadcasts to live subscribers.
+
+Standalone helper functions (`EmitStepProgressEvent`, `EmitStepErrorEvent`, `EmitBlockerWarningEvent`) create a temporary emitter and publish in one call, convenient for callers that don't hold a long-lived emitter.
+
+**Step icon rendering:**
+
+The `stepIcon()` function in `notifications.go` maps event types to emoji for timeline display in Matrix messages:
+
+| Event Type | Icon |
+|-----------|------|
+| `step` | `🔹` |
+| `file_read` | `📄` |
+| `file_write` | `✏️` |
+| `file_delete` | `🗑️` |
+| `command_run` | `⌨️` |
+| `observation` | `💭` |
+| `blocker` | `🚧` |
+| `error` | `❌` |
+| `artifact` | `📦` |
+| `checkpoint` | `🏁` |
+| (default) | `•` |
+
+`FormatTimelineMessage()` builds a human-readable timeline from `ExtendedStepResult.Events`, rendering each event with its icon, name, duration, and context-specific details (line counts, exit codes, blocker messages). `FormatBlockerMessage()` formats blocker lists into structured Matrix notifications with suggestions, field names, and expiration timers.
+
+### Platform Adapters (`internal/adapter/`)
+
+This package contains the primary platform adapters that route messages between external services and the ArmorClaw Bridge.
+
+**Matrix adapter (`matrix.go`):**
+
+The central adapter. `MatrixAdapter` is a full Matrix client that syncs with the homeserver, processes events, and publishes them to the event bus. It handles:
+
+- Login and access token management with token refresh
+- Long polling via `/sync` with server-side sync filters for performance
+- Event queue for inbound Matrix events
+- PII scrubbing via the `pii.Scrubber`
+- Zero-trust verification via `TrustVerifier` (sender trust scoring, device fingerprinting)
+- Audit logging via `audit.TamperEvidentLog`
+- Integration with the high-throughput `events.MatrixEventBus` for agent streaming
+- Sync performance metrics (`SyncMetrics`)
+
+**processEvents() and event routing:**
+
+The `processEvents()` method is called after each successful `/sync`. It iterates through joined room timelines and routes events by type:
+
+1. **`m.room.message` events** go through the full trust/PII pipeline. Before queuing, the adapter checks for studio commands via `StudioCommandHandler.HandleMatrixMessage()`. If a studio handler consumes the event, it skips the queue. Otherwise, the event is pushed to `eventQueue` and published to the `MatrixEventBus`.
+
+2. **Custom ArmorClaw event types** are routed by prefix:
+   - `workflow.*` (progress, step_progress, step_error, blocker_warning, blocked, timeline) are forwarded to `publishCustomEvent()`
+   - `agent.*` (comment, etc.) are forwarded the same way
+   - `blocker.*` (required, etc.) are forwarded the same way
+   - Other dotted types not starting with `m.` are logged at debug level
+
+`publishCustomEvent()` publishes to the `MatrixEventBus` (high-throughput ring buffer). The publisher call runs in a goroutine to avoid blocking sync.
+
+**MatrixEventBus integration:**
+
+The `events.MatrixEventBus` (defined in `internal/events/matrix_event_bus.go`) is a ring buffer separate from the general `EventBus` in `pkg/eventbus/`. It is designed for high-throughput agent streaming:
+
+- Ring buffer with configurable size (default 1024 events)
+- Monotonically increasing sequence numbers assigned at publish time
+- Non-blocking publish: slow subscribers are skipped rather than blocking
+- `Publish()` returns the assigned sequence number
+- `GetEventsAfter(cursor)` and `WaitForEvents(ctx, cursor)` allow consumers to tail the buffer by sequence position, with batch reads up to 128 events
+- `Subscribe()` returns a buffered channel (capacity 100) that receives live events
+- Condition variable broadcast wakes polling consumers when new events arrive
+
+The `MatrixAdapter` stores the bus in its `eventBus` field, set via `SetEventBus()`. Both message events and custom events (workflow, agent, blocker) are published to this bus. The workflow event emitter (`WorkflowEventEmitter`) also publishes directly to the same bus, creating a unified stream that Matrix consumers can subscribe to.
+
+**Slack adapter (`slack.go`):**
+
+Routes messages between Slack workspaces and Matrix rooms. `SlackAdapter` supports:
+
+- Bot token authentication (`xoxb-` tokens)
+- Socket Mode for real-time events (optional)
+- Channel monitoring and forwarding to a configured Matrix room
+- User and channel caching
+- Rate limiting
+- Message queue integration via `queue.MessageQueue`
+
+**Command handling (`commands_integration.go`):**
+
+`CommandHandler` processes Matrix messages that start with `/` or `!` as commands. It integrates with `admin.ClaimManager`, `lockdown.Manager`, and `skills.LearnedStore` for administrative and agent operations.
+
+Admin commands use the `/` prefix and cover setup and operations: `/claim_admin`, `/status`, `/verify`, `/approve`, `/reject`, `/help`.
+
+Agent commands use the `!agent` prefix and interact with the `LearnedStore` for persistent skill management:
+
+| Command | Syntax | Purpose |
+|---------|--------|---------|
+| `!agent skills` | `!agent skills <agent_id>` | Lists all learned skills for an agent. Each skill shows its name, confidence score (0.00 to 1.00), and successful invocation count. Returns an empty message if the agent has no learned skills. |
+| `!agent forget-skill` | `!agent forget-skill <agent_id> <skill_id>` | Deletes a learned skill by ID. Used to remove skills that are no longer useful or were learned incorrectly. Returns an error if the skill ID is not found. |
+
+Both commands require a non-nil `LearnedStore`. If the store is unavailable (nil), they return an error. The `!agent` prefix routes to `handleAgentSubcommand`, which dispatches to `handleAgentSkills` or `handleAgentForgetSkill` based on the first argument. Unknown subcommands get an error with the list of available subcommands.
+
+Responses are sent back to the Matrix room as `m.notice` messages via `SendMessageWithRetry`. Errors are prefixed with a red X emoji and formatted in bold.
+
+**Trust integration (`trust_integration.go`):**
+
+`TrustVerifier` applies zero-trust principles to every Matrix event. It checks sender trust scores, device fingerprints, and IP reputation. Events from untrusted sources are rejected based on a configurable minimum trust level.
+
+**Additional files:**
+
+- `key_ingestion.go` handles cryptographic key ingestion for the Matrix adapter
+- `pii_consent.go` manages PII consent tracking per user
+
+### Additional Platform Adapters (`internal/sdtw/`)
+
+The `sdtw` package (named after the platforms it supports: Slack, Discord, Teams, WhatsApp) provides a uniform adapter interface for external messaging platforms. Each adapter implements `SDTWAdapter` and embeds `BaseAdapter` for shared functionality.
+
+**Adapter interface (`adapter.go`):**
+
+`SDTWAdapter` defines the contract every platform adapter must follow:
+
+- **Lifecycle:** `Initialize`, `Start`, `Shutdown`
+- **Core:** `SendMessage`, `ReceiveEvent`
+- **Reactions:** `SendReaction`, `RemoveReaction`, `GetReactions`
+- **Mutation:** `EditMessage`, `DeleteMessage`, `GetMessageHistory`
+- **Health:** `HealthCheck`, `Metrics`
+
+Each adapter declares a `CapabilitySet` (read, write, media, reactions, threads, edit, delete, typing, read receipts) so callers can check what operations are supported before attempting them.
+
+Messages carry HMAC-SHA256 signatures for integrity verification. `SignMessage` and `VerifySignature` handle signing and validation.
+
+**Discord adapter (`discord.go`):**
+
+Connects to Discord via bot token. Uses the Discord Gateway protocol with opcodes for heartbeat, identify, resume, and dispatch. Supports rich embeds, message references (threaded replies), and guild-scoped operation.
+
+**WhatsApp adapter (`whatsapp.go`):**
+
+Uses the WhatsApp Business Cloud API. Authenticates with an access token and phone number ID. Supports text, template, image, document, audio, and video message types. Includes a token-bucket rate limiter to respect WhatsApp API limits.
+
+**Microsoft Teams adapter (`teams.go`):**
+
+Authenticates via Azure AD (client ID, client secret, tenant ID). Processes Teams messages via webhook. Supports OAuth token refresh. Includes HMAC-SHA256 webhook verification for inbound request validation.
+
+**Slack adapter (`slack.go`):**
+
+A second Slack adapter in the `sdtw` package, separate from `internal/adapter/slack.go`. This one follows the `SDTWAdapter` interface contract, supports webhook-based message delivery, and handles Slack's URL verification challenge for event subscriptions.
+
+## Integration Points
+
+These subsystems connect to the Bridge core at specific, well-defined points. They don't connect to each other.
+
+```
+Bridge Core
+  |
+  +-- Matrix Adapter (internal/adapter)
+  |     |-- Receives Matrix events via /sync
+  |     |-- processEvents() routes by type:
+  |     |     |-- m.room.message -> trust/PII pipeline -> eventQueue
+  |     |     |-- workflow.* / agent.* / blocker.* -> publishCustomEvent()
+  |     |-- Publishes to EventBus (pkg/eventbus) and MatrixEventBus
+  |     |-- Applies TrustVerifier and PII scrubbing
+  |
+  +-- Observable Container Event Flow (v3)
+  |     |-- Container writes events.jsonl (StepEvents)
+  |     |-- EventReader (Bridge) tails events.jsonl
+  |     |-- OrchestratorIntegration processes StepEvents
+  |     |-- WorkflowEventEmitter publishes to MatrixEventBus:
+  |     |     workflow.started, workflow.step_progress,
+  |     |     workflow.step_error, workflow.blocker_warning,
+  |     |     workflow.completed
+  |     |-- MatrixEventBus -> processEvents() -> Matrix room
+  |     |-- Matrix /sync -> ArmorChat receives timeline
+  |
+  +-- EventBus (pkg/eventbus)
+  |     |-- Receives events from Matrix adapter and internal components
+  |     |-- Distributes to in-process subscribers
+  |     |-- Optionally broadcasts via WebSocket (pkg/websocket) — wired since v0.7.0 (EventBroadcaster adapter)
+  |     |-- Optionally appends to durable log
+  |
+  +-- MatrixEventBus (internal/events)
+  |     |-- High-throughput ring buffer for agent streaming
+  |     |-- Receives from processEvents() and WorkflowEventEmitter
+  |     |-- Sequence-numbered cursor-based reads
+  |     |-- Non-blocking: slow subscribers are skipped
+  |
+  +-- Push Gateway (pkg/push)
+  |     |-- Called when Matrix messages need mobile notification
+  |     |-- Delegates to FCM, APNS, or Web Push providers
+  |     |-- Integrates with Sygnal for Matrix push
+  |
+  +-- SSO Manager (pkg/sso)
+  |     |-- Called during authentication flow
+  |     |-- Independent of other subsystems
+  |
+  +-- Platform Adapters (internal/adapter, internal/sdtw)
+         |-- Route messages between external platforms and Matrix
+         |-- Each adapter is independently configured and started
+```
+
+The key takeaway: each subsystem is wired into the Bridge core independently. There is no shared subsystem-to-subsystem wiring. The event bus is the closest thing to a shared dependency, but only the Matrix adapter publishes to it directly. Other subsystems don't depend on it.
+
+The observable container flow (v3) adds a second publishing path: `WorkflowEventEmitter` publishes directly to the `MatrixEventBus`, bypassing the general `EventBus`. This keeps high-frequency step events on a dedicated ring buffer that won't interfere with the general pub/sub backbone. The `MatrixEventBus` feeds into `processEvents()` and then out to Matrix rooms, where ArmorChat picks them up via `/sync`.
+
+### BroadcastStatus Events
+
+When agent state transitions occur, the Bridge-side state inference engine detects the change and publishes a `com.armorclaw.agent.status` Matrix event. This gives downstream consumers (ArmorChat, monitoring dashboards) a real-time view of agent lifecycle without requiring polling.
+
+**Event type:** `com.armorclaw.agent.status`
+
+**Event content:**
+
+```json
+{
+  "status": "<new_status>",
+  "agent_id": "<agent_identifier>",
+  "previous": "<prior_status>",
+  "metadata": {
+    "workflow_id": "<optional_workflow>",
+    "step": "<optional_current_step>",
+    "inferred_from": "<signal_source>"
+  },
+  "timestamp": 1710000000000
+}
+```
+
+The `inferred_from` field indicates what signal triggered the status change:
+
+| Value | Meaning |
+|-------|---------|
+| `cdp` | Chrome DevTools Protocol activity (page load, navigation, console events) |
+| `workflow` | Workflow engine side-channel (step transitions, completion, failure) |
+| `command` | Explicit RPC call (user-initiated status change) |
+
+**Routing:** `bridge/internal/adapter/matrix.go` handles all `com.armorclaw.` prefixed events via the `publishCustomEvent()` method. This is the same code path used by `workflow.*`, `agent.*`, and `blocker.*` events described in the Matrix adapter section above.
+
+**Source:** `bridge/pkg/agent/integration.go:359-384`
+
+### Email Approval Events
+
+When an agent requests to send outbound email containing PII, the Bridge emits an `app.armorclaw.email_approval_request` Matrix event. This triggers a human-in-the-loop approval flow on the mobile client before the email is sent.
+
+**Event type:** `app.armorclaw.email_approval_request`
+
+**Event content:**
+
+```json
+{
+  "approval_id": "<unique_approval_identifier>",
+  "email_id": "<email_reference>",
+  "to": "<recipient_address>",
+  "subject": "[masked]",
+  "pii_fields": ["body", "attachment_names"],
+  "timeout_s": 60,
+  "event_type": "EMAIL_APPROVAL_REQUEST"
+}
+```
+
+The `subject` field is masked in transit. The actual subject is only revealed after the user approves. `pii_fields` lists which parts of the email contain personally identifiable information.
+
+**Approval flow:**
+
+1. Agent requests email send via RPC.
+2. Bridge detects PII in the email payload and emits the approval request event to the user's Matrix room.
+3. ArmorChat receives the event via Matrix push, renders the `EmailApprovalCard` composable.
+4. User taps **Approve** or **Deny**.
+5. The mobile client calls `approve_email` or `deny_email` RPC methods on the Bridge.
+6. If approved, the Bridge proceeds with the send. If denied (or timed out), the request is discarded.
+
+**Alert type:** `EMAIL_APPROVAL_REQUEST` in the `SystemAlert` enum.
+
+**Key files:**
+
+| Component | File | Purpose |
+|-----------|------|---------|
+| RPC handlers | `bridge/pkg/rpc/email_approval.go` | `approve_email` and `deny_email` method handlers |
+| Android UI | `applications/ArmorChat/.../EmailApprovalCard.kt` | Approval card composable with approve/deny actions |
+
+
+---
+
+## Client Applications
+
+> Part of the [ArmorClaw System Documentation](armorclaw.md)
+
+## Overview
+
+ArmorClaw ships with several client applications, each targeting a different phase of the product lifecycle: initial setup, ongoing administration, and agent interaction. All web-based clients communicate with the Go Bridge over JSON-RPC. Android clients connect through Matrix and the Bridge RPC API.
+
+This document covers four applications. ArmorChat, the primary mobile client, is documented separately.
+
+## ArmorChat (Android)
+
+> See [doc/ArmorChat.md](ArmorChat.md) for full documentation.
+
+The consumer-facing mobile app. End-to-end encrypted messaging with agents via Matrix, biometric keystore, HITL approval flows, and QR provisioning.
+
+### Workflow UI Components (v3)
+
+Three Jetpack Compose components added by the Agent Studio Improvement Plan v3 give users real-time visibility into agent workflows and a human-in-the-loop mechanism for resolving blockers.
+
+#### WorkflowTimeline
+
+Renders workflow events as a scrollable vertical timeline. Each row shows an emoji icon (mapped from Go bridge `stepIcon()` values), step name, optional detail line, and duration badge. A progress bar and live/paused/complete status indicator sit above the event list. The component consumes `WorkflowTimelineState` (event list, progress float, running flag) from a ViewModel/StateFlow pattern fed by Matrix `/sync` events. It does not manage network connections.
+
+**Key types:** `WorkflowEvent` (seq, type, name, tsMs, detail, durationMs), `WorkflowTimelineState` (events, progress, isRunning, workflowName)
+
+**Icon mapping:** step, file_read, file_write, file_delete, command_run, observation, blocker, error, artifact, checkpoint
+
+#### BlockerResponseDialog
+
+Modal dialog for resolving workflow blockers that need user input. Displays the blocker message, field label, and optional suggestion. Sensitive fields (password, card, key, token, secret, cvv, pin, ssn) get password masking automatically. Includes a collapsible note field and a state machine with four states: INPUT, LOADING, ERROR, DISMISSED. On submit, calls the parent's `onResolve` callback with (workflowId, stepId, input, note), which the ViewModel routes to `BridgeApi.resolveBlocker()`.
+
+**Key types:** `BlockerInfo` (blockerType, message, suggestion, field, workflowId, stepId), `BlockerDialogState` enum
+
+#### GovernanceBanner
+
+Persistent compact banner showing the current workflow status. Maps to Go `WorkflowStatus` values: IDLE (hidden), RUNNING (blue, pulsing dot, step counter), BLOCKED (amber, clickable, triggers `BlockerResponseDialog`), COMPLETED (green), FAILED (red), CANCELLED (grey). The BLOCKED variant accepts an `onBlockedTap` callback to open the blocker resolution flow.
+
+**Key type:** `WorkflowStatus` enum with `fromGo(String)` parser for Go-side lowercase values
+
+### Blocker Resolution RPC
+
+`BridgeApi.resolveBlocker()` sends a JSON-RPC call to the Bridge with the user's response:
+
+```
+method: "resolve_blocker"
+params: { workflow_id, step_id, input, note? }
+returns: Result<Map<String, String>>
+```
+
+The input field is never logged or cached (PII safety). Sensitive values are masked in the UI and travel E2EE through the Bridge to the Orchestrator, which unblocks the workflow and lets the container retry.
+
+## Admin Panel
+
+| | |
+|---|---|
+| **Location** | `applications/admin-panel/` |
+| **Tech stack** | React 18, TypeScript, Vite, Tailwind CSS, TanStack React Query, React Router |
+| **Status** | In development (v0.7.0: API wiring complete) |
+
+### Purpose
+
+The admin panel is a browser-based dashboard for managing an ArmorClaw instance after initial setup. It surfaces operational controls that don't belong in the mobile app: device trust management, adapter configuration, invitation lifecycle, audit log review, and security policy tuning.
+
+### Key Pages
+
+- **AdminDashboard** - System overview and status (v0.7.0: real data via `useDashboardStats` hook)
+- **DevicesPage** - List, approve, and reject connected devices (v0.7.0: real data via Bridge RPC)
+- **AdaptersPage** - Enable, disable, and configure adapters (v0.7.0: real data via Bridge RPC)
+- **APIKeysPage** - Manage provider API keys (v0.7.0: real data via Bridge RPC)
+- **InvitationsPage** - Create and revoke invite codes (v0.7.0: real data via Bridge RPC)
+- **AuditLogPage** - Browse security and system audit events (v0.7.0: real data via Bridge RPC)
+- **SecurityConfig** - Configure data categories and security tiers
+- **LoginPage** - Session authentication
+
+### Bridge Connection
+
+The admin panel talks to the Bridge through an HTTP proxy that forwards requests to the Bridge's Unix domain socket. The client (`src/services/bridgeApi.ts`) sends JSON-RPC 2.0 calls to `/api/*`, which a reverse proxy (Caddy or Nginx) routes to `bridge.sock`. It supports the full lockdown lifecycle: claiming ownership, transitioning between modes (lockdown, bonding, configuring, hardening, operational), and generating QR codes for mobile provisioning.
+
+> **v0.7.0**: Mock data has been removed from all admin panel pages. `bridgeApi.ts` now provides typed React Query hooks (`useDashboardStats`, `useDevices`, `useAdapters`, `useInvitations`, `useAuditLogs`, `useApiKeys`) that call real Bridge RPC endpoints. Mutations use `onSuccess` to invalidate query cache for automatic refetch.
+
+## ArmorTerminal
+
+| | |
+|---|---|
+| **Location** | `applications/ArmorTerminal/` |
+| **Tech stack** | Android (Kotlin), traditional Android SDK, OkHttp, Retrofit |
+| **Min SDK** | 26 (Android 8.0) |
+| **Target SDK** | 34 |
+| **Status** | In development |
+
+### Purpose
+
+ArmorTerminal is an Android application for provisioning new ArmorClaw installations from a phone or tablet. It handles the physical pairing workflow: discovering bridges on the local network, scanning QR codes, verifying certificate fingerprints, registering the device, and waiting for admin approval. Think of it as the field technician's tool for bringing a fresh VPS online.
+
+### Key Components
+
+- **BridgeDiscovery** - mDNS/Bonjour service discovery for finding ArmorClaw bridges on the local network, with manual IP fallback
+- **PairingViewModel** - Orchestrates the full pairing flow: discovery, QR parsing, certificate verification, device registration, and approval polling
+- **ResilientWebSocket** - Auto-reconnecting WebSocket with exponential backoff for real-time status updates during pairing
+- **BridgeTrustStore** - Certificate pinning and trust-on-first-use for discovered bridges
+- **ConfigManager** / **SignedConfigParser** - Parses bridge configuration from QR codes and signed payloads
+- **NetworkResilience** - Retry policies and connectivity monitoring for unreliable network conditions
+
+### Bridge Connection
+
+ArmorTerminal discovers bridges via mDNS (`NsdManager`) or manual IP entry. Once connected, it calls the Bridge's JSON-RPC API over HTTP(S) for device registration and uses WebSocket for real-time approval status. The Matrix SDK handles E2EE messaging setup after provisioning completes. Debug builds point to the Android emulator host (`10.0.2.2`), while release builds use configurable endpoints via Gradle properties.
+
+## Setup Wizard
+
+| | |
+|---|---|
+| **Location** | `applications/setup-wizard/` |
+| **Tech stack** | React 18, TypeScript, Vite, Tailwind CSS |
+| **Status** | In development |
+
+### Purpose
+
+The setup wizard is a streamlined web application that runs during first-time ArmorClaw installation. It guides a new administrator through bridge discovery, ownership claiming, security configuration, and API key injection. Unlike the admin panel, which assumes an established admin session, the setup wizard operates during the lockdown-to-operational transition before any user exists.
+
+### Key Components
+
+- **BridgeDiscovery** (`src/components/BridgeDiscovery.tsx`) - UI for mDNS-based bridge discovery with manual IP fallback
+- **bridgeApi** (`src/services/bridgeApi.ts`) - JSON-RPC client focused on lockdown and security methods
+- **bridgeDiscovery** (`src/services/bridgeDiscovery.ts`) - Discovery client that probes the local network, tests connections, and scans common IP ranges
+
+### Bridge Connection
+
+Same pattern as the admin panel: JSON-RPC 2.0 over HTTP, proxied to the Bridge's Unix socket via `/api/*`. The wizard includes a dedicated discovery service that attempts mDNS first, then falls back to scanning common local IP ranges (192.168.1.x, 192.168.0.x, 10.0.0.x). It supports passphrase hashing (SHA-256 via Web Crypto API) and device fingerprint generation for the ownership claim flow.
+
+## OpenClaw UI
+
+| | |
+|---|---|
+| **Location** | `container/openclaw-src/ui/` |
+| **Tech stack** | Canvas-host HTTP server (serves a local web interface), TypeScript, Vite, Vitest, Playwright (browser tests) |
+| **Status** | In development |
+
+### Purpose
+
+OpenClaw UI is the control interface for the agent runtime. It provides a chat-based interaction surface for talking to agents, managing agent configurations, monitoring tool execution, reviewing channel integrations (Telegram, Discord, WhatsApp, Signal, Slack, iMessage, Nostr, Google Chat), and inspecting usage metrics. Unlike the admin panel, which manages the Bridge, OpenClaw UI manages the agents themselves.
+
+### Key Capabilities
+
+- **Chat interface** - Real-time conversation with agents, including markdown rendering and tool stream visualization
+- **Agent management** - View and configure agent instances, skills, and tool configurations
+- **Channel integrations** - Configure and monitor messaging platform connections (Telegram, Discord, WhatsApp, Signal, Slack, iMessage, Nostr, Google Chat)
+- **Usage metrics** - Resource consumption tracking and cost analysis
+- **Session management** - Active session monitoring and control
+- **Cron scheduling** - Task scheduling interface
+- **i18n** - Internationalization support for multiple locales
+- **Theme support** - Dark/light theme with smooth transitions
+- **Event log** - Real-time event streaming with log filtering
+
+### Agent Runtime Connection
+
+OpenClaw UI connects to the agent runtime via a WebSocket gateway (`GatewayBrowserClient` in `src/ui/gateway.ts`). The gateway protocol supports device identity authentication using Ed25519 key pairs (`@noble/ed25519`), with automatic token management and reconnection. The client operates in "webchat" mode with operator-level scopes. Messages flow as typed frames: request/response pairs for RPC calls, and event frames for real-time updates with sequence gap detection.
+
+## Integration Points
+
+All client applications connect back to the ArmorClaw control plane, but through different channels depending on their role:
+
+```
+┌──────────────────┐     JSON-RPC/HTTP      ┌─────────────┐
+│   Admin Panel    │ ───────────────────────▶│             │
+│   Setup Wizard   │     (via /api/* proxy)  │             │
+└──────────────────┘                         │   Go Bridge │
+                                              │ (Control    │
+┌──────────────────┐     WebSocket           │  Plane)     │
+│  OpenClaw UI     │ ───────────────────────▶│             │
+│  (Agent Control) │   (Gateway protocol)    │             │
+└──────────────────┘                         └──────┬──────┘
+                                                     │
+┌──────────────────┐     Matrix E2EE               │
+│   ArmorChat      │ ──────────────────────────────│
+│   ArmorTerminal  │     (via Conduit homeserver)   │
+└──────┬───────────┘                                │
+       │                                            ▼
+       │  Blocker resolution:                 ┌──────────┐
+       │  resolve_blocker RPC ──────────────▶ │  Agents  │
+       │  (via Bridge HTTP API)               └──────────┘
+       │    Orchestrator unblocks workflow
+       │    Container retries
+```
+
+| Application | Transport | Protocol | Authentication |
+|---|---|---|---|
+| Admin Panel | HTTP (proxied to Unix socket) | JSON-RPC 2.0 | Session token (ownership claim) |
+| Setup Wizard | HTTP (proxied to Unix socket) | JSON-RPC 2.0 | Lockdown challenge/response |
+| ArmorTerminal | HTTP(S) + WebSocket | JSON-RPC 2.0 + Matrix | Device registration + certificate pinning |
+| OpenClaw UI | WebSocket | Gateway protocol (v3) | Ed25519 device identity + token |
+| ArmorChat | Matrix federation + Bridge HTTP RPC | Matrix protocol + JSON-RPC (resolve_blocker) | Matrix E2EE + biometric keystore |
+
+### SDtW Multi-Platform Adapters
+
+The SDtW (Slack, Discord, Teams, WhatsApp) adapters in `bridge/internal/sdtw/` provide a uniform adapter interface for external messaging platforms. Key implementations:
+
+- **WhatsApp** (`whatsapp.go`): Uses WhatsApp Business Cloud API, authenticates with access token + phone number ID, supports text/template/image/document/audio/video messages, includes token-bucket rate limiter
+- **Discord** (`discord.go`): Connects via bot token using Discord Gateway protocol, supports rich embeds, message references (threaded replies), guild-scoped operation, edit/delete capabilities
+- **Teams** (`teams.go`): Authenticates via Azure AD (client ID, client secret, tenant ID), processes messages via webhook, supports OAuth token refresh, includes HMAC-SHA256 webhook verification
+- **Slack** (`slack.go`): Webhook-based message delivery, handles URL verification challenge for event subscriptions
+
+All adapters implement the `SDTWAdapter` interface from `adapter.go` with lifecycle (Initialize, Start, Shutdown), core messaging (SendMessage, ReceiveEvent), reactions, mutation (EditMessage, DeleteMessage), and health check methods. Each declares a `CapabilitySet` for feature discovery. Messages carry HMAC-SHA256 signatures for integrity.
+
+Deployment Skills for AI CLI Tools are available in `.skills/` directory for deploying ArmorClaw via AI assistants (Claude Code, OpenCode, Cursor). Skills include Deploy, Status, Cloudflare, and Provision.
+

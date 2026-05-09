@@ -55,9 +55,9 @@ Agent request ────────▶│  │ Client   │  │ PIIIntercept
                        └────────────────────────────────────────┘
 
                        ┌────────────────────────────────────────┐
-                        │  YARA Scanner (bridge/pkg/yara/)       │
-                        │  Malware signature detection            │
-                        │  Scans files before sidecar processing │
+                       │  YARA Scanner (bridge/pkg/yara/)       │
+                       │  Content disarm and reconstruction     │
+                       │  Scans files before sidecar processing │
                        └────────────────────────────────────────┘
 ```
 
@@ -77,7 +77,7 @@ If the sidecar is down, the Bridge's queue manager buffers requests and retries 
 
 ### Rust Sidecar (`sidecar/`)
 
-The Rust sidecar is organized into the following modules. The library code is production-quality but requires `protoc` (Protocol Buffers compiler) to compile due to the gRPC service definition. The binary compiles cleanly in dev profile; release builds require cmake + clang.
+The Rust sidecar is organized into the following modules. The library code is production-quality but requires `protoc` (Protocol Buffers compiler) to compile due to the gRPC service definition. The binary target has outstanding compilation errors and is not needed for library use.
 
 #### Connectors (`sidecar/src/connectors/`)
 
@@ -87,7 +87,7 @@ Cloud storage adapters. Each connector implements upload, download, list, and de
 |-----------|------|--------|
 | AWS S3 | `aws_s3.rs` | Functional |
 | SharePoint | `sharepoint.rs` | Functional (Microsoft Graph API) |
-| Azure Blob | `azure_blob.rs` | Active (azure_storage crate) |
+| Azure Blob | `azure_blob.rs.disabled` | Disabled, needs rustls migration |
 
 The `CloudConnector` trait in `connector.rs` defines the shared interface. The `SharePointConnector` is the reference implementation.
 
@@ -121,22 +121,6 @@ Additional document modules:
 | Qdrant | `qdrant.rs` | Implemented — create/upsert/search (needs qdrant-client-rs v1.7 builder migration) |
 
 The `MAX_FILE_SIZE` constant (5 GB) caps all document operations.
-
-#### Output (`sidecar/src/output/`)
-
-`pdf.rs` provides PDF output generation (used by the DOCX-to-PDF conversion pipeline).
-
-#### Security (`sidecar/src/security/`)
-
-`token.rs` implements HMAC-SHA256 token validation for request authentication. `shadowmap.rs` provides the ShadowMap PII redaction engine used by the XLSX extractor.
-
-#### Reliability (`sidecar/src/reliability.rs`)
-
-Circuit breaker and rate limiting implementations. The circuit breaker opens after a configurable failure threshold and recovers after a timeout period.
-
-#### Error Types (`sidecar/src/error.rs`)
-
-`SidecarError` enum and `Result` type alias used throughout the sidecar. Uses `thiserror` for ergonomic error handling.
 
 #### ProcessDocument Convert
 
@@ -174,7 +158,7 @@ The server in `server.rs` implements the `SidecarService` trait defined in the p
 | `DownloadBlob` | Server-streaming download, 1 MB chunks |
 | `ListBlobs` | List objects with prefix filter |
 | `DeleteBlob` | Delete an object |
-| `ExtractText` | Extract text from PDF, DOCX, XLSX, PPTX, or images (OCR) |
+| `ExtractText` | Extract text from PDF, DOCX, XLSX, or images (OCR) |
 | `ProcessDocument` | General document processing: extract_text, convert (DOCX→PDF, XLSX→CSV) |
 | `QueryDocuments` | Query encrypted chunks from split-storage by clearance level |
 
@@ -255,10 +239,6 @@ The generator uses constant-time HMAC comparison to prevent timing attacks. Requ
 
 Client version `1.0.0`, supported server range `1.0.0` through `1.5.0`. gRPC interceptors attach version metadata to every request for compatibility negotiation.
 
-#### `doc_handler.go`
-
-`NewDocQueryHandler` provides a bridge-local handler for document querying. It wraps a sidecar `Client` and accepts `DocQueryInput` (a document reference plus query string), validates the input, and queries the sidecar for matching content. This enables bridge-side document search without routing through the full agent pipeline.
-
 #### `sidecar.proto`
 
 The Protocol Buffers service definition. Defines the `SidecarService` with 8 RPCs (HealthCheck, UploadBlob, DownloadBlob, ListBlobs, DeleteBlob, ExtractText, ProcessDocument, QueryDocuments), request/response messages, and `RequestMetadata` for authentication. The same proto file is compiled into both Rust (tonic) and Go (protoc-gen-go) stubs.
@@ -267,7 +247,7 @@ The Protocol Buffers service definition. Defines the `SidecarService` with 8 RPC
 
 #### `scanner.go`
 
-The YARA scanner provides malware signature detection and rejection for files entering the pipeline. It compiles YARA rules from a file at startup (`InitYARA`) and scans files against those rules (`ScanFileForMalware`). If any rule matches, the scan returns `false` (not clean) and logs the matching rule name and file path at `SECURITY` priority. The scanner does not perform content disarm or reconstruction; it is purely a scan-and-reject filter.
+The YARA scanner provides content disarm and reconstruction (CDR) for files entering the pipeline. It compiles YARA rules from a file at startup (`InitYARA`) and scans files against those rules (`ScanFileForMalware`). If any rule matches, the scan returns `false` (not clean) and logs the matching rule name and file path at `SECURITY` priority.
 
 The scanner runs in the Go Bridge, before any request reaches the Rust sidecar. This keeps malicious content out of the data plane entirely.
 
@@ -279,18 +259,8 @@ Test data lives in `bridge/pkg/yara/testdata/`.
 
 | Variable | Default | Purpose |
 |----------|---------|---------|
-| `ARMORCLAW_SIDECAR__SOCKET_PATH` | `/run/armorclaw/sidecar.sock` | Unix socket path |
-| `ARMORCLAW_SIDECAR__MAX_CONCURRENT_REQUESTS` | `50` | Concurrency limit |
-| `ARMORCLAW_SIDECAR__RATE_LIMIT_PER_SECOND` | `100` | Rate limit (requests/sec) |
-| `ARMORCLAW_SIDECAR__REQUEST_TIMEOUT_SECONDS` | `300` | Request timeout |
-| `ARMORCLAW_SIDECAR__TEMP_DIRECTORY` | `/tmp/armorclaw` | Temp file directory |
-| `ARMORCLAW_SIDECAR__MAX_FILE_SIZE_BYTES` | `5368709120` | Max file size (5 GB) |
-| `ARMORCLAW_SIDECAR__LOG_LEVEL` | `info` | Log level |
-| `ARMORCLAW_SIDECAR__METRICS_PORT` | `9090` | Prometheus metrics port |
-| `ARMORCLAW_SIDECAR__SHARED_SECRET` | | HMAC key for token validation |
-| `ARMORCLAW_SIDECAR__CIRCUIT_BREAKER_FAILURE_THRESHOLD` | `5` | Failures before breaker opens |
-| `ARMORCLAW_SIDECAR__CIRCUIT_BREAKER_RECOVERY_TIMEOUT_SECS` | `30` | Recovery timeout (seconds) |
-| `ARMORCLAW_SIDECAR__RATE_LIMIT_MAX_REQUESTS_PER_SECOND` | `100` | Rate limit max requests/sec |
+| `SIDECAR_SOCKET_PATH` | `/tmp/armorclaw-sidecar.sock` | Unix socket path |
+| `SIDECAR_MAX_CONCURRENT_REQUESTS` | `1000` | Concurrency limit |
 | `AWS_ACCESS_KEY_ID` | | S3 credential |
 | `AWS_SECRET_ACCESS_KEY` | | S3 credential |
 | `AWS_REGION` | `us-east-1` | S3 region |
@@ -298,6 +268,7 @@ Test data lives in `bridge/pkg/yara/testdata/`.
 | `SHAREPOINT_CLIENT_ID` | | SharePoint Graph API |
 | `SHAREPOINT_CLIENT_SECRET` | | SharePoint Graph API |
 | `SHAREPOINT_SITE_URL` | | SharePoint Graph API |
+| `SHARED_SECRET` | | HMAC key for token validation |
 
 ### Go Client Configuration
 
@@ -315,20 +286,15 @@ Test data lives in `bridge/pkg/yara/testdata/`.
 ```rust
 pub struct SidecarConfig {
     pub socket_path: PathBuf,
-    pub socket_permissions: String,
     pub max_concurrent_requests: usize,
-    pub rate_limit_per_second: u32,
-    pub request_timeout_seconds: u64,
-    pub temp_directory: PathBuf,
-    pub max_file_size_bytes: u64,
-    pub log_level: String,
-    pub metrics_port: u16,
-    pub shared_secret: String,
-    pub circuit_breaker_failure_threshold: u32,
-    pub circuit_breaker_recovery_timeout_secs: u64,
-    pub rate_limit_max_requests_per_second: u32,
+    pub rate_limit_requests_per_second: usize,
+    pub rate_limit_burst_capacity: usize,
+    pub circuit_breaker_failure_threshold: usize,
+    pub circuit_breaker_timeout_seconds: u64,
 }
 ```
+
+The `SidecarConfig` struct also carries the `shared_secret` field used by the security interceptor.
 
 ## Integration Points
 
@@ -421,9 +387,7 @@ The Python sidecar extends the document pipeline with Microsoft Office legacy fo
 | **Threshold** | `_THRESHOLD_BYTES = 10 * 1024 * 1024` (10 MB) |
 | **TTL** | `MAX_REQUESTS = 50` before graceful shutdown |
 | **Version** | `SERVER_VERSION = "1.0.0"` in `HealthCheck` response |
-| **Socket** | `SIDECAR_SOCKET` env var (default: `/run/armorclaw/sidecar-office.sock`) |
-
-> **Socket path alignment**: After the v4.8.0 stabilization pass, both the Python sidecar and Go client now use the canonical path `/run/armorclaw/sidecar-office.sock` (defined as `OfficeSocketPath` in `office_client.go`). No explicit `SIDECAR_SOCKET` override is needed.
+| **Socket** | `SIDECAR_SOCKET` env var (default: `/run/armorclaw/office-sidecar/sidecar-office.sock`) |
 
 #### Token Interceptor (`sidecar-python/interceptor.py`)
 
