@@ -20,9 +20,11 @@ from typing import Optional, Dict, Any, List, Tuple
 # ArmorClaw: Import bridge client for communication
 try:
     from .bridge_client import AsyncBridgeClient, get_default_client
+    from .agent_file_writer import AgentFileWriter, AgentState
 except ImportError:
     # Fallback for direct execution
     from bridge_client import AsyncBridgeClient, get_default_client
+    from agent_file_writer import AgentFileWriter, AgentState
 
 # Version info
 __version__ = "1.1.0-sk"  # Skills-enabled version
@@ -53,10 +55,17 @@ class ArmorClawAgent:
         self.bridge_client = None
         self.matrix_room_id = os.getenv("ARMORCLAW_MATRIX_ROOM", "")
         self.running = False
+        self.agent_id = os.getenv("ARMORCLAW_AGENT_ID", f"agent-{os.getenv('HOSTNAME', 'local')}")
+
+        state_dir = os.getenv("ARMORCLAW_STATE_DIR", "/state")
+        self.file_writer = AgentFileWriter(state_dir, self.agent_id)
 
     async def initialize(self) -> None:
         """Initialize the bridge connection."""
         logger.info(f"Connecting to ArmorClaw bridge at {self.bridge_socket}")
+        self.file_writer.write_status(
+            AgentState.INITIALIZING, "Connecting to bridge"
+        )
 
         try:
             self.bridge_client = AsyncBridgeClient(self.bridge_socket)
@@ -72,10 +81,19 @@ class ArmorClawAgent:
             if matrix_status.get("enabled") and self.matrix_room_id:
                 logger.info(f"Agent will monitor Matrix room: {self.matrix_room_id}")
 
+            self.file_writer.write_status(
+                AgentState.IDLE, "Bridge connected, ready"
+            )
+            self.file_writer.step("initialization_complete")
+
         except Exception as e:
             logger.error(f"Failed to initialize bridge connection: {e}")
             logger.info("Agent will continue in standalone mode for testing")
             self.bridge_client = None
+            self.file_writer.write_status(
+                AgentState.IDLE, "Standalone mode (no bridge)"
+            )
+            self.file_writer.step("initialization_standalone")
 
     async def process_matrix_message(self, event: Dict) -> Optional[str]:
         """
@@ -218,6 +236,12 @@ For agent requests, just send your message directly.
             Agent response
         """
         logger.info(f"Processing agent request from {sender}")
+        self.file_writer.write_status(
+            AgentState.BROWSING,
+            f"Processing request from {sender}",
+            metadata={"sender": sender},
+        )
+        self.file_writer.step(f"request_received", detail={"sender": sender})
 
         # Build messages for AI
         system_message = {
@@ -270,6 +294,10 @@ For agent requests, just send your message directly.
             # Step 1: Get available skills and their schemas
             skills_list = await self.bridge_client.skills_list()
             available_skills = skills_list.get("skills", [])
+            self.file_writer.step(
+                "skills_fetched",
+                detail={"count": len(available_skills)},
+            )
 
             # Build system message with skill information
             system_message = {
@@ -297,6 +325,9 @@ For agent requests, just send your message directly.
 
             if skill_execution:
                 # Step 4: Execute skill and provide results to AI
+                self.file_writer.step(
+                    f"executing_skill_{skill_execution['skill_name']}",
+                )
                 skill_result = await self._execute_skill(skill_execution)
 
                 # Step 5: Continue conversation with skill results
@@ -318,13 +349,21 @@ For agent requests, just send your message directly.
                     max_tokens=1024,
                 )
 
+                self.file_writer.write_status(AgentState.IDLE, "Request complete")
+                self.file_writer.step("response_with_skill_result")
                 return final_result.get("content", "No response generated")
             else:
                 # No skills needed, return reasoning directly
+                self.file_writer.write_status(AgentState.IDLE, "Request complete")
+                self.file_writer.step("response_direct")
                 return reasoning
 
         except Exception as e:
             logger.error(f"ReAct loop error: {e}")
+            self.file_writer.error(str(e))
+            self.file_writer.write_status(
+                AgentState.ERROR, str(e), metadata={"error": str(e)}
+            )
             # Fallback to simple AI chat
             return await self._process_agent_request(request, sender)
 
@@ -524,6 +563,10 @@ Ready to help! What would you like me to assist you with?
 
         finally:
             self.running = False
+            self.file_writer.write_status(
+                AgentState.OFFLINE, "Agent shutting down"
+            )
+            self.file_writer.close()
 
     def start(self) -> None:
         """
