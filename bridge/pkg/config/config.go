@@ -1112,6 +1112,24 @@ func DefaultConfig() *Config {
 	}
 }
 
+// IsFreshInstall returns true when no config file exists at any default path
+// and no keystore directory exists. Used by T17 to default E2EE on for fresh installs only.
+func IsFreshInstall() bool {
+	for _, p := range ConfigPaths() {
+		if _, err := os.Stat(p); err == nil {
+			return false
+		}
+	}
+
+	defaults := DefaultConfig()
+	keystoreDir := filepath.Dir(defaults.Keystore.DBPath)
+	if _, err := os.Stat(keystoreDir); err == nil {
+		return false
+	}
+
+	return true
+}
+
 // ConfigPaths returns the list of default configuration file paths to check
 func ConfigPaths() []string {
 	homeDir, _ := os.UserHomeDir()
