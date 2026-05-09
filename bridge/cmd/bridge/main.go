@@ -26,7 +26,6 @@ import (
 	"github.com/armorclaw/bridge/internal/ai"
 	"github.com/armorclaw/bridge/internal/events"
 	"github.com/armorclaw/bridge/internal/wizard"
-	"github.com/armorclaw/bridge/pkg/budget"
 	"github.com/armorclaw/bridge/pkg/config"
 	"github.com/armorclaw/bridge/pkg/crypto"
 	"github.com/armorclaw/bridge/pkg/discovery"
@@ -2109,17 +2108,6 @@ func runBridgeServer(cliCfg cliConfig) {
 		}
 	} else {
 		log.Println("Voice pipeline disabled (features.voice_pipeline=off)")
-	}
-
-	// Create budget tracker (unused, kept for future use)
-	_, err = budget.NewBudgetTracker(budget.BudgetConfig{
-		DailyLimitUSD:   cfg.Budget.DailyLimitUSD,
-		MonthlyLimitUSD: cfg.Budget.MonthlyLimitUSD,
-		AlertThreshold:  cfg.Budget.AlertThreshold,
-		HardStop:        cfg.Budget.HardStop,
-	})
-	if err != nil {
-		log.Fatalf("Failed to create budget tracker: %v", err)
 	}
 
 	log.Println("WebRTC components initialized")
