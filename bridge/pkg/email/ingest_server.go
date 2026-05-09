@@ -8,6 +8,8 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/armorclaw/bridge/pkg/eventbus"
@@ -60,6 +62,9 @@ func NewIngestServer(cfg IngestServerConfig) *IngestServer {
 
 func (s *IngestServer) Start() error {
 	var err error
+	if err := os.MkdirAll(filepath.Dir(s.socket), 0755); err != nil {
+		return fmt.Errorf("create socket directory: %w", err)
+	}
 	s.listener, err = net.Listen("unix", s.socket)
 	if err != nil {
 		return fmt.Errorf("listen on %s: %w", s.socket, err)

@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"net"
 	"os"
+	"path/filepath"
 	"sync"
 	"time"
 
@@ -48,6 +49,9 @@ func (i *PIIInjector) Start() error {
 		return fmt.Errorf("injector already started")
 	}
 
+	if err := os.MkdirAll(filepath.Dir(i.socketPath), 0755); err != nil {
+		return fmt.Errorf("create socket directory: %w", err)
+	}
 	_ = os.Remove(i.socketPath)
 
 	listener, err := net.Listen("unix", i.socketPath)
