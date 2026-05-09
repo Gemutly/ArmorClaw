@@ -1,0 +1,130 @@
+# Java Sidecar CI — gates Java Docker image publish on 8+21+4 tests
+name: Java Sidecar CI
+
+on:
+  push:
+    branches: [main, develop]
+    paths: ['sidecar-java/**', 'bridge/pkg/sidecar/**', '.github/workflows/java-sidecar.yml']
+  pull_request:
+    branches: [main, develop]
+    paths: ['sidecar-java/**', 'bridge/pkg/sidecar/**', '.github/workflows/java-sidecar.yml']
+  workflow_dispatch:
+
+env:
+  JAVA_IMAGE: mikegemut/armorclaw-java-sidecar
+
+jobs:
+  # ── 1. Java sidecar unit tests (8 tests) ──
+  java-tests:
+    name: Java Sidecar Tests (8)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+          cache: 'maven'
+          cache-dependency-path: sidecar-java/pom.xml
+
+      - name: Run Java sidecar tests
+        working-directory: sidecar-java
+        run: mvn test --batch-mode
+
+  # ── 2. Go routing tests (21 tests) ──
+  go-routing-tests:
+    name: Go Routing Tests (21)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: 'bridge/go.mod'
+          cache-dependency-path: 'bridge/go.sum'
+
+      - name: Install CGO dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libyara-dev libsqlcipher-dev libolm-dev
+
+      - name: Run routing tests
+        env:
+          CGO_ENABLED: 1
+          CGO_CFLAGS: "-I/usr/include"
+          CGO_LDFLAGS: "-L/usr/lib/x86_64-linux-gnu -lsqlcipher"
+        run: |
+          cd bridge
+          go test -v -run "TestRouteExtractText" ./pkg/sidecar/...
+
+  # ── 3. Go E2E Java tests (4 tests) ──
+  go-e2e-tests:
+    name: Go E2E Java Tests (4)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: 'bridge/go.mod'
+          cache-dependency-path: 'bridge/go.sum'
+
+      - name: Install CGO dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libyara-dev libsqlcipher-dev libolm-dev
+
+      - name: Run E2E Java tests
+        env:
+          CGO_ENABLED: 1
+          CGO_CFLAGS: "-I/usr/include"
+          CGO_LDFLAGS: "-L/usr/lib/x86_64-linux-gnu -lsqlcipher"
+        run: |
+          cd bridge
+          go test -v -run "TestE2E_Java" ./pkg/sidecar/...
+
+  # ── 4. Build Java Docker image (gated on all 3 test suites) ──
+  java-docker-build:
+    name: Build Java Docker Image
+    runs-on: ubuntu-latest
+    needs: [java-tests, go-routing-tests, go-e2e-tests]
+    if: github.event_name != 'pull_request'
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+        with:
+          driver: docker-container
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      - name: Extract Docker metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.JAVA_IMAGE }}
+          tags: |
+            type=ref,event=branch
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
+
+      - name: Build and push Java sidecar image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./sidecar-java
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          platforms: linux/amd64,linux/arm64
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
