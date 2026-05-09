@@ -3,6 +3,7 @@ package voice
 import (
 	"errors"
 	"fmt"
+	"os"
 )
 
 const (
@@ -54,4 +55,49 @@ func IsVoiceRateLimit(err error) bool {
 		return ve.Code == ErrVoiceRateLimitCode
 	}
 	return false
+}
+
+// VoicePrereqReason enumerates distinct reasons a voice prereq check can fail.
+type VoicePrereqReason string
+
+const (
+	PrereqTurnSecretMissing VoicePrereqReason = "VOICE_PREREQ_TURN_SECRET_MISSING"
+	PrereqOpenAIKeyMissing  VoicePrereqReason = "VOICE_PREREQ_OPENAI_KEY_MISSING"
+	PrereqMatrixUnavailable VoicePrereqReason = "VOICE_PREREQ_MATRIX_UNAVAILABLE"
+	PrereqMatrixUnwired     VoicePrereqReason = "VOICE_PREREQ_MATRIX_UNWIRED"
+)
+
+// VoicePrereqFailure describes a single failed prerequisite.
+type VoicePrereqFailure struct {
+	Reason  VoicePrereqReason `json:"reason"`
+	Message string            `json:"message"`
+}
+
+// CheckVoicePrereqs validates that all voice pipeline prerequisites are met.
+// It returns nil when everything is OK, or a slice of failures describing
+// each missing prerequisite. matrixWired should be true when the Matrix
+// adapter has been successfully wired (logged in / connected).
+func CheckVoicePrereqs(matrixWired bool) []VoicePrereqFailure {
+	var failures []VoicePrereqFailure
+
+	if os.Getenv("TURN_SECRET") == "" {
+		failures = append(failures, VoicePrereqFailure{
+			Reason:  PrereqTurnSecretMissing,
+			Message: "TURN_SECRET environment variable is not set",
+		})
+	}
+	if os.Getenv("OPENAI_API_KEY") == "" {
+		failures = append(failures, VoicePrereqFailure{
+			Reason:  PrereqOpenAIKeyMissing,
+			Message: "OPENAI_API_KEY environment variable is not set",
+		})
+	}
+	if !matrixWired {
+		failures = append(failures, VoicePrereqFailure{
+			Reason:  PrereqMatrixUnwired,
+			Message: "Matrix adapter is not wired (not logged in or not connected)",
+		})
+	}
+
+	return failures
 }

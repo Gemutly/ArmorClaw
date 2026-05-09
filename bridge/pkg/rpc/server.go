@@ -1091,6 +1091,14 @@ func (s *Server) handleVoiceStartSession(ctx context.Context, req *Request) (int
 		return nil, &ErrorObj{Code: voice.ErrVoiceNotConfiguredCode, Message: "voice pipeline not configured: manager is nil"}
 	}
 
+	if failures := voice.CheckVoicePrereqs(s.matrix != nil && s.matrix.IsLoggedIn()); len(failures) > 0 {
+		return nil, &ErrorObj{
+			Code:    voice.ErrVoiceNotConfiguredCode,
+			Message: "voice pipeline prerequisites not met",
+			Data:    failures,
+		}
+	}
+
 	var params struct {
 		SessionConfig json.RawMessage `json:"session_config"`
 	}
@@ -1109,6 +1117,14 @@ func (s *Server) handleVoiceStopSession(ctx context.Context, req *Request) (inte
 
 	if s.voiceMgr == nil {
 		return nil, &ErrorObj{Code: voice.ErrVoiceNotConfiguredCode, Message: "voice pipeline not configured: manager is nil"}
+	}
+
+	if failures := voice.CheckVoicePrereqs(s.matrix != nil && s.matrix.IsLoggedIn()); len(failures) > 0 {
+		return nil, &ErrorObj{
+			Code:    voice.ErrVoiceNotConfiguredCode,
+			Message: "voice pipeline prerequisites not met",
+			Data:    failures,
+		}
 	}
 
 	var params struct {
@@ -1135,6 +1151,14 @@ func (s *Server) handleVoiceStatus(ctx context.Context, req *Request) (interface
 
 	if s.voiceMgr == nil {
 		return nil, &ErrorObj{Code: voice.ErrVoiceNotConfiguredCode, Message: "voice pipeline not configured: manager is nil"}
+	}
+
+	if failures := voice.CheckVoicePrereqs(s.matrix != nil && s.matrix.IsLoggedIn()); len(failures) > 0 {
+		return nil, &ErrorObj{
+			Code:    voice.ErrVoiceNotConfiguredCode,
+			Message: "voice pipeline prerequisites not met",
+			Data:    failures,
+		}
 	}
 
 	calls := s.voiceMgr.ListCalls()
