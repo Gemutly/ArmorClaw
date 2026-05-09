@@ -25,6 +25,7 @@ import (
 	"github.com/armorclaw/bridge/pkg/audit"
 	"github.com/armorclaw/bridge/pkg/browser"
 	"github.com/armorclaw/bridge/pkg/crypto"
+	"github.com/armorclaw/bridge/pkg/sidecar"
 	"github.com/armorclaw/bridge/pkg/docker"
 	"github.com/armorclaw/bridge/pkg/eventbus"
 	"github.com/armorclaw/bridge/pkg/eventlog"
@@ -438,6 +439,8 @@ func (s *Server) handleHealthCheck(ctx context.Context, req *Request) (interface
 	} else if components["bridge"] == "ok" {
 		status = "degraded"
 	}
+
+	components["sidecar.extraction_mode"] = string(sidecar.GetExtractionMode())
 
 	return HealthCheckResponse{
 		Status:     status,
