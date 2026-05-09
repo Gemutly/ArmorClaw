@@ -233,6 +233,7 @@ type Config struct {
 	ZeroTrustKS      bool
 	BackupMgr        *crypto.BackupManager
 	E2EEBackupEnabled bool
+	EnableE2EE        bool
 	VoiceMgr         *voice.Manager
 	VoicePipeline    string
 	ReplayFlags      ReplayFeatureFlags
@@ -283,6 +284,7 @@ func New(cfg Config) (*Server, error) {
 		replayFlags:      cfg.ReplayFlags,
 		navChartStore:    cfg.NavChartStore,
 	}
+	s.e2eeEnabled.Store(cfg.EnableE2EE)
 
 	s.piiRequestManager = keystore.NewPIIRequestManager(keystore.PIIRequestManagerConfig{
 		DefaultTTL: 5 * time.Minute,
