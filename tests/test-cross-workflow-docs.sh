@@ -66,7 +66,7 @@ save_evidence() {
 
 # ── Sidecar socket paths ──────────────────────────────────────────────────────
 RUST_SOCK="/run/armorclaw/sidecar.sock"
-PYTHON_SOCK="/run/armorclaw/office-sidecar/sidecar-office.sock"
+PYTHON_SOCK="/run/armorclaw/sidecar-office.sock"
 
 # ── gRPC helpers ──────────────────────────────────────────────────────────────
 grpcurl_rust() {

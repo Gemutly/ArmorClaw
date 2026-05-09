@@ -13,7 +13,10 @@ import (
 )
 
 const (
-	OfficeSocketPath = "/run/armorclaw/office-sidecar/sidecar-office.sock"
+	// OfficeSocketPath is the canonical socket path for the Python office sidecar.
+	// Deprecated: the old path /run/armorclaw/office-sidecar/sidecar-office.sock
+	// is no longer used; keep env override OFFICE_SOCKET for migration compat.
+	OfficeSocketPath = "/run/armorclaw/sidecar-office.sock"
 	OfficeMaxMsgSize = 100 * 1024 * 1024 // 100 MB
 )
 
@@ -146,10 +149,11 @@ func isPlainText(documentFormat string) bool {
 		strings.HasSuffix(f, ".json") || strings.HasSuffix(f, ".md")
 }
 
-// ProvisionOfficeSocketDir creates the socket directory for the Python sidecar
-// with permissions allowing UID 10001 to write.
+// ProvisionOfficeSocketDir ensures /run/armorclaw exists so the Python
+// sidecar can create its socket at /run/armorclaw/sidecar-office.sock.
+// Permissions allow UID 10001 to write.
 func ProvisionOfficeSocketDir() error {
-	dir := "/run/armorclaw/office-sidecar"
+	dir := "/run/armorclaw"
 	if err := os.MkdirAll(dir, 0770); err != nil {
 		return fmt.Errorf("failed to create office socket dir: %w", err)
 	}

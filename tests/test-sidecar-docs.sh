@@ -35,7 +35,7 @@ mkdir -p "$EVIDENCE_DIR"
 
 # ── Sidecar socket paths (matching production deployment) ──────────────────────
 RUST_SOCK="/run/armorclaw/sidecar.sock"
-PYTHON_SOCK="/run/armorclaw/office-sidecar/sidecar-office.sock"
+PYTHON_SOCK="/run/armorclaw/sidecar-office.sock"
 JAVA_SOCK="/run/armorclaw/sidecar-java/sidecar-java.sock"
 
 # ── gRPC helpers ───────────────────────────────────────────────────────────────

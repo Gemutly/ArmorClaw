@@ -12,7 +12,7 @@
 # Usage:
 #   docker compose -f deploy/docker-compose.sidecar-py.yml up -d
 #
-# Socket: /run/armorclaw/office-sidecar/sidecar-office.sock
+# Socket: /run/armorclaw/sidecar-office.sock
 # Isolation: Container sees ONLY /run/armorclaw/ (not Rust or Bridge sockets)
 
 services:
@@ -26,7 +26,7 @@ services:
     restart: unless-stopped
     network_mode: none
     volumes:
-      - /run/armorclaw/office-sidecar:/run/armorclaw
+      - /run/armorclaw:/run/armorclaw
       - /run/armorclaw/secrets/office-hmac:/run/secrets/shared_secret:ro
     tmpfs:
       - /tmp/office_worker:size=512m,mode=0700
