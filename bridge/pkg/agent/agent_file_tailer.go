@@ -19,6 +19,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/armorclaw/bridge/internal/events"
 )
 
 const (
@@ -78,6 +80,11 @@ type AgentFileTailer struct {
 	onEvent  func(AgentFileEvent)
 	onStatus func(AgentFileStatus)
 
+	// Optional Matrix event bus for forwarding agent events to Matrix rooms.
+	eventBus *events.MatrixEventBus
+	roomID   string
+	agentID  string
+
 	// Events file offset tracking.
 	byteOffset int64
 	lastSeq    int
@@ -100,6 +107,17 @@ func NewAgentFileTailer(stateDir string, onEvent func(AgentFileEvent), onStatus 
 		onEvent:  onEvent,
 		onStatus: onStatus,
 	}
+}
+
+// WithEventBus configures the tailer to forward agent events and status
+// changes to the MatrixEventBus. This is additive: callbacks are still
+// invoked. Emission failures are logged as warnings and never block the
+// tailer's polling loop.
+func (t *AgentFileTailer) WithEventBus(bus *events.MatrixEventBus, roomID, agentID string) *AgentFileTailer {
+	t.eventBus = bus
+	t.roomID = roomID
+	t.agentID = agentID
+	return t
 }
 
 // Start begins the polling goroutine. It runs until ctx is cancelled or
@@ -125,6 +143,61 @@ func (t *AgentFileTailer) Stop() {
 		t.cancel()
 	}
 	t.running = false
+}
+
+// emitEventToBus forwards an AgentFileEvent to the MatrixEventBus,
+// mapping agent event types to existing workflow event types so the
+// MatrixEventForwarder can relay them as m.notice messages.
+func (t *AgentFileTailer) emitEventToBus(evt AgentFileEvent) {
+	if t.eventBus == nil || t.roomID == "" {
+		return
+	}
+
+	eventType := "workflow.step_progress"
+	switch evt.Type {
+	case "error":
+		eventType = "workflow.step_error"
+	case "blocker":
+		eventType = "workflow.blocker_warning"
+	}
+
+	func() {
+		defer func() {
+			if r := recover(); r != nil {
+				log.Printf("agent_file_tailer: panic emitting event to bus: %v", r)
+			}
+		}()
+		t.eventBus.Publish(events.MatrixEvent{
+			ID:      fmt.Sprintf("agent-evt-%s-%d-%d", t.agentID, evt.Seq, time.Now().UnixNano()),
+			RoomID:  t.roomID,
+			Sender:  "agent-tailer",
+			Type:    eventType,
+			Content: evt,
+		})
+	}()
+}
+
+// emitStatusToBus forwards an AgentFileStatus change to the MatrixEventBus
+// using the canonical agent status event type.
+func (t *AgentFileTailer) emitStatusToBus(status AgentFileStatus) {
+	if t.eventBus == nil || t.roomID == "" {
+		return
+	}
+
+	func() {
+		defer func() {
+			if r := recover(); r != nil {
+				log.Printf("agent_file_tailer: panic emitting status to bus: %v", r)
+			}
+		}()
+		t.eventBus.Publish(events.MatrixEvent{
+			ID:      fmt.Sprintf("agent-status-%s-%d", t.agentID, time.Now().UnixNano()),
+			RoomID:  t.roomID,
+			Sender:  "agent-tailer",
+			Type:    "com.armorclaw.agent.status",
+			Content: status,
+		})
+	}()
 }
 
 // run is the main polling loop.
@@ -183,6 +256,7 @@ func (t *AgentFileTailer) pollStatus() {
 	}
 
 	t.onStatus(status)
+	t.emitStatusToBus(status)
 }
 
 // ---------------------------------------------------------------------------
@@ -252,6 +326,7 @@ func (t *AgentFileTailer) pollEvents() error {
 		t.lastSeq = evt.Seq
 
 		t.onEvent(evt)
+		t.emitEventToBus(evt)
 	}
 
 	if err := scanner.Err(); err != nil {

@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/armorclaw/bridge/internal/events"
+	"github.com/armorclaw/bridge/pkg/agent"
 	"github.com/armorclaw/bridge/pkg/browser"
 	"github.com/armorclaw/bridge/pkg/capability"
 	"github.com/armorclaw/bridge/pkg/interfaces"
@@ -870,6 +871,19 @@ func (e *StepExecutor) executeStepWithAgent(ctx context.Context, workflow *Workf
 		delete(e.runningSteps, instanceID)
 		e.mu.Unlock()
 	}()
+
+	// Start agent file tailer for backward communication (agent_events.jsonl,
+	// agent_status.json). Emits to MatrixEventBus so events reach Matrix rooms
+	// as m.notice messages via MatrixEventForwarder.
+	tailer := agent.NewAgentFileTailer(stateDir,
+		func(_ agent.AgentFileEvent) {},
+		func(_ agent.AgentFileStatus) {},
+	)
+	if e.eventBus != nil && workflow.CreatedBy != "" {
+		tailer.WithEventBus(e.eventBus, workflow.CreatedBy, agentID)
+	}
+	tailer.Start(ctx)
+	defer tailer.Stop()
 
 	completionResult, waitErr := e.waitForCompletion(stepCtx, instanceID, stateDir, workflow.CreatedBy)
 
