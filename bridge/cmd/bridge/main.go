@@ -62,6 +62,7 @@ import (
 	"github.com/armorclaw/bridge/pkg/yara"
 
 	bridgeHTTP "github.com/armorclaw/bridge/pkg/http"
+	"github.com/armorclaw/bridge/pkg/sidecar"
 
 	"github.com/charmbracelet/huh"
 )
@@ -2539,6 +2540,13 @@ func runBridgeServer(cliCfg cliConfig) {
 	// --- EMAIL DISPATCHER ---
 	if ingestServer != nil && taskScheduler != nil {
 		_ = setupEmailDispatcher(eventBus, taskScheduler, rolodexStore)
+	}
+
+	if err := os.MkdirAll("/run/armorclaw", 0755); err != nil {
+		log.Printf("Warning: failed to create /run/armorclaw: %v", err)
+	}
+	if err := sidecar.ProvisionJavaSocketDir(); err != nil {
+		log.Printf("Warning: failed to provision Java socket dir: %v", err)
 	}
 
 	// Log RPC dependency status
