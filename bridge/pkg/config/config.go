@@ -895,7 +895,7 @@ func DefaultConfig() *Config {
 		Server: ServerConfig{
 			Mode:         "native", // Default to native mode (Unix socket)
 			RPCTransport: "unix",   // Default to Unix socket
-			SocketPath:   filepath.Join(os.TempDir(), "armorclaw", "bridge.sock"),
+			SocketPath:   "/run/armorclaw/bridge.sock",
 			PidFile:      filepath.Join(os.TempDir(), "armorclaw", "bridge.pid"),
 			Daemonize:    false,
 			Auth:         "token",
