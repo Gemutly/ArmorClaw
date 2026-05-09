@@ -1088,7 +1088,7 @@ func (s *Server) handleVoiceStartSession(ctx context.Context, req *Request) (int
 	}
 
 	if s.voiceMgr == nil {
-		return nil, &ErrorObj{Code: InternalError, Message: "voice manager not configured"}
+		return nil, &ErrorObj{Code: voice.ErrVoiceNotConfiguredCode, Message: "voice pipeline not configured: manager is nil"}
 	}
 
 	var params struct {
@@ -1108,7 +1108,7 @@ func (s *Server) handleVoiceStopSession(ctx context.Context, req *Request) (inte
 	}
 
 	if s.voiceMgr == nil {
-		return nil, &ErrorObj{Code: InternalError, Message: "voice manager not configured"}
+		return nil, &ErrorObj{Code: voice.ErrVoiceNotConfiguredCode, Message: "voice pipeline not configured: manager is nil"}
 	}
 
 	var params struct {
@@ -1134,7 +1134,7 @@ func (s *Server) handleVoiceStatus(ctx context.Context, req *Request) (interface
 	}
 
 	if s.voiceMgr == nil {
-		return nil, &ErrorObj{Code: InternalError, Message: "voice manager not configured"}
+		return nil, &ErrorObj{Code: voice.ErrVoiceNotConfiguredCode, Message: "voice pipeline not configured: manager is nil"}
 	}
 
 	calls := s.voiceMgr.ListCalls()

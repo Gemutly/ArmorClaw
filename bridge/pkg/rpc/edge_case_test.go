@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/armorclaw/jetski/navchart"
+	"github.com/armorclaw/bridge/pkg/voice"
 )
 
 // ---------------------------------------------------------------------------
@@ -212,7 +213,6 @@ func TestEdgeVoice_FeatureDisabled(t *testing.T) {
 }
 
 func TestEdgeVoice_StartWhenNilManager(t *testing.T) {
-	// voiceMgr == nil returns InternalError.
 	s := &Server{voicePipeline: "cloud", voiceMgr: nil}
 	ctx := context.Background()
 
@@ -225,8 +225,8 @@ func TestEdgeVoice_StartWhenNilManager(t *testing.T) {
 		if err == nil {
 			t.Fatal("expected error when voiceMgr nil")
 		}
-		if err.Code != InternalError {
-			t.Errorf("expected InternalError (%d), got %d", InternalError, err.Code)
+		if err.Code != int(voice.ErrVoiceNotConfiguredCode) {
+			t.Errorf("expected voice.ErrVoiceNotConfiguredCode (%d), got %d", voice.ErrVoiceNotConfiguredCode, err.Code)
 		}
 	})
 }
@@ -244,8 +244,8 @@ func TestEdgeVoice_StopWhenNilManager(t *testing.T) {
 		if err == nil {
 			t.Fatal("expected error when voiceMgr nil")
 		}
-		if err.Code != InternalError {
-			t.Errorf("expected InternalError (%d), got %d", InternalError, err.Code)
+		if err.Code != int(voice.ErrVoiceNotConfiguredCode) {
+			t.Errorf("expected voice.ErrVoiceNotConfiguredCode (%d), got %d", voice.ErrVoiceNotConfiguredCode, err.Code)
 		}
 	})
 }
@@ -263,14 +263,13 @@ func TestEdgeVoice_StatusWhenNilManager(t *testing.T) {
 		if err == nil {
 			t.Fatal("expected error when voiceMgr nil")
 		}
-		if err.Code != InternalError {
-			t.Errorf("expected InternalError (%d), got %d", InternalError, err.Code)
+		if err.Code != int(voice.ErrVoiceNotConfiguredCode) {
+			t.Errorf("expected voice.ErrVoiceNotConfiguredCode (%d), got %d", voice.ErrVoiceNotConfiguredCode, err.Code)
 		}
 	})
 }
 
 func TestEdgeVoice_StopMissingSessionID(t *testing.T) {
-	// stop_session requires session_id.
 	s := &Server{voicePipeline: "cloud", voiceMgr: nil}
 	ctx := context.Background()
 
@@ -280,12 +279,11 @@ func TestEdgeVoice_StopMissingSessionID(t *testing.T) {
 		if result != nil {
 			t.Errorf("expected nil result, got %v", result)
 		}
-		// voiceMgr nil is checked first, so returns InternalError
 		if err == nil {
 			t.Fatal("expected error")
 		}
-		if err.Code != InternalError {
-			t.Errorf("expected InternalError (%d), got %d", InternalError, err.Code)
+		if err.Code != int(voice.ErrVoiceNotConfiguredCode) {
+			t.Errorf("expected voice.ErrVoiceNotConfiguredCode (%d), got %d", voice.ErrVoiceNotConfiguredCode, err.Code)
 		}
 	})
 }
