@@ -16,6 +16,9 @@ import (
 
 // NOTE: Voice manager initialization is commented out in main.go. voiceMgr remains nil at runtime.
 // Manager integrates all voice call components
+// SetMatrixManager injects the Matrix voice call manager after construction.
+// This allows deferred wiring when the Matrix adapter becomes available
+// after the voice Manager is already created.
 type Manager struct {
 	// Core components
 	config      ManagerConfig
@@ -179,6 +182,12 @@ func (m *Manager) Stop() {
 	})
 
 	m.securityLog.LogSecurityEvent("voice_manager_stopped")
+}
+
+func (m *Manager) SetMatrixManager(mm *MatrixManager) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.voiceMgr = mm
 }
 
 // HandleMatrixCallEvent handles a Matrix call event

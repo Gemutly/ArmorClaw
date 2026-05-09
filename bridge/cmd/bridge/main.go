@@ -2342,6 +2342,12 @@ func runBridgeServer(cliCfg cliConfig) {
 		}
 	}
 
+	if voiceMgr != nil && matrixAdapter != nil {
+		mm := voice.NewMatrixManager(matrixAdapter, sessionMgr, voice.DefaultConfig())
+		voiceMgr.SetMatrixManager(mm)
+		log.Println("MatrixManager injected into voice manager")
+	}
+
 	// P1: Bridge MatrixEventBus -> pkg/eventbus
 	if matrixBus != nil && eventBus != nil {
 		log.Println("Starting Matrix event bridge...")
