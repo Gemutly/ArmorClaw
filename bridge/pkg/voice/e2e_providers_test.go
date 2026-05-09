@@ -1100,3 +1100,167 @@ func TestVoicePipeline_ConcurrentProcessing(t *testing.T) {
 		t.Error("expected at least one agent call from concurrent input")
 	}
 }
+
+// ---------------------------------------------------------------------------
+// 8. Voice Prereq Check E2E Tests (T8–T11 validation)
+// ---------------------------------------------------------------------------
+
+// TestCheckVoicePrereqs_AllMet verifies that CheckVoicePrereqs returns empty
+// when all prerequisites are satisfied.
+func TestCheckVoicePrereqs_AllMet(t *testing.T) {
+	t.Setenv("TURN_SECRET", "test-turn-secret")
+	t.Setenv("OPENAI_API_KEY", "test-openai-key")
+
+	failures := CheckVoicePrereqs(true) // matrixWired = true
+	if len(failures) != 0 {
+		t.Fatalf("expected no failures when all prereqs met, got %d: %+v", len(failures), failures)
+	}
+}
+
+// TestCheckVoicePrereqs_TURN_SECRET tests that missing TURN_SECRET is reported.
+func TestCheckVoicePrereqs_TURN_SECRET(t *testing.T) {
+	t.Setenv("TURN_SECRET", "")
+	t.Setenv("OPENAI_API_KEY", "test-key")
+
+	failures := CheckVoicePrereqs(true)
+	if len(failures) == 0 {
+		t.Fatal("expected at least one failure for missing TURN_SECRET")
+	}
+
+	found := false
+	for _, f := range failures {
+		if f.Reason == PrereqTurnSecretMissing {
+			found = true
+			if f.Message == "" {
+				t.Error("expected non-empty message for TURN_SECRET failure")
+			}
+		}
+	}
+	if !found {
+		t.Errorf("expected VOICE_PREREQ_TURN_SECRET_MISSING in failures, got: %+v", failures)
+	}
+}
+
+// TestCheckVoicePrereqs_OpenAIKey tests that missing OPENAI_API_KEY is reported.
+func TestCheckVoicePrereqs_OpenAIKey(t *testing.T) {
+	t.Setenv("TURN_SECRET", "test-secret")
+	t.Setenv("OPENAI_API_KEY", "")
+
+	failures := CheckVoicePrereqs(true)
+	if len(failures) == 0 {
+		t.Fatal("expected at least one failure for missing OPENAI_API_KEY")
+	}
+
+	found := false
+	for _, f := range failures {
+		if f.Reason == PrereqOpenAIKeyMissing {
+			found = true
+		}
+	}
+	if !found {
+		t.Errorf("expected VOICE_PREREQ_OPENAI_KEY_MISSING in failures, got: %+v", failures)
+	}
+}
+
+// TestCheckVoicePrereqs_MatrixUnavailable tests that matrixWired=false reports VOICE_PREREQ_MATRIX_UNWIRED.
+func TestCheckVoicePrereqs_MatrixUnavailable(t *testing.T) {
+	t.Setenv("TURN_SECRET", "test-secret")
+	t.Setenv("OPENAI_API_KEY", "test-key")
+
+	failures := CheckVoicePrereqs(false) // matrixWired = false
+	if len(failures) == 0 {
+		t.Fatal("expected at least one failure for Matrix unavailable")
+	}
+
+	found := false
+	for _, f := range failures {
+		if f.Reason == PrereqMatrixUnwired {
+			found = true
+		}
+	}
+	if !found {
+		t.Errorf("expected VOICE_PREREQ_MATRIX_UNWIRED in failures, got: %+v", failures)
+	}
+}
+
+// TestCheckVoicePrereqs_MultipleFailures verifies that multiple missing prereqs
+// are all reported simultaneously.
+func TestCheckVoicePrereqs_MultipleFailures(t *testing.T) {
+	t.Setenv("TURN_SECRET", "")
+	t.Setenv("OPENAI_API_KEY", "")
+
+	failures := CheckVoicePrereqs(false) // matrixWired = false
+
+	if len(failures) < 3 {
+		t.Errorf("expected at least 3 failures, got %d: %+v", len(failures), failures)
+	}
+
+	reasons := make(map[VoicePrereqReason]bool)
+	for _, f := range failures {
+		reasons[f.Reason] = true
+	}
+
+	for _, want := range []VoicePrereqReason{PrereqTurnSecretMissing, PrereqOpenAIKeyMissing, PrereqMatrixUnwired} {
+		if !reasons[want] {
+			t.Errorf("missing expected reason %q in failures", want)
+		}
+	}
+}
+
+// TestVoicePrereqFailure_JSONShape verifies that VoicePrereqFailure serializes
+// to the expected JSON shape for contract compatibility.
+func TestVoicePrereqFailure_JSONShape(t *testing.T) {
+	failure := VoicePrereqFailure{
+		Reason:  PrereqTurnSecretMissing,
+		Message: "TURN_SECRET environment variable is not set",
+	}
+
+	data, err := json.Marshal(failure)
+	if err != nil {
+		t.Fatalf("marshal: %v", err)
+	}
+
+	var parsed map[string]interface{}
+	if err := json.Unmarshal(data, &parsed); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+
+	if reason, _ := parsed["reason"].(string); reason != string(PrereqTurnSecretMissing) {
+		t.Errorf("reason: got %q, want %q", reason, PrereqTurnSecretMissing)
+	}
+	if msg, _ := parsed["message"].(string); msg != failure.Message {
+		t.Errorf("message: got %q, want %q", msg, failure.Message)
+	}
+
+	// Verify only expected keys exist
+	if len(parsed) != 2 {
+		t.Errorf("expected exactly 2 keys in JSON, got %d: %+v", len(parsed), parsed)
+	}
+}
+
+// TestVoiceError_Codes verifies error code constants match spec.
+func TestVoiceError_Codes(t *testing.T) {
+	if ErrVoiceNotConfiguredCode != -32007 {
+		t.Errorf("ErrVoiceNotConfiguredCode: got %d, want -32007", ErrVoiceNotConfiguredCode)
+	}
+	if ErrVoiceRateLimitCode != -32008 {
+		t.Errorf("ErrVoiceRateLimitCode: got %d, want -32008", ErrVoiceRateLimitCode)
+	}
+}
+
+// TestVoiceError_StructuredError verifies VoiceError contains code and message.
+func TestVoiceError_StructuredError(t *testing.T) {
+	err := NewVoiceError(ErrVoiceNotConfiguredCode, "test message", nil)
+	if err.Code != ErrVoiceNotConfiguredCode {
+		t.Errorf("code: got %d, want %d", err.Code, ErrVoiceNotConfiguredCode)
+	}
+	if err.Message != "test message" {
+		t.Errorf("message: got %q, want %q", err.Message, "test message")
+	}
+	if err.Error() == "" {
+		t.Error("Error() should not be empty")
+	}
+	if !IsVoiceNotConfigured(err) {
+		t.Error("IsVoiceNotConfigured should return true")
+	}
+}
