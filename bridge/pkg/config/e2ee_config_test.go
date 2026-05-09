@@ -9,11 +9,20 @@ import (
 
 func TestE2EEConfigDefaultFalse(t *testing.T) {
 	cfg := DefaultConfig()
-	if cfg.Matrix.E2EE.Enabled {
-		t.Error("E2EE should default to false")
-	}
-	if cfg.IsE2EEEnabled() {
-		t.Error("IsE2EEEnabled() should return false for default config")
+
+	if IsFreshInstall() {
+		// Fresh installs get E2EE enabled by default (T17)
+		if !cfg.Matrix.E2EE.Enabled {
+			t.Error("E2EE should default to true for fresh installs")
+		}
+	} else {
+		// Existing installations preserve legacy default (false)
+		if cfg.Matrix.E2EE.Enabled {
+			t.Error("E2EE should default to false for existing installations")
+		}
+		if cfg.IsE2EEEnabled() {
+			t.Error("IsE2EEEnabled() should return false for default config on existing installs")
+		}
 	}
 }
 

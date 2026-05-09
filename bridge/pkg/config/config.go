@@ -891,7 +891,7 @@ type ErrorSystemConfig struct {
 
 // DefaultConfig returns the default configuration
 func DefaultConfig() *Config {
-	return &Config{
+	cfg := &Config{
 		Server: ServerConfig{
 			Mode:         "native", // Default to native mode (Unix socket)
 			RPCTransport: "unix",   // Default to Unix socket
@@ -1110,6 +1110,14 @@ func DefaultConfig() *Config {
 			E2EEBackup:        false,
 		},
 	}
+
+	// T17: Default E2EE enabled for fresh installs only.
+	// Existing installations preserve their legacy default (false).
+	if IsFreshInstall() {
+		cfg.Matrix.E2EE.Enabled = true
+	}
+
+	return cfg
 }
 
 // IsFreshInstall returns true when no config file exists at any default path
