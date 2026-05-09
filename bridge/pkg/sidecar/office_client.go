@@ -2,7 +2,6 @@ package sidecar
 
 import (
 	"context"
-	"fmt"
 	"log/slog"
 	"os"
 	"strings"
@@ -149,25 +148,53 @@ func isPlainText(documentFormat string) bool {
 		strings.HasSuffix(f, ".json") || strings.HasSuffix(f, ".md")
 }
 
-// ProvisionOfficeSocketDir ensures /run/armorclaw exists so the Python
-// sidecar can create its socket at /run/armorclaw/sidecar-office.sock.
-// Permissions allow UID 10001 to write.
-func ProvisionOfficeSocketDir() error {
-	dir := "/run/armorclaw"
-	if err := os.MkdirAll(dir, 0770); err != nil {
-		return fmt.Errorf("failed to create office socket dir: %w", err)
-	}
-	if err := os.Chown(dir, 10001, 10001); err != nil {
-		// Chown may fail in non-root environments (dev), log but don't fail
-		slog.Warn("failed to chown office socket dir (non-root?)", "error", err)
-	}
-	return nil
-}
-
 // CheckRustSidecarHealth logs a warning if the Rust sidecar socket is absent.
 func CheckRustSidecarHealth() {
 	if _, err := os.Stat(DefaultSocketPath); os.IsNotExist(err) {
 		slog.Warn("Rust sidecar socket not found — .docx and .pdf routing will fail until sidecar is deployed",
 			"socket", DefaultSocketPath)
 	}
+}
+
+// extractionMode tracks the current document extraction backend mode.
+// Initialized to ExtractionDetecting and transitions after sidecar health probes.
+var extractionMode ExtractionMode = ExtractionDetecting
+
+// GetExtractionMode returns the current extraction mode for health reporting.
+func GetExtractionMode() ExtractionMode {
+	return extractionMode
+}
+
+// ProbeExtractionMode checks sidecar socket availability and transitions the
+// extraction mode from "detecting" to the actual backend state.  It probes the
+// Java sidecar first (preferred), then the Python sidecar (fallback).
+// Call this once after startup — it is non-blocking and fast (os.Stat only).
+func ProbeExtractionMode() {
+	javaReachable := socketExists(JavaSocketPath)
+	pythonReachable := socketExists(OfficeSocketPath)
+
+	switch {
+	case javaReachable:
+		extractionMode = ExtractionJavaPrimary
+		slog.Info("DOC/PPT extraction: java_primary", "socket", JavaSocketPath)
+	case pythonReachable:
+		extractionMode = ExtractionPythonFallback
+		slog.Info("DOC/PPT extraction: python_fallback_degraded", "socket", OfficeSocketPath)
+	default:
+		extractionMode = ExtractionUnavailable
+		slog.Warn("DOC/PPT extraction: unavailable — no DOC/PPT sidecar socket found",
+			"java_socket", JavaSocketPath,
+			"python_socket", OfficeSocketPath)
+	}
+}
+
+// LogExtractionModeStartup emits the initial startup log line for extraction mode.
+func LogExtractionModeStartup() {
+	slog.Info("DOC/PPT extraction: detecting (will probe sidecars)")
+}
+
+// socketExists returns true if the given path exists as a file/socket.
+func socketExists(path string) bool {
+	_, err := os.Stat(path)
+	return !os.IsNotExist(err)
 }

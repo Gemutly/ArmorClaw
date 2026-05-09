@@ -11,7 +11,7 @@
 | Gap | Verdict | Blocks Broker? |
 |-----|---------|----------------|
 | 1. ApprovalEngine not wired to StepExecutor | NOT_RELEVANT | No |
-| 2. SealedKeystore never instantiated | NOT_RELEVANT | No |
+| 2. SealedKeystore never instantiated | RESOLVED | No |
 | 3. SecurityConfig never loaded | NOT_RELEVANT | No |
 | 4. TrustedWorkflowEngine not wired into step execution | NOT_RELEVANT | No |
 | 5. Vault client not passed to MCPRouter | RESOLVED | No |
@@ -45,14 +45,13 @@ The `ApprovalEngine` _is_ wired into `SecretaryCommandHandlerConfig` (line 165) 
 
 ---
 
-### Gap 2: SealedKeystore (681 lines) never instantiated in production
+### Gap 2: SealedKeystore (681 lines) — RESOLVED
 
 **File**: `bridge/pkg/keystore/sealed_keystore.go` (681 lines)
-**Issue**: `SealedKeystore` exists with full implementation (challenge-unseal flow, PBKDF2 key derivation, SQLCipher integration) but is never instantiated in any production wiring path. Only referenced in test files (`sealed_keystore_test.go`, `challenge_unseal_test.go`).
+**Issue**: `SealedKeystore` existed with full implementation (challenge-unseal flow, PBKDF2 key derivation, SQLCipher integration) but was never instantiated in any production wiring path. Only referenced in test files.
 
-**Verdict**: `NOT_RELEVANT`
-**Rationale**: The broker uses `ConsentProvider` interface for authorization decisions. It does not need direct keystore access — secrets flow through the vault governance client, not through `SealedKeystore`. The broker is a pre-check gate, not a secret management system.
-**Action**: This is a v0.9.0+ feature for hardware-key / challenge-unseal flows. No action needed for broker.
+**Status**: `RESOLVED` — `NewSealedKeystore()` is now called in `main.go:2655` with a `SealedKeystoreConfig`.
+**Action**: Complete.
 
 ---
 
