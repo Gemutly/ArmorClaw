@@ -93,9 +93,11 @@ docker-volumes/
 .opencode/
 
 # Bridge build artifacts
+build-output/
 bridge/build/
 bridge/armorclaw-bridge
 bridge/bridge
+go.work.sum
 
 # Sisyphus working files
 .sisyphus/
