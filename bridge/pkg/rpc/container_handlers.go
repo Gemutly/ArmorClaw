@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 
+	"github.com/armorclaw/bridge/pkg/audit"
 	"github.com/armorclaw/bridge/pkg/docker"
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/filters"
@@ -83,6 +84,13 @@ func (s *Server) handleTerminateContainer(ctx context.Context, req *Request) (in
 			Code:    InternalError,
 			Message: "failed to terminate container: " + err.Error(),
 		}
+	}
+
+	if s.auditLog != nil {
+		_ = s.auditLog.LogEvent(audit.EventSecurityViolation, "", "", params.UserID, map[string]interface{}{
+			"action":       "terminate_container",
+			"container_id": params.ContainerID,
+		})
 	}
 
 	return map[string]interface{}{

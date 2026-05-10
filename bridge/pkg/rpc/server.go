@@ -442,6 +442,13 @@ func (s *Server) handleHealthCheck(ctx context.Context, req *Request) (interface
 
 	components["sidecar.extraction_mode"] = string(sidecar.GetExtractionMode())
 
+	if s.auditLog != nil {
+		_ = s.auditLog.LogEvent(audit.EventSidecarHealthCheck, "", "", "", map[string]interface{}{
+			"status":     status,
+			"components": components,
+		})
+	}
+
 	return HealthCheckResponse{
 		Status:     status,
 		Components: components,
@@ -966,6 +973,10 @@ func (s *Server) handleKeystoreUnseal(ctx context.Context, req *Request) (interf
 			return nil, &ErrorObj{Code: pue.Code, Message: pue.Message}
 		}
 		return nil, &ErrorObj{Code: InternalError, Message: err.Error()}
+	}
+
+	if s.auditLog != nil {
+		_ = s.auditLog.LogEvent(audit.EventKeystoreUnseal, "", "", identity, nil)
 	}
 
 	return map[string]interface{}{"unsealed": true}, nil

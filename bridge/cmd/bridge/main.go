@@ -40,6 +40,7 @@ import (
 	"github.com/armorclaw/bridge/pkg/provisioning"
 	"github.com/armorclaw/bridge/pkg/qr"
 	"github.com/armorclaw/bridge/pkg/rpc"
+	"github.com/armorclaw/bridge/pkg/audit"
 	"github.com/armorclaw/bridge/pkg/secretary"
 	"github.com/armorclaw/bridge/pkg/setup"
 	"github.com/armorclaw/bridge/pkg/studio"
@@ -2627,7 +2628,13 @@ func runBridgeServer(cliCfg cliConfig) {
 	rpcCfg.Translator = mcpTranslator
 	rpcCfg.VoiceMgr = voiceMgr
 	rpcCfg.DockerClient = dockerClient
-	rpcCfg.AuditLog = nil // TODO: wire audit.AuditLog when constructed
+	auditor, auditErr := audit.NewAuditLog(audit.DefaultConfig())
+	if auditErr != nil {
+		log.Printf("[WARN] audit logger init failed: %v, degrading to stderr", auditErr)
+		// Do NOT fatal — bridge must start even if audit dir unwritable
+	} else {
+		rpcCfg.AuditLog = auditor
+	}
 	rpcCfg.Guard = nil    // TODO: wire trust.TrustedProxyGuard when constructed
 	rpcCfg.NavChartStore = nil // TODO: wire navchart.MultiTabStore when constructed
 	rpcCfg.SkillGate = nil     // TODO: wire interfaces.SkillGate when constructed
