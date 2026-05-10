@@ -864,6 +864,10 @@ func (m *MatrixAdapter) processEvents(syncResp *SyncResponse) int {
 
 				event.RoomID = roomID
 
+				if m.isOwnMessage(event.Sender) {
+					continue
+				}
+
 				// Check for studio commands before queuing
 				m.mu.RLock()
 				studioHandler := m.studioCmdHandler
@@ -967,6 +971,10 @@ func (m *MatrixAdapter) processEvents(syncResp *SyncResponse) int {
 				}
 
 				decryptedEvt.Content = m.piiScrubber.ScrubMap(decryptedEvt.Content)
+
+				if m.isOwnMessage(event.Sender) {
+					continue
+				}
 
 				// Check studio handler
 				m.mu.RLock()
@@ -1322,6 +1330,12 @@ func (m *MatrixAdapter) GetUserID() string {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 	return m.userID
+}
+
+func (m *MatrixAdapter) isOwnMessage(sender string) bool {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	return m.userID != "" && sender == m.userID
 }
 
 // GetAccessToken returns the current access token

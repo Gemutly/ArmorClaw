@@ -3697,18 +3697,23 @@ func (s *schedulerMatrixAdapter) SendEvent(ctx context.Context, roomID, eventTyp
 
 // compositeStudioHandler tries studio commands first, then secretary commands
 type compositeStudioHandler struct {
-	studio    *studio.StudioIntegration
-	secretary *secretary.SecretaryCommandHandler
+	studio       *studio.StudioIntegration
+	secretary    *secretary.SecretaryCommandHandler
+	adminHandler *adapter.CommandHandler
 }
 
 func (c *compositeStudioHandler) HandleMatrixMessage(ctx context.Context, roomID, userID, eventID, text string) bool {
-	// Try studio commands (!agent *) first
+	if strings.HasPrefix(text, "/") {
+		if c.adminHandler != nil {
+			return c.adminHandler.HandleCommand(ctx, roomID, userID, text)
+		}
+		return false
+	}
 	if c.studio != nil {
 		if c.studio.HandleMatrixMessage(ctx, roomID, userID, eventID, text) {
 			return true
 		}
 	}
-	// Try secretary commands (!secretary *) second
 	if c.secretary != nil {
 		return c.secretary.HandleMatrixMessage(ctx, roomID, userID, eventID, text)
 	}
