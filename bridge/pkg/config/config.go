@@ -145,6 +145,9 @@ type Config struct {
 
 	// Feature flags for v1.0 phases
 	Features FeatureFlags `toml:"features"`
+
+	// Governance configuration (room ID for governance/voting)
+	Governance GovernanceConfig `toml:"governance"`
 }
 
 // ServerConfig holds server-specific configuration
@@ -825,6 +828,10 @@ type ProvisioningConfig struct {
 	DataDir string `toml:"data_dir" env:"ARMORCLAW_PROVISIONING_DATA_DIR"`
 }
 
+type GovernanceConfig struct {
+	RoomID string `toml:"room_id" env:"ARMORCLAW_GOVERNANCE_ROOM"`
+}
+
 // SidecarJavaConfig holds configuration for the Java sidecar (legacy .doc/.ppt extraction)
 type SidecarJavaConfig struct {
 	// Enabled controls whether the Java sidecar is used for .doc/.ppt extraction.
@@ -1108,6 +1115,9 @@ func DefaultConfig() *Config {
 			VoicePipeline:     "off",
 			MultiTabReplay:    false,
 			E2EEBackup:        false,
+		},
+		Governance: GovernanceConfig{
+			RoomID: "",
 		},
 	}
 

@@ -117,6 +117,45 @@ type cliConfig struct {
 	agentCapabilities string
 }
 
+const governanceStateFile = "/var/lib/armorclaw/.governance-room"
+
+func resolveGovernanceRoomID(cfg *config.Config, matrixClient *adapter.MatrixAdapter) string {
+	if cfg.Governance.RoomID != "" {
+		return cfg.Governance.RoomID
+	}
+
+	if data, err := os.ReadFile(governanceStateFile); err == nil {
+		roomID := strings.TrimSpace(string(data))
+		if roomID != "" {
+			return roomID
+		}
+	}
+
+	if matrixClient == nil {
+		log.Printf("[WARN] GovernanceRoomID: no config value, no state file, Matrix client unavailable — starting without governance room")
+		return ""
+	}
+
+	roomID, _, err := matrixClient.CreateRoom(context.Background(), map[string]interface{}{
+		"name":   "ArmorClaw Governance",
+		"topic":  "Governance and voting room for ArmorClaw Bridge",
+		"preset": "private_chat",
+	})
+	if err != nil {
+		log.Printf("[WARN] GovernanceRoomID: auto-create room failed: %v — starting without governance room", err)
+		return ""
+	}
+
+	if err := os.MkdirAll(filepath.Dir(governanceStateFile), 0750); err == nil {
+		if err := os.WriteFile(governanceStateFile, []byte(roomID), 0600); err != nil {
+			log.Printf("[WARN] GovernanceRoomID: failed to persist room ID to state file: %v", err)
+		}
+	}
+
+	log.Printf("GovernanceRoomID: auto-created room %s and persisted to %s", roomID, governanceStateFile)
+	return roomID
+}
+
 func main() {
 	cliCfg := parseFlags()
 
@@ -2638,7 +2677,7 @@ func runBridgeServer(cliCfg cliConfig) {
 	rpcCfg.Guard = nil    // TODO: wire trust.TrustedProxyGuard when constructed
 	rpcCfg.NavChartStore = nil // TODO: wire navchart.MultiTabStore when constructed
 	rpcCfg.SkillGate = nil     // TODO: wire interfaces.SkillGate when constructed
-	rpcCfg.GovernanceRoomID = "" // TODO: wire governance room ID when available
+	rpcCfg.GovernanceRoomID = resolveGovernanceRoomID(cfg, matrixAdapter)
 
 	rpcCfg.ZeroTrustKS = cfg.Features.ZeroTrustKeystore
 	rpcCfg.VoicePipeline = cfg.Features.VoicePipeline
