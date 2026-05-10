@@ -1,0 +1,28 @@
+# Conduit test configuration for Matrix E2E harness
+# NOT for production use
+
+[global]
+server_name = "armorclaw.test"
+database_path = "/data/conduit_db"
+database_backend = "sqlite"
+port = 6167
+address = "0.0.0.0"
+max_request_size = 20_000_000
+allow_registration = false
+registration_shared_secret = "test-registration-secret-change-in-production"
+allow_federation = false
+allow_public_room_directory_over_federation = false
+allow_public_room_directory_without_auth = true
+allow_device_name_lookup = true
+log = "info"
+trusted_servers = ["matrix.org"]
+
+[global.turn]
+turn_uris = []
+turn_secret = ""
+turn_username = ""
+turn_password = ""
+
+[global.well_known]
+server = "localhost:6167"
+client = "http://localhost:6167"

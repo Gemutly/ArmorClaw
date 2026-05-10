@@ -1,0 +1,30 @@
+{
+  "users": [
+    {
+      "username": "test-admin",
+      "password": "test-admin-password",
+      "role": "admin",
+      "mxid": "@test-admin:armorclaw.test"
+    },
+    {
+      "username": "test-user",
+      "password": "test-user-password",
+      "role": "user",
+      "mxid": "@test-user:armorclaw.test"
+    },
+    {
+      "username": "test-bot",
+      "password": "test-bot-password",
+      "role": "bot",
+      "mxid": "@test-bot:armorclaw.test"
+    }
+  ],
+  "rooms": [
+    {
+      "name": "test-room",
+      "alias": "#test:armorclaw.test",
+      "preset": "private_chat",
+      "creator": "test-admin"
+    }
+  ]
+}
