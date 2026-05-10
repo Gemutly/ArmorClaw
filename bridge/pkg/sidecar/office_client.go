@@ -97,19 +97,21 @@ func RouteExtractText(
 		return officeClient.ExtractText(ctx, req)
 	}
 	if isOLE && isDoc {
-		if javaClient != nil {
-			return javaClient.ExtractText(ctx, req)
+		if javaClient == nil {
+			return nil, status.Errorf(codes.Unavailable,
+				"DOC/PPT extraction requires the Java sidecar but it is currently unavailable. Deploy sidecar-java for legacy Office format support or contact your administrator.")
 		}
-		return officeClient.ExtractText(ctx, req)
+		return javaClient.ExtractText(ctx, req)
 	}
 	if isOLE && isXls {
 		return officeClient.ExtractText(ctx, req)
 	}
 	if isOLE && isPpt {
-		if javaClient != nil {
-			return javaClient.ExtractText(ctx, req)
+		if javaClient == nil {
+			return nil, status.Errorf(codes.Unavailable,
+				"DOC/PPT extraction requires the Java sidecar but it is currently unavailable. Deploy sidecar-java for legacy Office format support or contact your administrator.")
 		}
-		return officeClient.ExtractText(ctx, req)
+		return javaClient.ExtractText(ctx, req)
 	}
 
 	if isPDF && isPdf {

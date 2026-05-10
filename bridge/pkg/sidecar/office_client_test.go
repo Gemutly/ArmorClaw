@@ -2,6 +2,7 @@ package sidecar
 
 import (
 	"context"
+	"strings"
 	"testing"
 	"time"
 
@@ -181,20 +182,20 @@ func TestRouteExtractText_MSG_RoutesToPython(t *testing.T) {
 	}
 }
 
-func TestRouteExtractText_DOC_RoutesToPython(t *testing.T) {
-	office, officeMock, rust, rustMock := setupRoutingClients(t)
+func TestRouteExtractText_DOC_RequiresJava_NoSidecar(t *testing.T) {
 	oleMagic := []byte{0xD0, 0xCF, 0x11, 0xE0, 0xA1, 0xB1, 0x1A, 0xE1}
 	req := makeRoutingReq("application/msword", oleMagic)
 
-	_, err := RouteExtractText(context.Background(), req, office, rust, nil)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
+	_, err := RouteExtractText(context.Background(), req, nil, nil, nil)
+	if err == nil {
+		t.Fatal("expected error for .doc without javaClient")
 	}
-	if !officeMock.extractCalled {
-		t.Error("office client should have been called for .doc (Python fallback)")
+	st, ok := status.FromError(err)
+	if !ok {
+		t.Fatalf("expected gRPC status error, got: %v", err)
 	}
-	if rustMock.extractCalled {
-		t.Error("rust client should NOT have been called for .doc")
+	if st.Code() != codes.Unavailable {
+		t.Errorf("expected Unavailable, got %v", st.Code())
 	}
 }
 
@@ -212,20 +213,20 @@ func TestRouteExtractText_XLS_RoutesToPython(t *testing.T) {
 	}
 }
 
-func TestRouteExtractText_PPT_RoutesToPython(t *testing.T) {
-	office, officeMock, rust, rustMock := setupRoutingClients(t)
+func TestRouteExtractText_PPT_RequiresJava_NoSidecar(t *testing.T) {
 	oleMagic := []byte{0xD0, 0xCF, 0x11, 0xE0, 0xA1, 0xB1, 0x1A, 0xE1}
 	req := makeRoutingReq("application/vnd.ms-powerpoint", oleMagic)
 
-	_, err := RouteExtractText(context.Background(), req, office, rust, nil)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
+	_, err := RouteExtractText(context.Background(), req, nil, nil, nil)
+	if err == nil {
+		t.Fatal("expected error for .ppt without javaClient")
 	}
-	if !officeMock.extractCalled {
-		t.Error("office client should have been called for .ppt (Python fallback)")
+	st, ok := status.FromError(err)
+	if !ok {
+		t.Fatalf("expected gRPC status error, got: %v", err)
 	}
-	if rustMock.extractCalled {
-		t.Error("rust client should NOT have been called for .ppt")
+	if st.Code() != codes.Unavailable {
+		t.Errorf("expected Unavailable, got %v", st.Code())
 	}
 }
 
@@ -365,37 +366,47 @@ func TestRouteExtractText_PPT_RoutesToJava(t *testing.T) {
 	}
 }
 
-func TestRouteExtractText_DOC_FallbackToPython(t *testing.T) {
-	office, officeMock, rust, rustMock := setupRoutingClients(t)
+func TestRouteExtractText_DOC_RequiresJava(t *testing.T) {
+	office, _, rust, _ := setupRoutingClients(t)
 	oleMagic := []byte{0xD0, 0xCF, 0x11, 0xE0, 0xA1, 0xB1, 0x1A, 0xE1}
 	req := makeRoutingReq("application/msword", oleMagic)
 
 	_, err := RouteExtractText(context.Background(), req, office, rust, nil)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
+	if err == nil {
+		t.Fatal("expected error when javaClient is nil for .doc")
 	}
-	if !officeMock.extractCalled {
-		t.Error("office client should have been called for .doc fallback (no javaClient)")
+	st, ok := status.FromError(err)
+	if !ok {
+		t.Fatalf("expected gRPC status error, got: %v", err)
 	}
-	if rustMock.extractCalled {
-		t.Error("rust client should NOT have been called for .doc fallback")
+	if st.Code() != codes.Unavailable {
+		t.Errorf("expected Unavailable, got %v", st.Code())
+	}
+	expected := "DOC/PPT extraction requires the Java sidecar but it is currently unavailable"
+	if !strings.Contains(st.Message(), expected) {
+		t.Errorf("error message should contain %q, got %q", expected, st.Message())
 	}
 }
 
-func TestRouteExtractText_PPT_FallbackToPython(t *testing.T) {
-	office, officeMock, rust, rustMock := setupRoutingClients(t)
+func TestRouteExtractText_PPT_RequiresJava(t *testing.T) {
+	office, _, rust, _ := setupRoutingClients(t)
 	oleMagic := []byte{0xD0, 0xCF, 0x11, 0xE0, 0xA1, 0xB1, 0x1A, 0xE1}
 	req := makeRoutingReq("application/vnd.ms-powerpoint", oleMagic)
 
 	_, err := RouteExtractText(context.Background(), req, office, rust, nil)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
+	if err == nil {
+		t.Fatal("expected error when javaClient is nil for .ppt")
 	}
-	if !officeMock.extractCalled {
-		t.Error("office client should have been called for .ppt fallback (no javaClient)")
+	st, ok := status.FromError(err)
+	if !ok {
+		t.Fatalf("expected gRPC status error, got: %v", err)
 	}
-	if rustMock.extractCalled {
-		t.Error("rust client should NOT have been called for .ppt fallback")
+	if st.Code() != codes.Unavailable {
+		t.Errorf("expected Unavailable, got %v", st.Code())
+	}
+	expected := "DOC/PPT extraction requires the Java sidecar but it is currently unavailable"
+	if !strings.Contains(st.Message(), expected) {
+		t.Errorf("error message should contain %q, got %q", expected, st.Message())
 	}
 }
 
