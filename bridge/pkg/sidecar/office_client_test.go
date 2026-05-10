@@ -230,6 +230,52 @@ func TestRouteExtractText_PPT_RequiresJava_NoSidecar(t *testing.T) {
 	}
 }
 
+func TestRouteExtractText_DOC_PythonNotCalledWhenJavaDown(t *testing.T) {
+	office, officeMock, rust, _ := setupRoutingClients(t)
+	oleMagic := []byte{0xD0, 0xCF, 0x11, 0xE0, 0xA1, 0xB1, 0x1A, 0xE1}
+	req := makeRoutingReq("application/msword", oleMagic)
+
+	_, err := RouteExtractText(context.Background(), req, office, rust, nil)
+	if err == nil {
+		t.Fatal("expected error for .doc without javaClient")
+	}
+
+	st, ok := status.FromError(err)
+	if !ok {
+		t.Fatalf("expected gRPC status error, got: %v", err)
+	}
+	if st.Code() != codes.Unavailable {
+		t.Errorf("expected Unavailable from Go routing layer, got %v: %v", st.Code(), st.Message())
+	}
+
+	if officeMock.extractCalled {
+		t.Error("Python (office) client must NOT be called for .doc when Java is down — no fallback allowed")
+	}
+}
+
+func TestRouteExtractText_PPT_PythonNotCalledWhenJavaDown(t *testing.T) {
+	office, officeMock, rust, _ := setupRoutingClients(t)
+	oleMagic := []byte{0xD0, 0xCF, 0x11, 0xE0, 0xA1, 0xB1, 0x1A, 0xE1}
+	req := makeRoutingReq("application/vnd.ms-powerpoint", oleMagic)
+
+	_, err := RouteExtractText(context.Background(), req, office, rust, nil)
+	if err == nil {
+		t.Fatal("expected error for .ppt without javaClient")
+	}
+
+	st, ok := status.FromError(err)
+	if !ok {
+		t.Fatalf("expected gRPC status error, got: %v", err)
+	}
+	if st.Code() != codes.Unavailable {
+		t.Errorf("expected Unavailable from Go routing layer, got %v: %v", st.Code(), st.Message())
+	}
+
+	if officeMock.extractCalled {
+		t.Error("Python (office) client must NOT be called for .ppt when Java is down — no fallback allowed")
+	}
+}
+
 func TestRouteExtractText_DOCX_RoutesToRust(t *testing.T) {
 	office, officeMock, rust, _ := setupRoutingClients(t)
 	zipMagic := []byte{0x50, 0x4B, 0x03, 0x04, 0x00, 0x00, 0x00, 0x00}
