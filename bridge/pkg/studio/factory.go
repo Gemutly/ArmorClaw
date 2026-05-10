@@ -113,6 +113,9 @@ func (f *AgentFactory) Spawn(ctx context.Context, req *SpawnRequest) (*SpawnResu
 
 	if len(req.Config) > 0 {
 		env = append(env, "STEP_CONFIG="+string(req.Config))
+	} else {
+		env = append(env, "AGENT_FILE_WRITER_ENABLED=1")
+		env = append(env, "AGENT_STATUS_DIR=/home/claw/.openclaw")
 	}
 
 	// 4. Create container config
