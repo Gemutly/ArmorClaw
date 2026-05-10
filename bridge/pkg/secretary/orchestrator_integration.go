@@ -923,6 +923,22 @@ func (e *StepExecutor) waitForCompletion(ctx context.Context, instanceID string,
 		roomID = roomIDOpt[0]
 	}
 	reader := NewEventReader(stateDir)
+
+	tailerCtx, tailerCancel := context.WithCancel(ctx)
+	defer tailerCancel()
+
+	var tailer *agent.AgentFileTailer
+	if e.eventBus != nil && roomID != "" {
+		emitter := NewWorkflowEventEmitter(e.eventBus)
+		tailer = agent.NewAgentFileTailer(stateDir,
+			func(_ agent.AgentFileEvent) {},
+			func(s agent.AgentFileStatus) {
+				emitter.EmitAgentStatus(roomID, s.AgentID, s.State, s.Message)
+			},
+		)
+		tailer.Start(tailerCtx)
+	}
+
 	ticker := time.NewTicker(500 * time.Millisecond)
 	defer ticker.Stop()
 

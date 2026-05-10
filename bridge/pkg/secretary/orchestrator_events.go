@@ -23,6 +23,7 @@ const (
 	WorkflowEventStepProgress   = "workflow.step_progress"
 	WorkflowEventStepError      = "workflow.step_error"
 	WorkflowEventBlockerWarning = "workflow.blocker_warning"
+	WorkflowEventAgentStatus   = "workflow.agent_status"
 )
 
 //=============================================================================
@@ -389,6 +390,20 @@ func (e *WorkflowEventEmitter) EmitBlockerWarning(roomID string, event StepEvent
 	}
 
 	return e.publish(roomID, WorkflowEventBlockerWarning, wfEvent)
+}
+
+func (e *WorkflowEventEmitter) EmitAgentStatus(roomID string, agentID, state, message string) uint64 {
+	wfEvent := WorkflowEvent{
+		StepName:  agentID,
+		Status:    StatusRunning,
+		Timestamp: time.Now().UnixMilli(),
+		Metadata: map[string]interface{}{
+			"agent_state": state,
+			"message":     message,
+		},
+	}
+
+	return e.publish(roomID, WorkflowEventAgentStatus, wfEvent)
 }
 
 //=============================================================================
