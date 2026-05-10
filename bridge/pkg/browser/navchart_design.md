@@ -14,12 +14,11 @@ NavChartStore    *navchart.MultiTabStore
 
 **It is a concrete type**, NOT an interface. The full qualified type is `*github.com/armorclaw/jetski/navchart.MultiTabStore`.
 
-**Current wiring status**: `bridge/cmd/bridge/main.go:2632`
+**Current wiring status**: `bridge/cmd/bridge/main.go` — wired at startup:
 ```go
-rpcCfg.NavChartStore = nil // TODO: wire navchart.MultiTabStore when constructed
+navChartStore := navchart.NewMultiTabStore()
+rpcCfg.NavChartStore = navChartStore
 ```
-
-The store is **never constructed** — it is always nil at runtime.
 
 ---
 

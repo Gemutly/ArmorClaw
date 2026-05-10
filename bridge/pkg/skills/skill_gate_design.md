@@ -178,11 +178,12 @@ type Config struct {
 
 In `New()` constructor (line 261): `skillGate: cfg.SkillGate`
 
-**Current wiring status:** In `bridge/cmd/bridge/main.go` line 2633:
+**Current wiring status:** Wired in `bridge/cmd/bridge/main.go`:
 ```go
-rpcCfg.SkillGate = nil     // TODO: wire interfaces.SkillGate when constructed
+skillGateGov := governor.NewGovernor(nil, nil)
+rpcCfg.SkillGate = skillGateGov
 ```
-The RPC server receives `SkillGate` as nil. **It is NOT currently wired in the RPC server path.** The RPC server stores it but never uses it directly — execution goes through `SkillManager` (legacy) or `MCPRouter` (v6).
+The RPC server receives a live `Governor` instance as `SkillGate`. Execution goes through `SkillManager` (legacy) or `MCPRouter` (v6).
 
 ### 3b. MCP Router (`bridge/pkg/mcp/router.go`)
 
@@ -371,11 +372,12 @@ The allow/block lists operate at **two separate layers**:
 
 ## 7. Wiring Gaps and Current TODOs
 
-1. **RPC Server SkillGate is nil** (`bridge/cmd/bridge/main.go:2633`):
+1. **RPC Server SkillGate wired** (`bridge/cmd/bridge/main.go`):
    ```go
-   rpcCfg.SkillGate = nil     // TODO: wire interfaces.SkillGate when constructed
+   skillGateGov := governor.NewGovernor(nil, nil)
+   rpcCfg.SkillGate = skillGateGov
    ```
-   The RPC server stores SkillGate but never uses it directly in the legacy path. The v6 path uses MCPRouter's SkillGate.
+   The RPC server stores a live `Governor` instance. The v6 path uses MCPRouter's SkillGate.
 
 2. **SkillGateConfig.AllowedTools/BlockedTools not connected** to Governor's actual filtering. The `SkillGateConfig` struct has these fields but Governor uses its own `Config` with `AllowPatterns`/`BlockPatterns` (which are PII pattern names, not skill names).
 

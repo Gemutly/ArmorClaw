@@ -26,15 +26,20 @@ The `Server` struct stores it identically at line 189:
 auditLog          *audit.AuditLog
 ```
 
-### Current Wiring Gap
+### Current Wiring
 
-At `bridge/cmd/bridge/main.go:2630`:
+At `bridge/cmd/bridge/main.go`:
 
 ```go
-rpcCfg.AuditLog = nil // TODO: wire audit.AuditLog when constructed
+auditor, auditErr := audit.NewAuditLog(audit.DefaultConfig())
+if auditErr != nil {
+    log.Printf("[WARN] audit logger init failed: %v, degrading to stderr", auditErr)
+} else {
+    rpcCfg.AuditLog = auditor
+}
 ```
 
-The RPC server receives this nil value and stores it but never calls any methods on it. No RPC handlers currently reference `s.auditLog`.
+The RPC server receives a live `AuditLog` instance. Initialization degrades gracefully to stderr if the audit directory is unwritable.
 
 ---
 
