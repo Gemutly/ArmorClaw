@@ -2680,7 +2680,8 @@ func runBridgeServer(cliCfg cliConfig) {
 	rpcCfg.Guard = nil    // TODO: wire trust.TrustedProxyGuard when constructed
 	navChartStore := navchart.NewMultiTabStore()
 	rpcCfg.NavChartStore = navChartStore
-	rpcCfg.SkillGate = nil     // TODO: wire interfaces.SkillGate when constructed
+	skillGateGov := governor.NewGovernor(nil, nil)
+	rpcCfg.SkillGate = skillGateGov
 	rpcCfg.GovernanceRoomID = resolveGovernanceRoomID(cfg, matrixAdapter)
 
 	rateGuard, rateGuardErr := governor.NewGuard(governor.GuardConfig{
