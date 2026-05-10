@@ -214,6 +214,9 @@ func (t *AgentFileTailer) run(ctx context.Context) {
 			if err := t.pollEvents(); err != nil {
 				if errors.Is(err, ErrEventLogExceeded) {
 					log.Printf("agent_file_tailer: events file exceeded 10MB cap in %s, stopping tail", t.stateDir)
+					t.mu.Lock()
+					t.running = false
+					t.mu.Unlock()
 					return
 				}
 				log.Printf("agent_file_tailer: error polling events: %v", err)
