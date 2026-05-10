@@ -61,6 +61,8 @@ import (
 	"github.com/armorclaw/bridge/pkg/webrtc"
 	"github.com/armorclaw/bridge/pkg/yara"
 
+	"github.com/armorclaw/jetski/navchart"
+
 	bridgeHTTP "github.com/armorclaw/bridge/pkg/http"
 	"github.com/armorclaw/bridge/pkg/sidecar"
 
@@ -2675,7 +2677,8 @@ func runBridgeServer(cliCfg cliConfig) {
 		rpcCfg.AuditLog = auditor
 	}
 	rpcCfg.Guard = nil    // TODO: wire trust.TrustedProxyGuard when constructed
-	rpcCfg.NavChartStore = nil // TODO: wire navchart.MultiTabStore when constructed
+	navChartStore := navchart.NewMultiTabStore()
+	rpcCfg.NavChartStore = navChartStore
 	rpcCfg.SkillGate = nil     // TODO: wire interfaces.SkillGate when constructed
 	rpcCfg.GovernanceRoomID = resolveGovernanceRoomID(cfg, matrixAdapter)
 
