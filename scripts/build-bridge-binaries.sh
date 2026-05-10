@@ -56,7 +56,7 @@ for PLATFORM in "${PLATFORMS[@]}"; do
     # Set Go env for cross-compilation
     export GOOS="$OS"
     export GOARCH="$ARCH"
-    export CGO_ENABLED=0
+    export CGO_ENABLED=1
 
     # Build
     if go build -o "$BINARY$BINARY_EXT" -ldflags="-s -w" ./bridge/cmd/bridge; then
