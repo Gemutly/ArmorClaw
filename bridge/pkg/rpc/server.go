@@ -100,6 +100,10 @@ type TLSInfoProvider interface {
 	GetTLSInfo() interface{}
 }
 
+type MethodRateLimiter interface {
+	CheckRateLimit(method string) error
+}
+
 type Request struct {
 	JSONRPC string          `json:"jsonrpc"`
 	ID      interface{}     `json:"id,omitempty"`
@@ -200,6 +204,7 @@ type Server struct {
 	voicePipeline     string
 	replayFlags       ReplayFeatureFlags
 	navChartStore     *navchart.MultiTabStore
+	methodRateLimiter MethodRateLimiter
 }
 
 type Config struct {
@@ -239,6 +244,7 @@ type Config struct {
 	VoicePipeline    string
 	ReplayFlags      ReplayFeatureFlags
 	NavChartStore    *navchart.MultiTabStore
+	MethodRateLimiter MethodRateLimiter
 }
 
 func New(cfg Config) (*Server, error) {
@@ -284,6 +290,7 @@ func New(cfg Config) (*Server, error) {
 		voicePipeline:     cfg.VoicePipeline,
 		replayFlags:      cfg.ReplayFlags,
 		navChartStore:    cfg.NavChartStore,
+		methodRateLimiter: cfg.MethodRateLimiter,
 	}
 	s.e2eeEnabled.Store(cfg.EnableE2EE)
 
@@ -356,6 +363,19 @@ func (s *Server) Handle(ctx context.Context, req *Request) (resp *Response) {
 			return nil
 		}
 		return errorResponse(req.ID, MethodNotFound, "method not found")
+	}
+
+	if s.methodRateLimiter != nil {
+		if err := s.methodRateLimiter.CheckRateLimit(req.Method); err != nil {
+			if isNotification {
+				return nil
+			}
+			return &Response{
+				JSONRPC: JSONRPCVersion,
+				ID:      req.ID,
+				Error:   &ErrorObj{Code: KeystoreRateLimited, Message: err.Error()},
+			}
+		}
 	}
 
 	result, rpcErr := handler(ctx, req)

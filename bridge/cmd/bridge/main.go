@@ -48,6 +48,7 @@ import (
 	"github.com/armorclaw/bridge/pkg/trust"
 	"github.com/armorclaw/bridge/pkg/invite"
 	"github.com/armorclaw/bridge/pkg/turn"
+	"github.com/armorclaw/bridge/pkg/governor"
 
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
@@ -2681,6 +2682,22 @@ func runBridgeServer(cliCfg cliConfig) {
 	rpcCfg.NavChartStore = navChartStore
 	rpcCfg.SkillGate = nil     // TODO: wire interfaces.SkillGate when constructed
 	rpcCfg.GovernanceRoomID = resolveGovernanceRoomID(cfg, matrixAdapter)
+
+	rateGuard, rateGuardErr := governor.NewGuard(governor.GuardConfig{
+		Groups:       governor.DefaultMethodGroups(),
+		DefaultRPS:   30,
+		HealthExempt: true,
+		AuditLog:     rpcCfg.AuditLog,
+		Mode:         cfg.Server.Mode,
+	})
+	if rateGuardErr != nil {
+		if cfg.Server.Mode == "sentinel" || cfg.Server.Mode == "cloudflare" {
+			log.Fatalf("[FATAL] Guard required in %s mode but failed to initialize: %v", cfg.Server.Mode, rateGuardErr)
+		}
+		log.Printf("[WARN] Guard init failed: %v, rate limiting disabled", rateGuardErr)
+	} else {
+		rpcCfg.MethodRateLimiter = rateGuard
+	}
 
 	rpcCfg.ZeroTrustKS = cfg.Features.ZeroTrustKeystore
 	rpcCfg.VoicePipeline = cfg.Features.VoicePipeline
