@@ -64,16 +64,16 @@ class ArmorClawAgent:
 
     def _status(self, state: str, message: str = "", metadata: Optional[Dict] = None) -> None:
         if self.file_writer:
-            self._status(state, message, metadata)
+            self.file_writer.write_status(state, message, metadata)
 
     def _step(self, name: str, detail: Optional[Dict] = None,
              duration_ms: Optional[int] = None) -> None:
         if self.file_writer:
-            self._step(name, detail, duration_ms)
+            self.file_writer.step(name, detail, duration_ms)
 
     def _error(self, message: str, detail: Optional[Dict] = None) -> None:
         if self.file_writer:
-            self._error(message, detail)
+            self.file_writer.error(message, detail)
 
     async def initialize(self) -> None:
         """Initialize the bridge connection."""
