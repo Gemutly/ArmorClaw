@@ -1,10 +1,11 @@
 package governor
 
 import (
-	"fmt"
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/armorclaw/bridge/pkg/audit"
 )
 
 func TestNewGuard_ValidConfig(t *testing.T) {
@@ -293,10 +294,10 @@ type mockAuditEvent struct {
 	details   interface{}
 }
 
-func (m *mockAuditLogger) LogEvent(eventType any, sessionID, roomID, userID string, details interface{}) error {
+func (m *mockAuditLogger) LogEvent(eventType audit.EventType, sessionID, roomID, userID string, details interface{}) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	m.events = append(m.events, mockAuditEvent{eventType: fmt.Sprintf("%v", eventType), details: details})
+	m.events = append(m.events, mockAuditEvent{eventType: string(eventType), details: details})
 	return nil
 }
 
