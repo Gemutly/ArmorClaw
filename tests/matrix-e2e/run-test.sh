@@ -52,7 +52,7 @@ main() {
   else
     while IFS= read -r f; do
       cases+=("$f")
-    done < <(find "$SCRIPT_DIR/cases" -name 'case-*.sh' -type f 2>/dev/null | sort)
+    done < <(find "$SCRIPT_DIR/cases" -name 'test-*.sh' -type f 2>/dev/null | sort)
   fi
 
   if [[ ${#cases[@]} -eq 0 ]]; then
