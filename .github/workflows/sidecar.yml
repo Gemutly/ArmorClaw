@@ -12,14 +12,18 @@ jobs:
   build-rust:
     name: Rust Sidecar
     runs-on: ubuntu-latest
-    if: hashFiles('sidecar/Cargo.toml') != ''
     steps:
       - uses: actions/checkout@v4
+      - name: Check Cargo.toml exists
+        id: check_rust
+        run: test -f sidecar/Cargo.toml && echo "exists=true" >> "$GITHUB_OUTPUT" || echo "exists=false" >> "$GITHUB_OUTPUT"
       - uses: dtolnay/rust-toolchain@stable
+        if: steps.check_rust.outputs.exists == 'true'
         with:
           toolchain: 1.82.0
           components: clippy
       - name: Cache cargo
+        if: steps.check_rust.outputs.exists == 'true'
         uses: actions/cache@v4
         with:
           path: |
@@ -29,17 +33,22 @@ jobs:
           key: ${{ runner.os }}-cargo-${{ hashFiles('sidecar/Cargo.lock') }}
           restore-keys: ${{ runner.os }}-cargo-
       - name: Install build deps
+        if: steps.check_rust.outputs.exists == 'true'
         run: sudo apt-get install -y cmake clang nasm
       - name: Build (dev)
+        if: steps.check_rust.outputs.exists == 'true'
         run: cd sidecar && cargo build --bin armorclaw-sidecar
       - name: Build (release)
+        if: steps.check_rust.outputs.exists == 'true'
         run: cd sidecar && CC=clang CXX=clang++ cargo build --release --bin armorclaw-sidecar
       - name: Test
+        if: steps.check_rust.outputs.exists == 'true'
         run: cd sidecar && cargo test --lib
       - name: Clippy
+        if: steps.check_rust.outputs.exists == 'true'
         run: cd sidecar && cargo clippy -- -D warnings
       - name: Upload release binary
-        if: startsWith(github.ref, 'refs/tags/')
+        if: steps.check_rust.outputs.exists == 'true' && startsWith(github.ref, 'refs/tags/')
         uses: actions/upload-artifact@v4
         with:
           name: armorclaw-sidecar-${{ runner.os }}
@@ -48,18 +57,23 @@ jobs:
   build-java:
     name: Java Sidecar Build + E2E Tests
     runs-on: ubuntu-latest
-    if: hashFiles('sidecar-java/pom.xml') != ''
 
     steps:
       - uses: actions/checkout@v4
 
+      - name: Check pom.xml exists
+        id: check_java
+        run: test -f sidecar-java/pom.xml && echo "exists=true" >> "$GITHUB_OUTPUT" || echo "exists=false" >> "$GITHUB_OUTPUT"
+
       - name: Set up Java 21
+        if: steps.check_java.outputs.exists == 'true'
         uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: 21
 
       - name: Cache Maven
+        if: steps.check_java.outputs.exists == 'true'
         uses: actions/cache@v4
         with:
           path: ~/.m2/repository
@@ -67,17 +81,21 @@ jobs:
           restore-keys: ${{ runner.os }}-maven-
 
       - name: Build Java sidecar (skip tests)
+        if: steps.check_java.outputs.exists == 'true'
         run: cd sidecar-java && mvn package -DskipTests -q
 
       - name: Verify sidecar.jar exists
+        if: steps.check_java.outputs.exists == 'true'
         run: test -f sidecar-java/target/sidecar.jar || (echo "sidecar.jar not built" && exit 1)
 
       - name: Set up Go
+        if: steps.check_java.outputs.exists == 'true'
         uses: actions/setup-go@v5
         with:
           go-version: 1.25
 
       - name: Run Java E2E tests
+        if: steps.check_java.outputs.exists == 'true'
         run: cd bridge && go test -v -run 'TestE2E_Java' ./pkg/sidecar/
         env:
           # Ensure tests do NOT skip — java 21 is on PATH and jar is built.
