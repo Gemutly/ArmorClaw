@@ -52,6 +52,10 @@ SMOKE_PASS=0
 SMOKE_FAIL=0
 SMOKE_SKIP=0
 SMOKE_STATUS=""
+FULL_PASS=0
+FULL_FAIL=0
+FULL_SKIP=0
+FULL_STATUS=""
 
 # ── Usage ─────────────────────────────────────────────────────────────────────
 usage() {
@@ -112,9 +116,39 @@ run_smoke() {
   fi
 }
 
-# ── Phase 2: Full (Task 2) ───────────────────────────────────────────────────
+# ── Phase 2: Full (A4 harness integration) ────────────────────────────────────
 run_full() {
-  echo "TODO: Full mode implementation (Task 2)"
+  echo "========================================="
+  echo " Phase 2: A4 Harness Feature Tests (Full)"
+  echo "========================================="
+
+  # Source contract.sh inside run_full (not top-level) — contract.sh sources
+  # load_env.sh which hard-fails on missing VPS_IP, but that's already checked at line 24
+  source "${_SCRIPT_DIR}/lib/contract.sh"
+
+  local suites="${SUITES:-health,eventbus,trust,workflow-core,email,workflow-deep,sidecar-docs,voice,jetski,license,platform,agent-runtime}"
+
+  local harness_output
+  local harness_exit=0
+  harness_output=$(bash "${_SCRIPT_DIR}/a4_harness.sh" "${suites}" 2>&1) || harness_exit=$?
+
+  echo "$harness_output"
+  echo ""
+
+  local summary_file="${_REPO_ROOT}/.sisyphus/evidence/armorclaw/a4_summary.json"
+  if [[ -f "$summary_file" ]]; then
+    FULL_PASS=$(jq -r '.pass // 0' "$summary_file")
+    FULL_FAIL=$(jq -r '.fail // 0' "$summary_file")
+    FULL_SKIP=$(jq -r '.skip // 0' "$summary_file")
+    cp "$summary_file" "${EVIDENCE_DIR}/a4-summary.json"
+  fi
+  if [[ $harness_exit -ne 0 ]]; then
+    FULL_STATUS="FAIL"
+  else
+    FULL_STATUS="PASS"
+  fi
+
+  echo "Full phase complete. Status: ${FULL_STATUS}"
 }
 
 # ── Main ──────────────────────────────────────────────────────────────────────
