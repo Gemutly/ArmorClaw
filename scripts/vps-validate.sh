@@ -33,6 +33,7 @@ MODE="${MODE:-smoke}"
 # ── Evidence directory ────────────────────────────────────────────────────────
 EVIDENCE_DIR="${_REPO_ROOT}/.sisyphus/evidence/vps-validate"
 mkdir -p "${EVIDENCE_DIR}"
+START_TIME=$(date +%s)
 
 # ── Env var translation for vps-matrix-cli-test.sh ────────────────────────────
 if [[ "$MATRIX_PORT" == "443" ]]; then
@@ -151,9 +152,155 @@ run_full() {
   echo "Full phase complete. Status: ${FULL_STATUS}"
 }
 
+# ── Report Generation ────────────────────────────────────────────────────────
+generate_report() {
+  local total_smoke=$(( SMOKE_PASS + SMOKE_FAIL + SMOKE_SKIP ))
+  local infra_score=0
+  if [[ $total_smoke -gt 0 ]]; then
+    infra_score=$(( (SMOKE_PASS * 100) / total_smoke ))
+  fi
+
+  local total_full=$(( FULL_PASS + FULL_FAIL + FULL_SKIP ))
+  local feature_score=0
+  if [[ $total_full -gt 0 ]]; then
+    feature_score=$(( (FULL_PASS * 100) / total_full ))
+  fi
+
+  local overall_score=$infra_score
+  if [[ "$MODE" == "full" ]]; then
+    overall_score=$(( (infra_score * 40 + feature_score * 60) / 100 ))
+  fi
+
+  local infra_status="PASS"
+  [[ $SMOKE_FAIL -gt 0 ]] && infra_status="FAIL"
+
+  local feature_status="NOT_RUN"
+  if [[ "$MODE" == "full" ]]; then
+    feature_status="PASS"
+    [[ $FULL_FAIL -gt 0 ]] && feature_status="FAIL"
+  fi
+
+  local overall_status="PASS"
+  [[ $overall_score -lt 80 ]] && overall_status="FAIL"
+
+  # Build evidence_paths array
+  local evidence_paths="[\"${EVIDENCE_DIR}/matrix-cli-output.txt\"]"
+  if [[ "$MODE" == "full" && -f "${EVIDENCE_DIR}/a4-summary.json" ]]; then
+    evidence_paths="[\"${EVIDENCE_DIR}/matrix-cli-output.txt\", \"${EVIDENCE_DIR}/a4-summary.json\"]"
+  fi
+
+  # Generate JSON report
+  local report
+  if [[ "$MODE" == "full" ]]; then
+    report=$(jq -nc \
+      --arg mode "$MODE" \
+      --arg vps_ip "$VPS_IP" \
+      --argjson overall "$overall_score" \
+      --argjson duration "$(($(date +%s) - START_TIME))" \
+      --arg infra_status "$infra_status" \
+      --argjson infra_score "$infra_score" \
+      --argjson s_pass "$SMOKE_PASS" \
+      --argjson s_fail "$SMOKE_FAIL" \
+      --argjson s_skip "$SMOKE_SKIP" \
+      --arg feature_status "$feature_status" \
+      --argjson feature_score "$feature_score" \
+      --argjson f_pass "$FULL_PASS" \
+      --argjson f_fail "$FULL_FAIL" \
+      --argjson f_skip "$FULL_SKIP" \
+      --argjson evidence "$evidence_paths" \
+      '{
+        mode: $mode,
+        vps_ip: $vps_ip,
+        overall_score: $overall,
+        duration_seconds: $duration,
+        timestamp: (now | todate),
+        evidence_paths: $evidence,
+        layers: {
+          infra_and_cli: {
+            score: $infra_score,
+            status: $infra_status,
+            pass: $s_pass,
+            fail: $s_fail,
+            skip: $s_skip,
+            source: "vps-matrix-cli-test.sh"
+          },
+          feature_suites: {
+            score: $feature_score,
+            status: $feature_status,
+            pass: $f_pass,
+            fail: $f_fail,
+            skip: $f_skip,
+            source: "a4_harness.sh"
+          }
+        },
+        recommendations: []
+      }')
+  else
+    report=$(jq -nc \
+      --arg mode "$MODE" \
+      --arg vps_ip "$VPS_IP" \
+      --argjson overall "$overall_score" \
+      --argjson duration "$(($(date +%s) - START_TIME))" \
+      --arg infra_status "$infra_status" \
+      --argjson infra_score "$infra_score" \
+      --argjson s_pass "$SMOKE_PASS" \
+      --argjson s_fail "$SMOKE_FAIL" \
+      --argjson s_skip "$SMOKE_SKIP" \
+      --argjson evidence "$evidence_paths" \
+      '{
+        mode: $mode,
+        vps_ip: $vps_ip,
+        overall_score: $overall,
+        duration_seconds: $duration,
+        timestamp: (now | todate),
+        evidence_paths: $evidence,
+        layers: {
+          infra_and_cli: {
+            score: $infra_score,
+            status: $infra_status,
+            pass: $s_pass,
+            fail: $s_fail,
+            skip: $s_skip,
+            source: "vps-matrix-cli-test.sh"
+          },
+          feature_suites: {
+            status: "not_run"
+          }
+        },
+        recommendations: []
+      }')
+  fi
+
+  echo "$report" > "${EVIDENCE_DIR}/report.json"
+
+  # Print human-readable summary
+  echo ""
+  echo "========================================="
+  echo " VPS Validation Report"
+  echo " Mode: ${MODE} | Score: ${overall_score}/100"
+  echo "========================================="
+  echo " Infrastructure + CLI: ${SMOKE_PASS} PASS, ${SMOKE_FAIL} FAIL, ${SMOKE_SKIP} SKIP"
+  if [[ "$MODE" == "full" ]]; then
+    echo " Feature Suites: ${FULL_PASS} PASS, ${FULL_FAIL} FAIL, ${FULL_SKIP} SKIP"
+  else
+    echo " Feature Suites: not run (smoke mode)"
+  fi
+  echo "========================================="
+  echo " Overall: ${overall_status}"
+  echo " Report: ${EVIDENCE_DIR}/report.json"
+  echo "========================================="
+
+  # Exit based on score
+  if [[ $overall_score -lt 80 ]]; then
+    exit 1
+  fi
+}
+
 # ── Main ──────────────────────────────────────────────────────────────────────
 case "$MODE" in
   smoke) run_smoke ;;
   full)  run_smoke && run_full ;;
   *)     usage ;;
 esac
+
+generate_report
