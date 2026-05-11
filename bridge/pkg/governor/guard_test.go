@@ -1,6 +1,7 @@
 package governor
 
 import (
+	"fmt"
 	"sync"
 	"testing"
 	"time"
@@ -292,10 +293,10 @@ type mockAuditEvent struct {
 	details   interface{}
 }
 
-func (m *mockAuditLogger) LogEvent(eventType, sessionID, roomID, userID string, details interface{}) error {
+func (m *mockAuditLogger) LogEvent(eventType any, sessionID, roomID, userID string, details interface{}) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	m.events = append(m.events, mockAuditEvent{eventType: eventType, details: details})
+	m.events = append(m.events, mockAuditEvent{eventType: fmt.Sprintf("%v", eventType), details: details})
 	return nil
 }
 

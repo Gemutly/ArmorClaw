@@ -14,9 +14,9 @@ import (
 const RPCMethodRateLimited = -32006
 
 // AuditLogger is a minimal interface for logging guard decisions.
-// Matches *audit.AuditLog's LogEvent signature without importing the audit package.
+// eventType uses any to decouple from audit.EventType (string alias).
 type AuditLogger interface {
-	LogEvent(eventType, sessionID, roomID, userID string, details interface{}) error
+	LogEvent(eventType any, sessionID, roomID, userID string, details interface{}) error
 }
 
 // MethodGroup defines a named group of RPC methods sharing a rate limit.
