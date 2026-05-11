@@ -1123,6 +1123,13 @@ func (s *Server) handleVoiceStartSession(ctx context.Context, req *Request) (int
 		return nil, voiceFeatureDisabled()
 	}
 
+	var params struct {
+		SessionConfig json.RawMessage `json:"session_config"`
+	}
+	if err := json.Unmarshal(req.Params, &params); err != nil {
+		return nil, &ErrorObj{Code: InvalidParams, Message: err.Error()}
+	}
+
 	if s.voiceMgr == nil {
 		return nil, &ErrorObj{Code: voice.ErrVoiceNotConfiguredCode, Message: "voice pipeline not configured: manager is nil"}
 	}
@@ -1134,11 +1141,6 @@ func (s *Server) handleVoiceStartSession(ctx context.Context, req *Request) (int
 			Data:    failures,
 		}
 	}
-
-	var params struct {
-		SessionConfig json.RawMessage `json:"session_config"`
-	}
-	_ = json.Unmarshal(req.Params, &params)
 
 	calls := s.voiceMgr.ListCalls()
 	sessionID := fmt.Sprintf("voice-%d", len(calls)+1)
@@ -1151,6 +1153,13 @@ func (s *Server) handleVoiceStopSession(ctx context.Context, req *Request) (inte
 		return nil, voiceFeatureDisabled()
 	}
 
+	var params struct {
+		SessionID string `json:"session_id"`
+	}
+	if err := json.Unmarshal(req.Params, &params); err != nil {
+		return nil, &ErrorObj{Code: InvalidParams, Message: err.Error()}
+	}
+
 	if s.voiceMgr == nil {
 		return nil, &ErrorObj{Code: voice.ErrVoiceNotConfiguredCode, Message: "voice pipeline not configured: manager is nil"}
 	}
@@ -1163,12 +1172,6 @@ func (s *Server) handleVoiceStopSession(ctx context.Context, req *Request) (inte
 		}
 	}
 
-	var params struct {
-		SessionID string `json:"session_id"`
-	}
-	if err := json.Unmarshal(req.Params, &params); err != nil {
-		return nil, &ErrorObj{Code: InvalidParams, Message: err.Error()}
-	}
 	if params.SessionID == "" {
 		return nil, &ErrorObj{Code: InvalidParams, Message: "session_id is required"}
 	}

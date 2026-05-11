@@ -784,8 +784,8 @@ func TestEdgeVoice_StartWhenNilManager_NoPanic(t *testing.T) {
 			if err == nil {
 				t.Fatalf("iteration %d: expected error", i)
 			}
-			if err.Code != InternalError {
-				t.Errorf("iteration %d: expected InternalError, got %d", i, err.Code)
+			if err.Code != voice.ErrVoiceNotConfiguredCode {
+				t.Errorf("iteration %d: expected ErrVoiceNotConfiguredCode (%d), got %d", i, voice.ErrVoiceNotConfiguredCode, err.Code)
 			}
 		})
 	}
