@@ -203,6 +203,7 @@ func setupSecretaryCommandHandler(
 	calendarService *secretary.CalendarService,
 	approvalEngine *secretary.ApprovalEngineImpl,
 	trustEngine *secretary.TrustedWorkflowEngine,
+	adminHandler *adapter.CommandHandler,
 ) *secretary.TaskScheduler {
 	if matrixAdapter != nil {
 		secretaryHandler := secretary.NewSecretaryCommandHandler(secretary.SecretaryCommandHandlerConfig{
@@ -219,8 +220,9 @@ func setupSecretaryCommandHandler(
 			TrustEngine:    trustEngine,
 		})
 		matrixAdapter.SetStudioCommandHandler(&compositeStudioHandler{
-			studio:    studioService,
-			secretary: secretaryHandler,
+			studio:       studioService,
+			secretary:    secretaryHandler,
+			adminHandler: adminHandler,
 		})
 		log.Println("Studio command handler wired to Matrix adapter")
 	}

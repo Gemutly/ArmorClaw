@@ -26,6 +26,7 @@ import (
 	"github.com/armorclaw/bridge/internal/ai"
 	"github.com/armorclaw/bridge/internal/events"
 	"github.com/armorclaw/bridge/internal/wizard"
+	"github.com/armorclaw/bridge/pkg/admin"
 	"github.com/armorclaw/bridge/pkg/config"
 	"github.com/armorclaw/bridge/pkg/crypto"
 	"github.com/armorclaw/bridge/pkg/discovery"
@@ -34,6 +35,7 @@ import (
 	"github.com/armorclaw/bridge/pkg/eventbus"
 	"github.com/armorclaw/bridge/pkg/health"
 	"github.com/armorclaw/bridge/pkg/keystore"
+	"github.com/armorclaw/bridge/pkg/lockdown"
 	"github.com/armorclaw/bridge/pkg/logger"
 	"github.com/armorclaw/bridge/pkg/notification"
 	"github.com/armorclaw/bridge/pkg/providers"
@@ -2601,11 +2603,25 @@ func runBridgeServer(cliCfg cliConfig) {
 
 	workflowOrchestrator, orchestratorIntegration := setupWorkflowEngine(rolodexStore, matrixBus, studioService, cfg)
 
+	// Initialize admin command dependencies
+	claimMgr := admin.NewClaimManager(nil, admin.DefaultClaimConfig())
+	lockdownMgr, lockdownErr := lockdown.NewManager(lockdown.Config{StateFile: "/var/lib/armorclaw/lockdown.json"})
+	if lockdownErr != nil {
+		log.Printf("Warning: Failed to initialize lockdown manager: %v", lockdownErr)
+		lockdownMgr = nil
+	}
+	var adminCmdHandler *adapter.CommandHandler
+	if claimMgr != nil && lockdownMgr != nil && matrixAdapter != nil {
+		adminCmdHandler = adapter.NewCommandHandler(claimMgr, lockdownMgr, matrixAdapter, nil)
+		log.Println("Admin command handler initialized")
+	}
+
 	taskScheduler := setupSecretaryCommandHandler(
 		rolodexStore, workflowOrchestrator, orchestratorIntegration,
 		matrixAdapter, studioService,
 		rolodexService, webdavService, calendarService,
 		approvalEngine, trustEngine,
+		adminCmdHandler,
 	)
 	if taskScheduler != nil {
 		defer taskScheduler.Stop()
