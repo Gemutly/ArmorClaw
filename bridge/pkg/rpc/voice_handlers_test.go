@@ -379,8 +379,8 @@ func TestVoiceE2E_SuccessPath_StatusReturnsSessions(t *testing.T) {
 	if _, hasSessions := resultMap["sessions"]; !hasSessions {
 		t.Error("expected 'sessions' key in status result")
 	}
-	if _, hasActive := resultMap["active_count"]; !hasActive {
-		t.Error("expected 'active_count' key in status result")
+	if _, hasActive := resultMap["active"]; !hasActive {
+		t.Error("expected 'active' key in status result")
 	}
 }
 
