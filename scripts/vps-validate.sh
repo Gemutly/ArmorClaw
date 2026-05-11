@@ -89,8 +89,7 @@ run_smoke() {
   local cli_output
   local cli_exit=0
 
-  export MODE=smoke
-  cli_output=$(bash "${_SCRIPT_DIR}/vps-matrix-cli-test.sh" 2>&1) || cli_exit=$?
+  MODE=smoke cli_output=$(bash "${_SCRIPT_DIR}/vps-matrix-cli-test.sh" 2>&1) || cli_exit=$?
 
   # Save captured output
   echo "$cli_output" > "${EVIDENCE_DIR}/matrix-cli-output.txt"
