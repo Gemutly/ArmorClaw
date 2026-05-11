@@ -3649,7 +3649,7 @@ type studioMatrixAdapter struct {
 }
 
 func (s *studioMatrixAdapter) SendMessage(ctx context.Context, roomID, message string) error {
-	_, err := s.adapter.SendMessage(roomID, message, "m.text")
+	_, err := s.adapter.SendMessage(roomID, message, "m.notice")
 	return err
 }
 

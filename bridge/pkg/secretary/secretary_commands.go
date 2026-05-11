@@ -24,7 +24,7 @@ type matrixAdapterWrapper struct {
 }
 
 func (w *matrixAdapterWrapper) SendMessage(ctx context.Context, roomID, message string) error {
-	_, err := w.inner.SendMessageWithRetry(roomID, message, "m.text")
+	_, err := w.inner.SendMessageWithRetry(roomID, message, "m.notice")
 	return err
 }
 
