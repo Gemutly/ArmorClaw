@@ -6,6 +6,7 @@ BRIDGE_BIN="${SCRIPT_DIR}/../bridge/build/armorclaw-bridge"
 SOCKET_PATH="/tmp/bridge-test-$$.sock"
 KEYSTORE_DIR="/tmp/armorclaw-keystore-$$"
 CONFIG_FILE="/tmp/armorclaw-config-$$.toml"
+BRIDGE_LOG="/tmp/bridge-test-$$.log"
 BRIDGE_PID=""
 FAILED=0
 
@@ -40,28 +41,37 @@ if ! command -v socat &>/dev/null; then
     exit 1
 fi
 
-if [[ ! -x "$BRIDGE_BIN" ]]; then
-    echo "Building bridge binary..."
+if [[ ! -x "$BRIDGE_BIN" ]]; then    echo "Building bridge binary..."
     cd "${SCRIPT_DIR}/../bridge"
     go build -o build/armorclaw-bridge ./cmd/bridge
 fi
 
-echo "Starting bridge..."
+echo "Starting bridge (log: $BRIDGE_LOG)..."
 ARMORCLAW_ERRORS_STORE_PATH="$KEYSTORE_DIR/errors.db" \
 ARMORCLAW_SKIP_DOCKER_CHECK=1 \
-"$BRIDGE_BIN" --config "$CONFIG_FILE" &
+"$BRIDGE_BIN" --config "$CONFIG_FILE" > "$BRIDGE_LOG" 2>&1 &
 BRIDGE_PID=$!
 
-echo "Waiting for socket..."
-for i in {1..30}; do
+echo "Waiting for socket (PID=$BRIDGE_PID)..."
+for i in {1..60}; do
     if [[ -S "$SOCKET_PATH" ]]; then
         break
+    fi
+    if ! kill -0 "$BRIDGE_PID" 2>/dev/null; then
+        echo "❌ FAILED: Bridge process exited unexpectedly"
+        echo "--- Bridge log ---"
+        cat "$BRIDGE_LOG" 2>/dev/null || echo "(no log)"
+        echo "--- End log ---"
+        exit 1
     fi
     sleep 0.5
 done
 
 if [[ ! -S "$SOCKET_PATH" ]]; then
-    echo "❌ FAILED: Socket not created after 15 seconds"
+    echo "❌ FAILED: Socket not created after 30 seconds"
+    echo "--- Bridge log (last 40 lines) ---"
+    tail -40 "$BRIDGE_LOG" 2>/dev/null || echo "(no log)"
+    echo "--- End log ---"
     exit 1
 fi
 echo "✅ Socket created at $SOCKET_PATH"
