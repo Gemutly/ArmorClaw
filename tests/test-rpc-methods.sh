@@ -115,7 +115,7 @@ echo ""
 
 # Critical RPC methods to test
 # Format: "method" "expected_in_response" "params"
-test_method "matrix.status" '"enabled"' || ((FAILED++)) || true
+test_method "health.check" '"status"' || ((FAILED++)) || true
 
 # Test error handling
 echo ""
