@@ -1130,6 +1130,11 @@ func DefaultConfig() *Config {
 	return cfg
 }
 
+// defaultKeystoreDBPath is the default keystore database path used by IsFreshInstall.
+// Extracted as a constant to avoid calling DefaultConfig() (which calls IsFreshInstall),
+// which would cause infinite recursion.
+const defaultKeystoreDBPath = "/var/lib/armorclaw/keystore.db"
+
 // IsFreshInstall returns true when no config file exists at any default path
 // and no keystore directory exists. Used by T17 to default E2EE on for fresh installs only.
 func IsFreshInstall() bool {
@@ -1139,8 +1144,7 @@ func IsFreshInstall() bool {
 		}
 	}
 
-	defaults := DefaultConfig()
-	keystoreDir := filepath.Dir(defaults.Keystore.DBPath)
+	keystoreDir := filepath.Dir(defaultKeystoreDBPath)
 	if _, err := os.Stat(keystoreDir); err == nil {
 		return false
 	}
