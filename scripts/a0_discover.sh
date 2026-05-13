@@ -9,6 +9,7 @@ set -uo pipefail
 
 _SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 source "${_SCRIPT_DIR}/lib/contract.sh"
+source "${_SCRIPT_DIR}/lib/probe.sh"
 
 log_info "========================================="
 log_info " Phase A0: Contract Discovery"
@@ -123,6 +124,7 @@ KNOWN_METHODS=(
   "browser.replay_diagnostics"
   "bridge.start" "bridge.stop" "bridge.status" "bridge.channel"
   "bridge.unchannel" "bridge.list" "bridge.ghost_list" "bridge.appservice_status"
+  "bridge.e2ee_enable" "bridge.e2ee_disable"
   "pii.request" "pii.approve" "pii.deny" "pii.status" "pii.list_pending"
   "pii.stats" "pii.cancel" "pii.fulfill" "pii.wait_for_approval"
   "skills.execute" "skills.list" "skills.get_schema" "skills.allow" "skills.block"
@@ -141,6 +143,8 @@ KNOWN_METHODS=(
   "approve_email" "deny_email" "email_approval_status" "email.list_pending"
   "account.delete"
   "secretary.start_workflow" "secretary.get_workflow" "secretary.cancel_workflow"
+  "secretary.create_workflow" "secretary.is_running" "secretary.get_active_count"
+  "secretary.shutdown"
   "secretary.advance_workflow" "secretary.list_templates" "secretary.create_template"
   "secretary.get_template" "secretary.delete_template" "secretary.update_template"
   "task.create" "task.list" "task.cancel" "task.get"
@@ -162,14 +166,18 @@ for method in "${KNOWN_METHODS[@]}"; do
   local_notes=""
 
   local_result=$(_contract_bridge_rpc "$method" "{}" 1 2>/dev/null) && {
-    if echo "$local_result" | jq -e '.error' >/dev/null 2>&1; then
-      local_status="error"
-      local_error=$(echo "$local_result" | jq -r '.error.message // .error.code // "unknown error"' 2>/dev/null)
-      local_notes="responds with error: ${local_error}"
-      METHODS_FOUND=$((METHODS_FOUND + 1))
-    elif echo "$local_result" | jq -e '.result' >/dev/null 2>&1; then
+    # Any valid JSON-RPC response (with .result OR .error) proves the server is live.
+    # With empty {} params, most methods return .error ("params required") — that's
+    # a valid response, not a timeout. Only truly missing methods should be non-responding.
+    if echo "$local_result" | jq -e '.result' >/dev/null 2>&1; then
       local_status="responds"
       local_notes="responds with result"
+      METHODS_FOUND=$((METHODS_FOUND + 1))
+      METHODS_RESPONDING=$((METHODS_RESPONDING + 1))
+    elif echo "$local_result" | jq -e '.error' >/dev/null 2>&1; then
+      local_status="responds"
+      local_error=$(echo "$local_result" | jq -r '.error.message // .error.code // "unknown error"' 2>/dev/null)
+      local_notes="responds with error: ${local_error}"
       METHODS_FOUND=$((METHODS_FOUND + 1))
       METHODS_RESPONDING=$((METHODS_RESPONDING + 1))
     else

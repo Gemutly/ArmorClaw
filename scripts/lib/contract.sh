@@ -51,8 +51,8 @@ _contract_bridge_rpc() {
       --argjson params "$params" \
       '{jsonrpc:"2.0", id: 1, method: $method, params: $params}')
 
-    # Call bridge via SSH
-    response=$(ssh_vps "curl -sf -k -m 5 'https://localhost:${BRIDGE_PORT}/api' -H 'Content-Type: application/json' -d '${request}'" 2>/dev/null) && {
+    # Call bridge via SSH — HTTPS first, HTTP fallback
+    response=$(ssh_vps "curl -sf -k -m 10 'https://localhost:${BRIDGE_PORT}/api' -H 'Content-Type: application/json' -d '${request}' 2>/dev/null || curl -sf -m 10 'http://localhost:${BRIDGE_PORT}/api' -H 'Content-Type: application/json' -d '${request}' 2>/dev/null" 2>/dev/null) && {
       echo "$response"
       return 0
     }
