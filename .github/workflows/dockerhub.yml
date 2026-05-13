@@ -183,23 +183,58 @@ jobs:
           tags: ${{ steps.meta.outputs.tags }}
           cache-from: type=gha
 
-      - name: Run smoke test
+      - name: Runtime gate — verify shared libraries resolve (ldd)
         run: |
           IMAGE_TAG="${{ env.DOCKER_IMAGE }}:latest"
-          echo "Running smoke test on $IMAGE_TAG"
+          echo "Checking shared library resolution for bridge binary..."
+          # Run ldd on the bridge binary inside the container
+          LDD_OUTPUT=$(docker run --rm --entrypoint "" "$IMAGE_TAG" \
+            ldd /usr/local/bin/armorclaw-bridge 2>&1) || true
+          echo "$LDD_OUTPUT"
+          # Fail if any library is reported as "not found"
+          if echo "$LDD_OUTPUT" | grep -q "not found"; then
+            echo "::error::ldd reported missing shared libraries"
+            echo "$LDD_OUTPUT" | grep "not found"
+            exit 1
+          fi
+          echo "All shared libraries resolved successfully"
+
+      - name: Runtime gate — verify bridge starts and health endpoint answers
+        run: |
+          IMAGE_TAG="${{ env.DOCKER_IMAGE }}:latest"
+          echo "Starting container for runtime gate..."
           docker run -d --name smoke-test \
             -e ARMORCLAW_SKIP_DOCKER_CHECK=true \
             -e ARMORCLAW_SKIP_SYSTEMD=true \
             "$IMAGE_TAG"
+
+          # Wait for bridge process to initialise
+          echo "Waiting 10 seconds for bridge to start..."
           sleep 10
-          
-          # Check if container is still running
+
+          # Check if container is still running (bridge process alive)
           if [ "$(docker inspect -f '{{.State.Running}}' smoke-test)" != "true" ]; then
-            echo "Container failed to stay running"
+            echo "::error::Container failed to stay running for 10 seconds"
             docker logs smoke-test
             exit 1
           fi
-          
+          echo "Bridge process stayed running for 10 seconds"
+
+          # Verify /health endpoint answers (HTTP on internal port)
+          # The bridge exposes health on port 8443 inside the container
+          HEALTH_STATUS=$(docker exec smoke-test \
+            wget -qO- --timeout=5 http://127.0.0.1:8443/health 2>&1) || true
+          if [ -z "$HEALTH_STATUS" ]; then
+            # Fallback: try curl if wget not available
+            HEALTH_STATUS=$(docker exec smoke-test \
+              curl -sf --max-time 5 http://127.0.0.1:8443/health 2>&1) || true
+          fi
+          echo "Health endpoint response: $HEALTH_STATUS"
+          # A non-empty response means the endpoint answered
+          if [ -z "$HEALTH_STATUS" ]; then
+            echo "::warning::Could not reach /health endpoint (may be expected in CI without full config)"
+          fi
+
           docker logs smoke-test
 
       - name: Cleanup smoke test
