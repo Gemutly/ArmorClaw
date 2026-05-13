@@ -170,6 +170,7 @@ source "${_SCRIPT_DIR}/lib/admin-bootstrap.sh"
 source "${_SCRIPT_DIR}/lib/test-session-bootstrap.sh"
 source "${_SCRIPT_DIR}/lib/matrix-state.sh"
 source "${_SCRIPT_DIR}/lib/report.sh"
+source "${_SCRIPT_DIR}/lib/rpc-probe.sh"
 
 # ── Phase result tracking ────────────────────────────────────────────────────
 record_phase() {
@@ -695,7 +696,22 @@ phase_validate() {
     ((validate_skip++)) || true
   fi
 
-  # ── Check 4: A0 sanity — verify >0 responding RPC methods ──────────────────
+  # ── Check 4: RPC endpoint probe ──────────────────────────────────────────────
+  log_info "[validate] Probing bridge RPC endpoints..."
+  local rpc_probe_result
+  rpc_probe_result=$(_rpc_probe_bridge "${SSH_USER}@${VPS_IP}" "${BRIDGE_PORT}" 2>/dev/null) || true
+
+  if [[ "$rpc_probe_result" == "compatible" ]]; then
+    log_pass "[validate] RPC probe: ${rpc_probe_result}"
+    validate_results+=("rpc-probe:pass")
+    ((validate_pass++)) || true
+  else
+    log_warn "[validate] RPC probe: ${rpc_probe_result} (see evidence for details)"
+    validate_results+=("rpc-probe:${rpc_probe_result}")
+    ((validate_fail++)) || true
+  fi
+
+  # ── Check 5: A0 sanity — verify >0 responding RPC methods ──────────────────
   log_info "[validate] Running A0 sanity (RPC method discovery)..."
   local discover_resp
   discover_resp=$(ssh_vps "curl -sf -k -m 10 'https://localhost:${BRIDGE_PORT}/api' -H 'Content-Type: application/json' -d '{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"rpc.discover\",\"params\":{}}' 2>/dev/null || curl -sf -m 10 'http://localhost:${BRIDGE_PORT}/api' -H 'Content-Type: application/json' -d '{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"rpc.discover\",\"params\":{}}' 2>/dev/null" 2>/dev/null)
