@@ -238,6 +238,36 @@ _contract_check_bridge_port() {
   fi
 }
 
+# ── _get_api_key() ────────────────────────────────────────────────────────────
+# Resolve API key from environment: OPENROUTER_API_KEY → OPEN_AI_KEY → ZAI_API_KEY.
+# Echoes the key value on stdout. Returns 1 if no key is set.
+_get_api_key() {
+  local key="${OPENROUTER_API_KEY:-${OPEN_AI_KEY:-${ZAI_API_KEY:-${API_KEY:-}}}}"
+  if [[ -z "$key" ]]; then
+    echo "ERROR: OPENROUTER_API_KEY, OPEN_AI_KEY, ZAI_API_KEY, or API_KEY must be set" >&2
+    return 1
+  fi
+  echo "$key"
+}
+
+# ── _get_api_key_var() ────────────────────────────────────────────────────────
+# Return the name of the env var that provided the API key.
+# Useful for logging which key is in use. Returns 1 if no key is set.
+_get_api_key_var() {
+  if [[ -n "${OPENROUTER_API_KEY:-}" ]]; then
+    echo "OPENROUTER_API_KEY"
+  elif [[ -n "${OPEN_AI_KEY:-}" ]]; then
+    echo "OPEN_AI_KEY"
+  elif [[ -n "${ZAI_API_KEY:-}" ]]; then
+    echo "ZAI_API_KEY"
+  elif [[ -n "${API_KEY:-}" ]]; then
+    echo "API_KEY"
+  else
+    echo "ERROR: No API key env var set" >&2
+    return 1
+  fi
+}
+
 # ── Initialization log ────────────────────────────────────────────────────────
 log_info "[CONTRACT] Library loaded. Evidence dir: $EVIDENCE_DIR"
 log_info "[CONTRACT] VPS: ${VPS_USER}@${VPS_IP}, Bridge: ${BRIDGE_PORT}, Matrix: ${MATRIX_PORT}"

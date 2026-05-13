@@ -101,6 +101,7 @@ RUN echo "deb http://deb.debian.org/debian bookworm-backports main" > /etc/apt/s
     python3-pip \
     libsqlcipher0 \
     libyara10/bookworm-backports \
+    libolm3 \
     ca-certificates \
     procps \
     openssl \

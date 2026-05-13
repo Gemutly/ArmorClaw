@@ -10,6 +10,7 @@ set -uo pipefail
 _SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 source "${_SCRIPT_DIR}/lib/contract.sh"
 source "${_SCRIPT_DIR}/lib/tls.sh"
+source "${_SCRIPT_DIR}/lib/probe.sh"
 
 log_info "========================================="
 log_info " Phase A1: Topology-Aware Deployment"
@@ -58,8 +59,8 @@ log_pass "A1.3: Resources OK — RAM: ${VPS_MEM}MB, Disk: ${VPS_DISK}GB, CPU: ${
 
 # ── Check if already deployed and healthy ────────────────────────────────────
 if [[ "$FORCE_REDEPLOY" != "1" ]]; then
-  HEALTH_RESULT=$(ssh_vps "curl -sf -o /dev/null -w '%{http_code}' 'http://localhost:${BRIDGE_PORT}/health'" 2>/dev/null || echo "000")
-  if [[ "$HEALTH_RESULT" == "200" ]]; then
+  HEALTH_RESULT=$(ssh_vps "$(declare -f _probe_bridge_health); _probe_bridge_health ${BRIDGE_PORT}" 2>/dev/null)
+  if [[ $? -eq 0 && -n "$HEALTH_RESULT" ]]; then
     log_pass "A1: Bridge already healthy at port ${BRIDGE_PORT} (skip deploy). Set FORCE_REDEPLOY=1 to override."
     _contract_save "a1_deploy_status.json" "$(jq -nc '{
       phase: "A1", status: "already_healthy", force_redeploy: false
@@ -89,19 +90,11 @@ TURN_SECRET="${TURN_SECRET:-$(openssl rand -hex 16)}"
 KEYSTORE_SECRET="${KEYSTORE_SECRET:-$(openssl rand -hex 16)}"
 
 # ── A1.6: Determine API key ─────────────────────────────────────────────────
-API_KEY_VAR=""
-API_KEY_VAL=""
-for key_var in OPENROUTER_API_KEY OPEN_AI_KEY ZAI_API_KEY; do
-  if [[ -n "${!key_var:-}" ]]; then
-    API_KEY_VAR="$key_var"
-    API_KEY_VAL="${!key_var}"
-    break
-  fi
-done
-if [[ -z "$API_KEY_VAR" ]]; then
+API_KEY_VAR="$(_get_api_key_var)" || {
   log_fail "A1.6: No AI API key found. Set OPENROUTER_API_KEY, OPEN_AI_KEY, or ZAI_API_KEY in .env"
   exit 1
-fi
+}
+API_KEY_VAL="$(_get_api_key)"
 log_pass "A1.6: Using API key from ${API_KEY_VAR}"
 
 # ── A1.7: Create docker-compose.yml ─────────────────────────────────────────
