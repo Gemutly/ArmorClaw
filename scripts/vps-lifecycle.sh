@@ -565,22 +565,7 @@ phase_validate() {
   # ── Check 2: Bridge health (via probe.sh) ──────────────────────────────────
   log_info "[validate] Probing Bridge health on port ${BRIDGE_PORT}..."
   local bridge_health
-  bridge_health=$(ssh_vps "source /dev/stdin" < <(
-    cat <<'BRIDGE_PROBE'
-      _port="$1"
-      _response=$(curl -sf -k -m 5 "https://localhost:${_port}/health" 2>/dev/null)
-      if [ $? -eq 0 ] && [ -n "$_response" ]; then
-        echo "$_response"
-        exit 0
-      fi
-      _response=$(curl -sf -m 5 "http://localhost:${_port}/health" 2>/dev/null)
-      if [ $? -eq 0 ] && [ -n "$_response" ]; then
-        echo "$_response"
-        exit 0
-      fi
-      exit 1
-BRIDGE_PROBE
-  ) -- "$BRIDGE_PORT" 2>/dev/null)
+  bridge_health=$(ssh_vps "curl -sf -k -m 5 'https://localhost:${BRIDGE_PORT}/health' 2>/dev/null || curl -sf -m 5 'http://localhost:${BRIDGE_PORT}/health' 2>/dev/null")
 
   if [[ $? -eq 0 && -n "$bridge_health" ]]; then
     log_pass "[validate] Bridge health: ${bridge_health}"
@@ -741,7 +726,9 @@ BRIDGE_PROBE
     unset IFS
 
     for group in "${group_array[@]}"; do
-      local group_script="${_SCRIPT_DIR}/feature-groups/group-${group}.sh"
+      local group_script
+      group_script=$(compgen -G "${_SCRIPT_DIR}/feature-groups/group-${group}-*.sh" 2>/dev/null | head -1)
+      group_script="${group_script:-${_SCRIPT_DIR}/feature-groups/group-${group}.sh}"
       if [[ -f "$group_script" ]]; then
         log_info "[validate] Running feature group ${group}..."
         # Source the library and call its entry function directly
@@ -755,7 +742,7 @@ BRIDGE_PROBE
           --output-dir "${EVIDENCE_DIR}" 2>&1) || true
         # Parse the result JSON — each group outputs a JSON array of test results
         local group_status
-        group_status=$(echo "$group_result" | tail -1 | jq -r '.[0].status // "fail"' 2>/dev/null || echo "fail")
+        group_status=$(echo "$group_result" | tail -1 | jq -r 'if type == "object" then .overall // "fail" elif type == "array" then (.[0].status // "fail") else "fail" end' 2>/dev/null || echo "fail")
         if [[ "$group_status" == "pass" ]]; then
           log_pass "[validate] Feature group ${group}: PASS"
           validate_results+=("group-${group}:pass")
@@ -825,7 +812,7 @@ phase_report() {
   local topo_deploy_mode="${DEPLOY_MODE:-unknown}"
   if [[ -f "${EVIDENCE_DIR}/topology.json" ]]; then
     topo_classification=$(jq -r '.classification // "unknown"' "${EVIDENCE_DIR}/topology.json" 2>/dev/null)
-    topo_deploy_mode=$(jq -r '.deploy_mode // "unknown"' "${EVIDENCE_DIR}/topology.json" 2>/dev/null)
+    topo_deploy_mode=$(jq -r '.recommendation // "unknown"' "${EVIDENCE_DIR}/topology.json" 2>/dev/null)
   fi
   _report_set_topology "$topo_classification" "$topo_deploy_mode"
 
@@ -864,6 +851,29 @@ phase_report() {
 
   if [[ "$_dr_fresh" == "fail" || "$_dr_existing" == "fail" ]]; then
     _report_add_blocker "deploy" "Deploy phase failed — cannot proceed with validation" "high"
+  fi
+
+  # ── 4b. Blocker: deploy not-run ────────────────────────────────────────────
+  if [[ "$_dr_fresh" == "not-run" && "$_dr_existing" == "not-run" ]]; then
+    _report_add_blocker "deploy" "Deploy was not executed — no deployment attempted" "high"
+  fi
+
+  # ── 4c. Blocker: RPC compatibility mismatch ───────────────────────────────
+  if [[ -f "${EVIDENCE_DIR}/validate-results.json" ]]; then
+    local _a0_sanity
+    _a0_sanity=$(jq -r '.results["a0-sanity"] // "unknown"' "${EVIDENCE_DIR}/validate-results.json" 2>/dev/null)
+    if [[ "$_a0_sanity" == "fail" ]]; then
+      _report_add_blocker "validate" "RPC compatibility mismatch — no RPC methods discovered (Bridge may not expose expected API)" "high"
+    fi
+  fi
+
+  # ── 4d. Blocker: Matrix token invalidation ────────────────────────────────
+  if [[ -f "${EVIDENCE_DIR}/validate-results.json" ]]; then
+    local _matrix_login
+    _matrix_login=$(jq -r '.results["matrix-login"] // "unknown"' "${EVIDENCE_DIR}/validate-results.json" 2>/dev/null)
+    if [[ "$_matrix_login" == "fail" ]]; then
+      _report_add_blocker "validate" "Matrix token invalidation — login failed, Bridge cannot authenticate with homeserver" "high"
+    fi
   fi
 
   # ── 5. Feature group definitions (A-I) ──────────────────────────────────────
@@ -1025,6 +1035,17 @@ phase_report() {
     esac
     echo "  ${_eg_bar} ${_eg_group}  [${_eg_status^^}]" >&2
   done
+
+  if [[ ${#_REPORT_BLOCKERS[@]} -gt 0 ]]; then
+    echo "─── Blockers ─────────────────────" >&2
+    local _blk _blk_phase _blk_msg _blk_sev
+    for _blk in "${_REPORT_BLOCKERS[@]}"; do
+      _blk_phase=$(echo "$_blk" | jq -r '.phase')
+      _blk_msg=$(echo "$_blk" | jq -r '.message')
+      _blk_sev=$(echo "$_blk" | jq -r '.severity')
+      echo "  [${_blk_sev^^}] ${_blk_phase}: ${_blk_msg}" >&2
+    done
+  fi
 
   echo "=========================================" >&2
   echo " Verdict: ${verdict}" >&2

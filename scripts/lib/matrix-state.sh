@@ -6,6 +6,12 @@
 # Persists Matrix tokens and test session state to a JSON file so that
 # test runs can reuse existing sessions instead of re-bootstrapping.
 # State file has chmod 600 because it contains access/refresh tokens.
+
+_lib_ssh() {
+  local _ssh_args=(-o StrictHostKeyChecking=no -o ConnectTimeout=10 -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR)
+  [[ -n "${SSH_KEY_PATH:-}" ]] && _ssh_args+=(-i "$SSH_KEY_PATH")
+  ssh "${_ssh_args[@]}" "$@"
+}
 #
 # Usage:
 #   source "${_SCRIPT_DIR}/lib/matrix-state.sh"
@@ -140,7 +146,7 @@ _matrix_state_is_valid() {
   local conduit_url="${_MATRIX_CONDUIT_BASE_URL:-http://localhost:6167}"
 
   local whoami_resp
-  whoami_resp=$(ssh "$ssh_host" \
+  whoami_resp=$(_lib_ssh "$ssh_host" \
     "curl -s '${conduit_url}/_matrix/client/r0/account/whoami?access_token=${_TEST_ACCESS_TOKEN}' 2>/dev/null" \
     2>/dev/null)
 
@@ -181,7 +187,7 @@ _matrix_refresh_token() {
   echo "[matrix-state] Refreshing token via ${conduit_url}/_matrix/client/v3/refresh" >&2
 
   local refresh_resp
-  refresh_resp=$(ssh "$ssh_host" \
+  refresh_resp=$(_lib_ssh "$ssh_host" \
     "curl -s -X POST '${conduit_url}/_matrix/client/v3/refresh' \
       -H 'Content-Type: application/json' \
       -d '{\"refresh_token\":\"${_TEST_REFRESH_TOKEN}\"}'" \

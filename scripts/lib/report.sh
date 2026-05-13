@@ -170,6 +170,12 @@ _report_add_blocker() {
 #   $1 - File path
 _report_add_evidence() {
   local path="${1:?Usage: _report_add_evidence path}"
+  local _existing
+  for _existing in "${_REPORT_EVIDENCE_PATHS[@]}"; do
+    if [[ "$_existing" == "$path" ]]; then
+      return 0
+    fi
+  done
   _REPORT_EVIDENCE_PATHS+=("$path")
 }
 

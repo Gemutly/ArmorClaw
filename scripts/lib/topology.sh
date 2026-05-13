@@ -82,9 +82,10 @@ _topology_detect() {
   local port json_parts=()
   for port in "${_TOPO_PORTS[@]}"; do
     local listener
-    listener=$(ssh_vps "ss -tlnp 2>/dev/null | grep -c ':${port} ' || echo '0'" 2>/dev/null || echo "0")
+    listener=$(ssh_vps "ss -tlnp 2>/dev/null | grep -c ':${port} ' || echo '0'" 2>/dev/null | tr -d '[:space:]' | head -1)
+    listener="${listener:-0}"
     local occupied=false
-    if [[ "$listener" -gt 0 ]]; then
+    if [[ "$listener" -gt 0 ]] 2>/dev/null; then
       occupied=true
     fi
     json_parts+=("\"${port}\": ${occupied}")

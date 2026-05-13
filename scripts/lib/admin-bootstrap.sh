@@ -6,6 +6,12 @@
 # Ensures an admin user exists on Conduit (localhost:6167, HTTP only).
 # Two strategies:
 #   1. If cmd/bootstrap-admin binary exists on VPS: invoke it over SSH
+
+_lib_ssh() {
+  local _ssh_args=(-o StrictHostKeyChecking=no -o ConnectTimeout=10 -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR)
+  [[ -n "${SSH_KEY_PATH:-}" ]] && _ssh_args+=(-i "$SSH_KEY_PATH")
+  ssh "${_ssh_args[@]}" "$@"
+}
 #   2. Otherwise: emulate via HMAC-SHA1 shared-secret registration
 #
 # After registration, performs an EXPLICIT Matrix login to obtain access_token.
@@ -33,7 +39,7 @@ _ADMIN_CONDUIT_WAIT_INTERVAL=2
 _admin_is_bootstrapped() {
   local ssh_host="${1:?Usage: _admin_is_bootstrapped ssh_host}"
 
-  ssh "$ssh_host" "test -f ${_ADMIN_GUARD_FILE}" 2>/dev/null
+  _lib_ssh "$ssh_host" "test -f ${_ADMIN_GUARD_FILE}" 2>/dev/null
 }
 
 # ── _admin_wait_conduit(ssh_host) ────────────────────────────────────────────────
@@ -48,7 +54,7 @@ _admin_wait_conduit() {
 
   while (( elapsed < _ADMIN_CONDUIT_WAIT_TIMEOUT )); do
     local http_code
-    http_code=$(ssh "$ssh_host" \
+    http_code=$(_lib_ssh "$ssh_host" \
       "curl -s -o /dev/null -w '%{http_code}' -m 5 ${_ADMIN_CONDUIT_URL}/_matrix/client/versions" \
       2>/dev/null)
 
@@ -74,9 +80,12 @@ _admin_get_shared_secret() {
   local ssh_host="${1:?Usage: _admin_get_shared_secret ssh_host}"
   local secret
 
-  # Strategy 1: Try conduit.toml
-  secret=$(ssh "$ssh_host" bash -s <<'SECRET_EOF' 2>/dev/null
-    grep -oP '(?<=registration_shared_secret\s*=\s*")[^"]+' /etc/armorclaw/conduit.toml 2>/dev/null | head -1
+  # Strategy 1: Try conduit.toml (multiple known locations)
+  secret=$(_lib_ssh "$ssh_host" bash -s <<'SECRET_EOF' 2>/dev/null
+    for f in /etc/armorclaw/conduit.toml /etc/conduit.toml; do
+      s=$(awk -F'"' '/registration_shared_secret/{print $2}' "$f" 2>/dev/null | head -1)
+      if [[ -n "$s" ]]; then echo "$s"; exit 0; fi
+    done
 SECRET_EOF
   )
 
@@ -85,22 +94,13 @@ SECRET_EOF
     return 0
   fi
 
-  # Strategy 2: Try container environment variable
-  secret=$(ssh "$ssh_host" bash -s <<'SECRET_EOF' 2>/dev/null
-    docker inspect matrix-conduit --format '{{range .Config.Env}}{{println .}}{{end}}' 2>/dev/null \
-      | grep -oP '(?<=CONDUIT_REGISTRATION_SECRET=).+' | head -1
-SECRET_EOF
-  )
-
-  if [[ -n "$secret" ]]; then
-    echo "$secret"
-    return 0
-  fi
-
-  # Strategy 3: Try alternate container name
-  secret=$(ssh "$ssh_host" bash -s <<'SECRET_EOF' 2>/dev/null
-    docker inspect conduit --format '{{range .Config.Env}}{{println .}}{{end}}' 2>/dev/null \
-      | grep -oP '(?<=CONDUIT_REGISTRATION_SECRET=).+' | head -1
+  # Strategy 2: Try container environment variables (multiple container names)
+  secret=$(_lib_ssh "$ssh_host" bash -s <<'SECRET_EOF' 2>/dev/null
+    for name in armorclaw-conduit matrix-conduit conduit; do
+      s=$(docker inspect "$name" --format '{{range .Config.Env}}{{println .}}{{end}}' 2>/dev/null \
+        | awk -F= '/CONDUIT_REGISTRATION_SECRET/{print $2}' | head -1)
+      if [[ -n "$s" ]]; then echo "$s"; exit 0; fi
+    done
 SECRET_EOF
   )
 
@@ -117,9 +117,9 @@ SECRET_EOF
 # Generate a secure random password. Prints password on stdout.
 _admin_generate_password() {
   local password
-  password=$(tr -dc 'a-zA-Z0-9!@#$%^&*' </dev/urandom 2>/dev/null | head -c 24)
+  password=$(tr -dc 'a-zA-Z0-9' </dev/urandom 2>/dev/null | head -c 32)
   if [[ -z "$password" ]]; then
-    password=$(openssl rand -base64 24 2>/dev/null | tr -d '\n')
+    password=$(openssl rand -hex 16 2>/dev/null | tr -d '\n')
   fi
   echo "$password"
 }
@@ -130,8 +130,11 @@ _admin_read_server_name() {
   local ssh_host="${1:?Usage: _admin_read_server_name ssh_host}"
   local server_name
 
-  server_name=$(ssh "$ssh_host" bash -s <<'SN_EOF' 2>/dev/null
-    grep -oP '(?<=server_name\s*=\s*")[^"]+' /etc/armorclaw/conduit.toml 2>/dev/null | head -1
+  server_name=$(_lib_ssh "$ssh_host" bash -s <<'SN_EOF' 2>/dev/null
+    for f in /etc/armorclaw/conduit.toml /etc/conduit.toml; do
+      sn=$(awk -F'"' '/server_name/{print $2}' "$f" 2>/dev/null | head -1)
+      if [[ -n "$sn" ]]; then echo "$sn"; exit 0; fi
+    done
 SN_EOF
   )
 
@@ -170,7 +173,7 @@ _admin_register_shell() {
 
     # Get nonce from Conduit admin register endpoint
     local nonce_resp
-    nonce_resp=$(ssh "$ssh_host" \
+    nonce_resp=$(_lib_ssh "$ssh_host" \
       "curl -s ${_ADMIN_CONDUIT_URL}/_matrix/client/r0/admin/register 2>/dev/null" \
       2>/dev/null)
 
@@ -178,17 +181,12 @@ _admin_register_shell() {
     nonce=$(echo "$nonce_resp" | jq -r '.nonce // empty' 2>/dev/null)
 
     if [[ -z "$nonce" ]]; then
-      # Conduit native v3 register — no nonce, like Go binary
-      local mac
-      mac=$(printf '%s\x00%s\x00admin' "$attempt_username" "$password" \
-        | openssl dgst -sha1 -hmac "$shared_secret" 2>/dev/null \
-        | awk '{print $NF}')
-
+      # Conduit v3 register with m.login.dummy (allow_registration must be true)
       local reg_resp
-      reg_resp=$(ssh "$ssh_host" \
+      reg_resp=$(_lib_ssh "$ssh_host" \
         "curl -s -X POST ${_ADMIN_CONDUIT_URL}/_matrix/client/v3/register \
           -H 'Content-Type: application/json' \
-          -d '{\"username\":\"${attempt_username}\",\"password\":\"${password}\",\"admin\":true,\"mac\":\"${mac}\"}'" \
+          -d '{\"username\":\"${attempt_username}\",\"password\":\"${password}\",\"auth\":{\"type\":\"m.login.dummy\"}}'" \
         2>/dev/null)
 
       local err_msg
@@ -205,7 +203,11 @@ _admin_register_shell() {
 
       local user_id
       user_id=$(echo "$reg_resp" | jq -r '.user_id // empty' 2>/dev/null)
-      echo "${user_id:-@${attempt_username}:${server_name}}"
+      if [[ -z "$user_id" ]]; then
+        echo "[admin-bootstrap] ERROR: v3 registration returned no user_id" >&2
+        return 1
+      fi
+      echo "${user_id}"
       return 0
     fi
 
@@ -221,7 +223,7 @@ _admin_register_shell() {
     fi
 
     local reg_resp
-    reg_resp=$(ssh "$ssh_host" \
+    reg_resp=$(_lib_ssh "$ssh_host" \
       "curl -s -X POST ${_ADMIN_CONDUIT_URL}/_matrix/client/r0/admin/register \
         -H 'Content-Type: application/json' \
         -d '{\"username\":\"${attempt_username}\",\"password\":\"${password}\",\"nonce\":\"${nonce}\",\"admin\":true,\"mac\":\"${mac}\"}'" \
@@ -263,10 +265,10 @@ _admin_login() {
   local password="${3:?password required}"
 
   local login_resp
-  login_resp=$(ssh "$ssh_host" \
+  login_resp=$(_lib_ssh "$ssh_host" \
     "curl -s -X POST ${_ADMIN_CONDUIT_URL}/_matrix/client/v3/login \
       -H 'Content-Type: application/json' \
-      -d '{\"type\":\"m.login.password\",\"user\":\"${username}\",\"password\":\"${password}\"}'" \
+      -d '{\"type\":\"m.login.password\",\"identifier\":{\"type\":\"m.id.user\",\"user\":\"${username}\"},\"password\":\"${password}\"}'" \
     2>/dev/null)
 
   local access_token
@@ -318,9 +320,9 @@ _admin_bootstrap() {
   if _admin_is_bootstrapped "$ssh_host"; then
     echo "[admin-bootstrap] Admin already bootstrapped - guard file exists" >&2
 
-    _ADMIN_PASSWORD=$(ssh "$ssh_host" "cat ${_ADMIN_PASSWORD_FILE} 2>/dev/null" 2>/dev/null)
+    _ADMIN_PASSWORD=$(_lib_ssh "$ssh_host" "cat ${_ADMIN_PASSWORD_FILE} 2>/dev/null" 2>/dev/null)
     local stored_username
-    stored_username=$(ssh "$ssh_host" "cat ${_ADMIN_USERNAME_FILE} 2>/dev/null" 2>/dev/null)
+    stored_username=$(_lib_ssh "$ssh_host" "cat ${_ADMIN_USERNAME_FILE} 2>/dev/null" 2>/dev/null)
 
     if [[ -n "$stored_username" && -n "$_ADMIN_PASSWORD" ]]; then
       local server_name
@@ -361,22 +363,22 @@ _admin_bootstrap() {
   fi
 
   # Step 3b: Try cmd/bootstrap-admin binary on VPS
-  if ssh "$ssh_host" "command -v bootstrap-admin >/dev/null 2>&1 || test -x /usr/local/bin/bootstrap-admin" 2>/dev/null; then
+  if _lib_ssh "$ssh_host" "command -v bootstrap-admin >/dev/null 2>&1 || test -x /usr/local/bin/bootstrap-admin" 2>/dev/null; then
     echo "[admin-bootstrap] Found cmd/bootstrap-admin binary on VPS, invoking it" >&2
 
     local binary_path
-    binary_path=$(ssh "$ssh_host" "command -v bootstrap-admin 2>/dev/null || echo /usr/local/bin/bootstrap-admin" 2>/dev/null)
+    binary_path=$(_lib_ssh "$ssh_host" "command -v bootstrap-admin 2>/dev/null || echo /usr/local/bin/bootstrap-admin" 2>/dev/null)
 
     local server_name
     server_name=$(_admin_read_server_name "$ssh_host")
 
     local bootstrap_output
-    bootstrap_output=$(ssh "$ssh_host" \
+    bootstrap_output=$(_lib_ssh "$ssh_host" \
       "ARMORCLAW_ADMIN_USERNAME=${admin_username} ARMORCLAW_ADMIN_PASSWORD=${admin_password} ARMORCLAW_SERVER_NAME=${server_name} ${binary_path}" 2>&1)
 
     if [[ $? -eq 0 ]]; then
       echo "[admin-bootstrap] cmd/bootstrap-admin succeeded" >&2
-      _ADMIN_USER_ID=$(echo "$bootstrap_output" | grep -oP '@[a-z0-9._-]+:[a-z0-9._-]+' | head -1)
+      _ADMIN_USER_ID=$(echo "$bootstrap_output" | grep -o '@[a-z0-9._-]\+:[a-z0-9._-]\+' | head -1)
       if [[ -z "$_ADMIN_USER_ID" ]]; then
         _ADMIN_USER_ID="@${admin_username}:${server_name}"
       fi
@@ -402,14 +404,14 @@ _admin_bootstrap() {
     fi
 
     # Write guard file and credentials on VPS
-    ssh "$ssh_host" "mkdir -p /var/lib/armorclaw && touch ${_ADMIN_GUARD_FILE}" 2>/dev/null
+    _lib_ssh "$ssh_host" "mkdir -p /var/lib/armorclaw && touch ${_ADMIN_GUARD_FILE}" 2>/dev/null
 
-    ssh "$ssh_host" "cat > ${_ADMIN_USERNAME_FILE} <<EOU
+    _lib_ssh "$ssh_host" "cat > ${_ADMIN_USERNAME_FILE} <<EOU
 ${admin_username}
 EOU
 chmod 644 ${_ADMIN_USERNAME_FILE}" 2>/dev/null
 
-    ssh "$ssh_host" "cat > ${_ADMIN_PASSWORD_FILE} <<EOP
+    _lib_ssh "$ssh_host" "cat > ${_ADMIN_PASSWORD_FILE} <<EOP
 ${admin_password}
 EOP
 chmod 600 ${_ADMIN_PASSWORD_FILE}" 2>/dev/null

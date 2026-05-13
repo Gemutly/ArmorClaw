@@ -6,6 +6,12 @@
 # Creates a dedicated non-admin test user, tagged test room, and session
 # on Conduit (localhost:6167, HTTP only). Reuses tagged rooms across runs.
 #
+
+_lib_ssh() {
+  local _ssh_args=(-o StrictHostKeyChecking=no -o ConnectTimeout=10 -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR)
+  [[ -n "${SSH_KEY_PATH:-}" ]] && _ssh_args+=(-i "$SSH_KEY_PATH")
+  ssh "${_ssh_args[@]}" "$@"
+}
 # Registration uses HMAC-SHA1 shared-secret (same mechanism as admin, NOT admin token).
 # The admin token from T8 is passed as --bootstrap-admin-token for room creation
 # and bot invitation ONLY — never for user registration or validation traffic.
@@ -34,9 +40,11 @@ _test_get_shared_secret() {
   local ssh_host="${1:?Usage: _test_get_shared_secret ssh_host}"
   local secret
 
-  # Strategy 1: conduit.toml [global] registration_shared_secret
-  secret=$(ssh "$ssh_host" bash -s <<'SECRET_EOF' 2>/dev/null
-    grep -oP '(?<=registration_shared_secret\s*=\s*")[^"]+' /etc/armorclaw/conduit.toml 2>/dev/null | head -1
+  secret=$(_lib_ssh "$ssh_host" bash -s <<'SECRET_EOF' 2>/dev/null
+    for f in /etc/armorclaw/conduit.toml /etc/conduit.toml; do
+      s=$(awk -F'"' '/registration_shared_secret/{print $2}' "$f" 2>/dev/null | head -1)
+      if [[ -n "$s" ]]; then echo "$s"; exit 0; fi
+    done
 SECRET_EOF
   )
 
@@ -45,22 +53,12 @@ SECRET_EOF
     return 0
   fi
 
-  # Strategy 2: Docker container env CONDUIT_REGISTRATION_SECRET
-  secret=$(ssh "$ssh_host" bash -s <<'SECRET_EOF' 2>/dev/null
-    docker inspect matrix-conduit --format '{{range .Config.Env}}{{println .}}{{end}}' 2>/dev/null \
-      | grep -oP '(?<=CONDUIT_REGISTRATION_SECRET=).+' | head -1
-SECRET_EOF
-  )
-
-  if [[ -n "$secret" ]]; then
-    echo "$secret"
-    return 0
-  fi
-
-  # Strategy 3: Alternate container name
-  secret=$(ssh "$ssh_host" bash -s <<'SECRET_EOF' 2>/dev/null
-    docker inspect conduit --format '{{range .Config.Env}}{{println .}}{{end}}' 2>/dev/null \
-      | grep -oP '(?<=CONDUIT_REGISTRATION_SECRET=).+' | head -1
+  secret=$(_lib_ssh "$ssh_host" bash -s <<'SECRET_EOF' 2>/dev/null
+    for name in armorclaw-conduit matrix-conduit conduit; do
+      s=$(docker inspect "$name" --format '{{range .Config.Env}}{{println .}}{{end}}' 2>/dev/null \
+        | awk -F= '/CONDUIT_REGISTRATION_SECRET/{print $2}' | head -1)
+      if [[ -n "$s" ]]; then echo "$s"; exit 0; fi
+    done
 SECRET_EOF
   )
 
@@ -79,8 +77,11 @@ _test_read_server_name() {
   local ssh_host="${1:?Usage: _test_read_server_name ssh_host}"
   local server_name
 
-  server_name=$(ssh "$ssh_host" bash -s <<'SN_EOF' 2>/dev/null
-    grep -oP '(?<=server_name\s*=\s*")[^"]+' /etc/armorclaw/conduit.toml 2>/dev/null | head -1
+  server_name=$(_lib_ssh "$ssh_host" bash -s <<'SN_EOF' 2>/dev/null
+    for f in /etc/armorclaw/conduit.toml /etc/conduit.toml; do
+      sn=$(awk -F'"' '/server_name/{print $2}' "$f" 2>/dev/null | head -1)
+      if [[ -n "$sn" ]]; then echo "$sn"; exit 0; fi
+    done
 SN_EOF
   )
 
@@ -119,7 +120,7 @@ _test_register_user() {
 
   # Strategy 1: Nonce-based registration via admin/register endpoint
   local nonce_resp
-  nonce_resp=$(ssh "$ssh_host" \
+  nonce_resp=$(_lib_ssh "$ssh_host" \
     "curl -s ${_TEST_CONDUIT_URL}/_matrix/client/r0/admin/register 2>/dev/null" \
     2>/dev/null)
 
@@ -139,7 +140,7 @@ _test_register_user() {
     fi
 
     local reg_resp
-    reg_resp=$(ssh "$ssh_host" \
+    reg_resp=$(_lib_ssh "$ssh_host" \
       "curl -s -X POST ${_TEST_CONDUIT_URL}/_matrix/client/r0/admin/register \
         -H 'Content-Type: application/json' \
         -d '{\"username\":\"${username}\",\"password\":\"${password}\",\"nonce\":\"${nonce}\",\"admin\":false,\"mac\":\"${mac}\"}'" \
@@ -174,7 +175,7 @@ _test_register_user() {
   fi
 
   local reg_resp
-  reg_resp=$(ssh "$ssh_host" \
+  reg_resp=$(_lib_ssh "$ssh_host" \
     "curl -s -X POST ${_TEST_CONDUIT_URL}/_matrix/client/v3/register \
       -H 'Content-Type: application/json' \
       -d '{\"username\":\"${username}\",\"password\":\"${password}\",\"auth\":{\"type\":\"m.login.dummy\",\"mac\":\"${mac}\"}}'" \
@@ -215,7 +216,7 @@ _test_login() {
   local password="${3:?password required}"
 
   local login_resp
-  login_resp=$(ssh "$ssh_host" \
+  login_resp=$(_lib_ssh "$ssh_host" \
     "curl -s -X POST ${_TEST_CONDUIT_URL}/_matrix/client/v3/login \
       -H 'Content-Type: application/json' \
       -d '{\"type\":\"m.login.password\",\"identifier\":{\"type\":\"m.id.user\",\"user\":\"${username}\"},\"password\":\"${password}\"}'" \
@@ -262,7 +263,7 @@ _test_find_or_create_room() {
 
   # Try to find existing tagged room via test user's synced rooms
   local sync_resp
-  sync_resp=$(ssh "$ssh_host" \
+  sync_resp=$(_lib_ssh "$ssh_host" \
     "curl -s '${_TEST_CONDUIT_URL}/_matrix/client/v3/sync?access_token=${test_token}&timeout=0' 2>/dev/null" \
     2>/dev/null)
 
@@ -285,7 +286,7 @@ _test_find_or_create_room() {
   echo "[test-session] Creating new tagged test room: ${room_name}" >&2
 
   local create_resp
-  create_resp=$(ssh "$ssh_host" \
+  create_resp=$(_lib_ssh "$ssh_host" \
     "curl -s -X POST '${_TEST_CONDUIT_URL}/_matrix/client/r0/createRoom?access_token=${admin_token}' \
       -H 'Content-Type: application/json' \
       -d '{\"name\":\"${room_name}\",\"visibility\":\"private\",\"preset\":\"private_chat\",\"topic\":\"ArmorClaw VPS test session room (persistent)\"}'" \
@@ -306,14 +307,14 @@ _test_find_or_create_room() {
   server_name=$(_test_read_server_name "$ssh_host")
   local test_mxid="@${_TEST_USERNAME_PREFIX}:${server_name}"
 
-  ssh "$ssh_host" \
+  _lib_ssh "$ssh_host" \
     "curl -s -X POST '${_TEST_CONDUIT_URL}/_matrix/client/r0/rooms/${room_id}/invite?access_token=${admin_token}' \
       -H 'Content-Type: application/json' \
       -d '{\"user_id\":\"${test_mxid}\"}'" \
     2>/dev/null >/dev/null
 
   # Test user joins the room
-  ssh "$ssh_host" \
+  _lib_ssh "$ssh_host" \
     "curl -s -X POST '${_TEST_CONDUIT_URL}/_matrix/client/r0/rooms/${room_id}/join?access_token=${test_token}' \
       -H 'Content-Type: application/json' \
       -d '{}'" \
@@ -361,7 +362,7 @@ _test_verify_crypto_signals() {
 
   # Signal 2: Successful sync → returns initial sync data
   local sync_resp
-  sync_resp=$(ssh "$ssh_host" \
+  sync_resp=$(_lib_ssh "$ssh_host" \
     "curl -s '${_TEST_CONDUIT_URL}/_matrix/client/v3/sync?access_token=${access_token}&timeout=0' 2>/dev/null" \
     2>/dev/null)
 
@@ -378,7 +379,7 @@ _test_verify_crypto_signals() {
 
   # Signal 3: Successful whoami → returns user_id
   local whoami_resp
-  whoami_resp=$(ssh "$ssh_host" \
+  whoami_resp=$(_lib_ssh "$ssh_host" \
     "curl -s '${_TEST_CONDUIT_URL}/_matrix/client/r0/account/whoami?access_token=${access_token}' 2>/dev/null" \
     2>/dev/null)
 
@@ -400,7 +401,7 @@ _test_verify_crypto_signals() {
   local test_body="crypto-verify-$(date +%s)"
 
   local send_resp
-  send_resp=$(ssh "$ssh_host" \
+  send_resp=$(_lib_ssh "$ssh_host" \
     "curl -s -X PUT '${_TEST_CONDUIT_URL}/_matrix/client/v3/rooms/${room_id}/send/m.room.message/${txn_id}?access_token=${access_token}' \
       -H 'Content-Type: application/json' \
       -d '{\"msgtype\":\"m.text\",\"body\":\"${test_body}\"}'" \
@@ -416,7 +417,7 @@ _test_verify_crypto_signals() {
 
     while (( elapsed < _TEST_CRYPTO_VERIFY_TIMEOUT )); do
       local poll_resp
-      poll_resp=$(ssh "$ssh_host" \
+      poll_resp=$(_lib_ssh "$ssh_host" \
         "curl -s '${_TEST_CONDUIT_URL}/_matrix/client/v3/sync?access_token=${access_token}&timeout=1000&since=${next_batch}' 2>/dev/null" \
         2>/dev/null)
 
