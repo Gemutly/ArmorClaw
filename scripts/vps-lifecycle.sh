@@ -1032,7 +1032,7 @@ phase_report() {
   echo " Text:    ${_report_output_dir}/report.txt" >&2
   echo "=========================================" >&2
 
-  record_phase "report" "pass"
+  record_phase "report" "$verdict"
 
   # ── 11. Exit with appropriate code ──────────────────────────────────────────
   case "$verdict" in

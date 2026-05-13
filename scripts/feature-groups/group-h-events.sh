@@ -148,14 +148,14 @@ _group_h_run() {
           t1_details="Event emission verified after health.check: ${retry_count} event(s)"
           log_pass "[GROUP-H] Events captured after trigger (${retry_count})"
         else
-          t1_result="pass"
-          t1_details="Event bus responding but no events yet (acceptable for idle system)"
-          log_pass "[GROUP-H] Event bus responding (idle)"
+          t1_result="fail"
+          t1_details="Event bus responding but no events emitted after health.check trigger"
+          log_fail "[GROUP-H] No events after trigger (event emission may be broken)"
         fi
       else
-        t1_result="pass"
-        t1_details="Event bus responding, replay log currently empty (idle system)"
-        log_pass "[GROUP-H] Event bus responding (idle)"
+        t1_result="fail"
+        t1_details="Event bus replay returned no result after trigger"
+        log_fail "[GROUP-H] Event replay empty after trigger"
       fi
     fi
   elif echo "$t1_resp" | jq -e '.result' >/dev/null 2>&1; then

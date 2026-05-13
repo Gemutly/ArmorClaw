@@ -470,8 +470,6 @@ _group_c_cleanup() {
       "{\"template_id\":\"${_GC_TPL_ID}\"}" >/dev/null 2>&1 || true
   fi
 
-  # Shutdown orchestrator to clean up active workflows
-  _group_c_bridge_rpc "secretary.shutdown" "{}" >/dev/null 2>&1 || true
 }
 
 # ── _group_c_run() ──────────────────────────────────────────────────────────────
@@ -566,8 +564,9 @@ _group_c_run() {
 
   jq -nc \
     --arg group "c-secretary" \
-    --arg status "$overall_status" \
-    --argjson total_ms "$total_elapsed" \
-    --argjson tests "$tests_array" \
-    '{group: $group, status: $status, tests: $tests, total_duration_ms: $total_ms}'
+    --arg name "Secretary Workflows" \
+    --arg overall "$overall_status" \
+    --argjson duration_ms "$total_elapsed" \
+    --argjson results "$tests_array" \
+    '{group: $group, name: $name, results: $results, duration_ms: $duration_ms, overall: $overall}'
 }

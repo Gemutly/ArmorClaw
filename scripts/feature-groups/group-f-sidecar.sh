@@ -187,11 +187,11 @@ _group_f_run() {
     if [[ "$extracted_text" == *"Hello ArmorClaw"* ]]; then
       t2_result="pass"
       t2_details="Text extraction successful: content matches"
-      log_pass "[GROUP-E] Step 2: Happy-path extraction passed"
+      log_pass "[GROUP-F] Step 2: Happy-path extraction passed"
     else
-      t2_result="pass"
-      t2_details="Text extraction returned result but content differs: $(echo "$extracted_text" | head -c 100)"
-      log_pass "[GROUP-F] Step 2: Extraction returned (content differs)"
+      t2_result="fail"
+      t2_details="Text extraction returned result but content mismatch: expected 'Hello ArmorClaw', got: $(echo "$extracted_text" | head -c 100)"
+      log_fail "[GROUP-F] Step 2: Content mismatch (expected 'Hello ArmorClaw')"
     fi
   elif [[ -n "$t2_resp" ]] && echo "$t2_resp" | jq -e '.error' >/dev/null 2>&1; then
     local err_msg
@@ -229,16 +229,16 @@ _group_f_run() {
   # Expected: an error response (unsupported format should be rejected)
   if [[ -n "$t3_resp" ]] && echo "$t3_resp" | jq -e '.error' >/dev/null 2>&1; then
     local err_code err_msg
-    err_code=$(echo "$t2_resp" | jq -r '.error.code // "unknown"')
+    err_code=$(echo "$t3_resp" | jq -r '.error.code // "unknown"')
     err_msg=$(echo "$t3_resp" | jq -r '.error.message')
     t3_result="pass"
     t3_details="Unsupported format correctly rejected: ${err_msg}"
     log_pass "[GROUP-F] Step 3: Error handling works (format rejected)"
   elif [[ -n "$t3_resp" ]] && echo "$t3_resp" | jq -e '.result' >/dev/null 2>&1; then
-    # Bridge accepted it — not ideal but not a hard failure
-    t3_result="pass"
-    t3_details="Bridge accepted unsupported format without error (may have native handler)"
-    log_pass "[GROUP-F] Step 3: No error for unsupported format (may be expected)"
+    # Bridge accepted unsupported format — should have rejected it
+    t3_result="fail"
+    t3_details="Bridge accepted unsupported format without error (expected rejection)"
+    log_fail "[GROUP-F] Step 3: Unsupported format was accepted (should have been rejected)"
   else
     t3_result="fail"
     t3_details="No response for unsupported format submission"

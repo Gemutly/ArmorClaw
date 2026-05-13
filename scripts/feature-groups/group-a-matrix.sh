@@ -563,7 +563,7 @@ _group_a_run() {
   json_array+="]"
 
   # Output results
-  echo "$json_array" | jq '.'
+  echo "$json_array" | jq -c '.'
 
   # Determine overall status
   local fail_count

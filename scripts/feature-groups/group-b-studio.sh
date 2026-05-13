@@ -164,15 +164,10 @@ REMOTESH
     return 1
   fi
 
-  log_pass "[GROUP-B] Bridge health check passed"
-  group_results+=("$(_gb_test_result "bridge-health" "pass" "Bridge healthy: $(echo "$health_resp" | head -c 200)" "" "$health_ms")")
-
-  # Save health evidence
+  # Save health evidence and record result
   local health_evidence_path
   health_evidence_path=$(_gb_save_evidence "$output_dir" "group-b-bridge-health.json" "$health_resp")
-  group_results+=("$(_gb_test_result "bridge-health" "pass" "Bridge healthy" "$health_evidence_path" "$health_ms")")
-  # Remove duplicate — replace the first one
-  group_results=("${group_results[-1]}")
+  group_results+=("$(_gb_test_result "bridge-health" "pass" "Bridge healthy: $(echo "$health_resp" | head -c 200)" "$health_evidence_path" "$health_ms")")
 
   # Ensure cleanup on any exit
   trap _gb_cleanup EXIT

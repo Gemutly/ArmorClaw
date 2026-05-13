@@ -640,16 +640,12 @@ _group_d_test_secret_classification() {
   if echo "$pii_resp_high" | grep -qi "approval\|denied\|blocked\|pii.*required"; then
     case_5a_pass=true
   fi
-  # If pii.request is not available, verify via name-based logic documentation
+  # If pii.request is not available, mark as skip
   if [[ -z "$pii_resp_high" || "$(echo "$pii_resp_high" | jq -r '.error // empty' 2>/dev/null)" == *"not found"* ]]; then
-    # Method not available — verify classification logic from source code analysis
-    # secret_approval.go: strings.Contains(lower, "payment") → RiskDeny
-    local lower_name
-    lower_name=$(echo "payment_card_number" | tr '[:upper:]' '[:lower:]')
-    if echo "$lower_name" | grep -q "payment"; then
-      case_5a_pass=true
-      risk_level_high="DENY (verified via name-based classification: strings.Contains(lower, 'payment'))"
-    fi
+    # pii.request RPC unavailable — cannot verify server-side, marking as skip
+    case_5a_pass=true
+    risk_level_high="SKIP: pii.request RPC not available"
+    details+="CASE 5a SKIP: pii.request unavailable (cannot verify payment classification); "
   fi
 
   if [[ "$case_5a_pass" != "true" ]]; then
@@ -688,22 +684,11 @@ _group_d_test_secret_classification() {
     case_5b_pass=true
   fi
   if [[ -z "$pii_resp_unknown" || "$(echo "$pii_resp_unknown" | jq -r '.error // empty' 2>/dev/null)" == *"not found"* ]]; then
-    # Method not available — verify via name-based logic from source code analysis
-    # secret_approval.go: "user_preference" does not match payment/credit/card/ssn/passport/id_
-    # nor api_key/token/key → default DENY
-    local lower_name_b
-    lower_name_b=$(echo "user_preference" | tr '[:upper:]' '[:lower:]')
-    if ! echo "$lower_name_b" | grep -q "payment\|credit\|card\|ssn\|passport\|id_\|api_key\|token\|key"; then
-      # Falls to conservative default → DENY
-      case_5b_pass=true
-      risk_level_unknown="DENY (conservative default: name matches no explicit allow pattern)"
-    fi
-  fi
-  # Also accept if auto-approved for names that might be low risk
-  if echo "$risk_level_unknown" | grep -qi "allow\|low"; then
+    # pii.request RPC unavailable — cannot verify server-side, marking as skip
     case_5b_pass=true
+    risk_level_unknown="SKIP: pii.request RPC not available"
+    details+="CASE 5b SKIP: pii.request unavailable (cannot verify user_preference classification); "
   fi
-
   if [[ "$case_5b_pass" != "true" ]]; then
     failures=$(( failures + 1 ))
     details+="CASE 5b FAIL: user_preference classification unexpected, got risk=$risk_level_unknown; "
@@ -731,14 +716,10 @@ _group_d_test_secret_classification() {
     case_5c_pass=true
   fi
   if [[ -z "$pii_resp_low" || "$(echo "$pii_resp_low" | jq -r '.error // empty' 2>/dev/null)" == *"not found"* ]]; then
-    # Method not available — verify via source code analysis
-    # secret_approval.go: strings.Contains(lower, "api_key") → RiskAllow
-    local lower_name_c
-    lower_name_c=$(echo "api_key_openai" | tr '[:upper:]' '[:lower:]')
-    if echo "$lower_name_c" | grep -q "api_key"; then
-      case_5c_pass=true
-      risk_level_low="ALLOW (verified via name-based classification: strings.Contains(lower, 'api_key'))"
-    fi
+    # pii.request RPC unavailable — cannot verify server-side, marking as skip
+    case_5c_pass=true
+    risk_level_low="SKIP: pii.request RPC not available"
+    details+="CASE 5c SKIP: pii.request unavailable (cannot verify api_key classification); "
   fi
 
   if [[ "$case_5c_pass" != "true" ]]; then
@@ -824,26 +805,17 @@ _group_d_run() {
     group_status="skip"
   fi
 
+  local group_start_ms
+  group_start_ms=$(date +%s%3N)
+
   local group_result
   group_result=$(jq -nc \
     --arg group "d" \
     --arg name "Trust / PII / Approvals" \
-    --arg status "$group_status" \
-    --argjson total "$total" \
-    --argjson passed "$passed" \
-    --argjson failed "$failed" \
-    --argjson skipped "$skipped" \
-    --argjson tests "$results" \
-    '{
-      group: $group,
-      name: $name,
-      status: $status,
-      total: $total,
-      passed: $passed,
-      failed: $failed,
-      skipped: $skipped,
-      tests: $tests
-    }')
+    --arg overall "$group_status" \
+    --argjson duration_ms "$(( $(date +%s%3N) - group_start_ms ))" \
+    --argjson results "$results" \
+    '{group: $group, name: $name, results: $results, duration_ms: $duration_ms, overall: $overall}')
 
   # Save overall group evidence
   _group_d_save_evidence "group-d-summary" "$group_result" > /dev/null
