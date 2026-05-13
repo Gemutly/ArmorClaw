@@ -1,0 +1,108 @@
+name: "test-vps"
+version: "1.0.0"
+description: "Non-interactive VPS lifecycle orchestrator — detect, deploy, bootstrap, validate, and report ArmorClaw on a target VPS via scripts/vps-lifecycle.sh."
+
+parameters:
+  - name: "vps_ip"
+    type: "string"
+    required: true
+    description: "Target VPS IP address"
+    default: ""
+
+  - name: "ssh_key_path"
+    type: "string"
+    required: true
+    description: "Path to SSH private key for VPS access"
+    default: ""
+
+  - name: "mode"
+    type: "string"
+    required: false
+    description: "Test intensity: smoke (topology + basic health) or full (all feature groups A-I)"
+    default: "smoke"
+
+  - name: "deploy_mode"
+    type: "string"
+    required: false
+    description: "Deploy strategy: fresh-install | replace-existing | reuse-existing-matrix | side-by-side"
+    default: ""
+
+  - name: "feature_groups"
+    type: "string"
+    required: false
+    description: "Comma-separated feature groups to run (default: a-d for smoke, a-i for full)"
+    default: ""
+
+tools_required:
+  - ssh
+  - curl
+  - jq
+
+agent_instructions: |
+  Non-interactive VPS lifecycle wrapper. Every step calls scripts/vps-lifecycle.sh with the
+  appropriate --phase flag. The orchestrator handles all topology detection, deployment,
+  bootstrap, validation, and evidence collection internally.
+
+  Rules:
+  - Always pass --force to skip interactive confirmations.
+  - Pass --vps-ip and --ssh-key on every invocation.
+  - Pass --deploy-mode only when a value is provided.
+  - Evidence is written to .sisyphus/evidence/vps-lifecycle/ by the orchestrator.
+  - Exit codes: 0=pass, 1=fail, 2=partial — surface these to the caller.
+
+steps:
+  - name: "detect"
+    automation: "auto"
+    description: "Detect VPS topology — OS, Docker status, running containers, port inventory. Read-only probe."
+    command: |
+      ARGS="--vps-ip ${vps_ip} --ssh-key ${ssh_key_path} --phase detect --force"
+      [ -n "${mode}" ] && ARGS="$ARGS --mode ${mode}"
+      bash scripts/vps-lifecycle.sh $ARGS
+
+  - name: "deploy"
+    automation: "auto"
+    description: "Deploy or update ArmorClaw on the VPS based on detected topology."
+    command: |
+      ARGS="--vps-ip ${vps_ip} --ssh-key ${ssh_key_path} --phase deploy --force"
+      [ -n "${deploy_mode}" ] && ARGS="$ARGS --deploy-mode ${deploy_mode}"
+      bash scripts/vps-lifecycle.sh $ARGS
+
+  - name: "admin_bootstrap"
+    automation: "auto"
+    description: "Bootstrap admin identity on Conduit — register admin user, claim shared-secret token."
+    command: |
+      bash scripts/vps-lifecycle.sh --vps-ip ${vps_ip} --ssh-key ${ssh_key_path} --phase admin-bootstrap --force
+
+  - name: "test_bootstrap"
+    automation: "auto"
+    description: "Bootstrap test user session — create Matrix session, verify crypto, establish event baseline."
+    command: |
+      bash scripts/vps-lifecycle.sh --vps-ip ${vps_ip} --ssh-key ${ssh_key_path} --phase test-bootstrap --force
+
+  - name: "validate"
+    automation: "auto"
+    description: "Run validation suite (smoke or full) against the deployed VPS."
+    command: |
+      ARGS="--vps-ip ${vps_ip} --ssh-key ${ssh_key_path} --phase validate --force --mode ${mode}"
+      [ -n "${feature_groups}" ] && ARGS="$ARGS --feature-groups ${feature_groups}"
+      bash scripts/vps-lifecycle.sh $ARGS
+
+  - name: "report"
+    automation: "auto"
+    description: "Aggregate evidence and emit final report (JSON + text) to .sisyphus/evidence/vps-lifecycle/."
+    command: |
+      bash scripts/vps-lifecycle.sh --vps-ip ${vps_ip} --ssh-key ${ssh_key_path} --phase report --force --mode ${mode}
+
+platforms:
+  - linux
+  - macos
+
+examples:
+  - description: "Smoke test — detect topology, deploy, bootstrap, validate basics, report"
+    command: "/test-vps vps_ip=5.183.11.149 ssh_key_path=~/.ssh/id_ed25519 mode=smoke"
+
+  - description: "Full validation — all feature groups (A-I) with explicit deploy mode"
+    command: "/test-vps vps_ip=5.183.11.149 ssh_key_path=~/.ssh/id_ed25519 mode=full deploy_mode=fresh-install"
+
+  - description: "Detect-only — probe VPS topology without deploying or modifying anything"
+    command: "/test-vps vps_ip=5.183.11.149 ssh_key_path=~/.ssh/id_ed25519 mode=smoke deploy_mode= side_effect=false"
