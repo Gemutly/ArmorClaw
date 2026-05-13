@@ -169,6 +169,7 @@ source "${_SCRIPT_DIR}/lib/probe.sh"
 source "${_SCRIPT_DIR}/lib/admin-bootstrap.sh"
 source "${_SCRIPT_DIR}/lib/test-session-bootstrap.sh"
 source "${_SCRIPT_DIR}/lib/matrix-state.sh"
+source "${_SCRIPT_DIR}/lib/report.sh"
 
 # ── Phase result tracking ────────────────────────────────────────────────────
 record_phase() {
@@ -760,104 +761,241 @@ BRIDGE_PROBE
 }
 
 # ── Phase: report ─────────────────────────────────────────────────────────────
-# Aggregate evidence and emit report.
-# Stub for now — T13 will provide full report infrastructure.
+# Aggregate evidence from all phases and feature groups, compute verdict,
+# emit JSON + text reports via scripts/lib/report.sh.
+#
+# Exit codes from this phase:
+#   0 = pass
+#   1 = fail or blocked
+#   2 = partial
 phase_report() {
   log_info "=== Phase: report ==="
 
+  # ── 1. Initialize report module ──────────────────────────────────────────────
+  _report_init --output-dir "$EVIDENCE_DIR"
+
+  # ── 2. Set topology/deploy context ──────────────────────────────────────────
+  local topo_classification="unknown"
+  local topo_deploy_mode="${DEPLOY_MODE:-unknown}"
+  if [[ -f "${EVIDENCE_DIR}/topology.json" ]]; then
+    topo_classification=$(jq -r '.classification // "unknown"' "${EVIDENCE_DIR}/topology.json" 2>/dev/null)
+    topo_deploy_mode=$(jq -r '.deploy_mode // "unknown"' "${EVIDENCE_DIR}/topology.json" 2>/dev/null)
+  fi
+  _report_set_topology "$topo_classification" "$topo_deploy_mode"
+
+  # ── 3. Add lifecycle phase results ──────────────────────────────────────────
+  local _pr_name _pr_status
+  for entry in "${_PHASE_RESULTS[@]+"${_PHASE_RESULTS[@]}"}"; do
+    _pr_name="${entry%%:*}"
+    _pr_status="${entry##*:}"
+    _report_add_phase "$_pr_name" "$_pr_status" ""
+  done
+
+  # ── 4. Set deploy results from phase tracking ───────────────────────────────
+  local _dr_fresh="not-run"
+  local _dr_existing="not-run"
+  local _dr_matrix="not-run"
+  for entry in "${_PHASE_RESULTS[@]+"${_PHASE_RESULTS[@]}"}"; do
+    _pr_name="${entry%%:*}"
+    _pr_status="${entry##*:}"
+    case "$_pr_name" in
+      deploy)
+        if [[ "$topo_deploy_mode" == "fresh-install" ]]; then
+          _dr_fresh="$_pr_status"
+        else
+          _dr_existing="$_pr_status"
+        fi
+        ;;
+      admin-bootstrap) _dr_matrix="$_pr_status" ;;
+      test-bootstrap)
+        if [[ "$_dr_matrix" == "not-run" ]]; then
+          _dr_matrix="$_pr_status"
+        fi
+        ;;
+    esac
+  done
+  _report_set_deploy_results "$_dr_fresh" "$_dr_existing" "$_dr_matrix"
+
+  if [[ "$_dr_fresh" == "fail" || "$_dr_existing" == "fail" ]]; then
+    _report_add_blocker "deploy" "Deploy phase failed — cannot proceed with validation" "high"
+  fi
+
+  # ── 5. Feature group definitions (A-I) ──────────────────────────────────────
+  #   group_letter: display name
+  local -A _FG_NAMES
+  _FG_NAMES[a]="A-Matrix"
+  _FG_NAMES[b]="B-Studio"
+  _FG_NAMES[c]="C-Secretary"
+  _FG_NAMES[d]="D-Trust"
+  _FG_NAMES[e]="E-Email"
+  _FG_NAMES[f]="F-Sidecar"
+  _FG_NAMES[g]="G-Browser"
+  _FG_NAMES[h]="H-Events"
+  _FG_NAMES[i]="I-Flags"
+
+  local -a _SMOKE_GROUPS=(a b c d)
+  local -a _FULL_GROUPS=(a b c d e f g h i)
+
+  local -a _scope_groups
+  if [[ "$MODE" == "smoke" ]]; then
+    _scope_groups=("${_SMOKE_GROUPS[@]}")
+  else
+    _scope_groups=("${_FULL_GROUPS[@]}")
+  fi
+
+  # ── 6. Collect feature group results from evidence ──────────────────────────
+  local _fg_letter _fg_name _fg_status _fg_details _fg_evidence
+  for _fg_letter in "${_FULL_GROUPS[@]}"; do
+    _fg_name="${_FG_NAMES[${_fg_letter}]}"
+
+    # Check if this group is in scope for the current mode
+    local _in_scope=false
+    local _sg
+    for _sg in "${_scope_groups[@]}"; do
+      if [[ "$_sg" == "$_fg_letter" ]]; then
+        _in_scope=true
+        break
+      fi
+    done
+
+    local _fg_pattern="${EVIDENCE_DIR}/group-${_fg_letter}-*.json"
+    local _fg_files=()
+    local _gf
+    for _gf in $_fg_pattern; do
+      if [[ -f "$_gf" ]]; then
+        _fg_files+=("$_gf")
+      fi
+    done
+
+    if [[ ${#_fg_files[@]} -eq 0 ]]; then
+      if [[ "$_in_scope" == "true" ]]; then
+        _fg_status="not-run"
+        _fg_details="No evidence found for ${_fg_name}"
+      else
+        _fg_status="not-run"
+        _fg_details="Not in scope for ${MODE} mode"
+      fi
+      _fg_evidence=""
+    else
+      local _fg_pass=0 _fg_fail=0 _fg_skip=0 _fg_total=${#_fg_files[@]}
+      local _ev_file _ev_overall
+      for _ev_file in "${_fg_files[@]}"; do
+        _ev_overall=$(jq -r '.overall // "unknown"' "$_ev_file" 2>/dev/null)
+        case "$_ev_overall" in
+          pass)         ((_fg_pass++)) || true ;;
+          fail)         ((_fg_fail++)) || true ;;
+          skip|skip-disabled) ((_fg_skip++)) || true ;;
+          *)            ((_fg_fail++)) || true ;;
+        esac
+        _report_add_evidence "$_ev_file"
+      done
+
+      if [[ $_fg_fail -gt 0 ]]; then
+        _fg_status="fail"
+        _fg_details="${_fg_fail}/${_fg_total} test(s) failed in ${_fg_name}"
+      elif [[ $_fg_pass -eq $_fg_total ]]; then
+        _fg_status="pass"
+        _fg_details="${_fg_total}/${_fg_total} test(s) passed in ${_fg_name}"
+      elif [[ $_fg_pass -gt 0 ]]; then
+        _fg_status="fail"
+        _fg_details="${_fg_pass} passed, ${_fg_skip} skipped, ${_fg_fail} failed in ${_fg_name}"
+      else
+        _fg_status="fail"
+        _fg_details="No passing tests in ${_fg_name}"
+      fi
+      _fg_evidence="${_fg_files[0]}"
+    fi
+
+    _report_add_feature_group "$_fg_name" "$_fg_status" "$_fg_details" "$_fg_evidence"
+    log_info "[report] ${_fg_name}: ${_fg_status} ${_fg_details}"
+  done
+
+  # ── 7. Collect additional evidence files (non-group) ────────────────────────
+  local _ev_f
+  for _ev_f in "${EVIDENCE_DIR}"/*.json; do
+    if [[ -f "$_ev_f" ]]; then
+      local _ev_basename
+      _ev_basename="$(basename "$_ev_f")"
+      if [[ "$_ev_basename" == group-* ]]; then
+        continue
+      fi
+      if [[ "$_ev_basename" == report.json || "$_ev_basename" == report.txt ]]; then
+        continue
+      fi
+      _report_add_evidence "$_ev_f"
+    fi
+  done
+
+  # ── 8. Compute overall verdict ──────────────────────────────────────────────
+  _report_set_verdict
+  local verdict
+  verdict=$(_report_get_verdict)
+  log_info "[report] Overall verdict: ${verdict}"
+
+  # ── 9. Emit reports ─────────────────────────────────────────────────────────
+  case "$REPORT_FORMAT" in
+    json)
+      _report_emit_json
+      ;;
+    text)
+      _report_emit_text
+      ;;
+    json+text)
+      _report_emit_json
+      _report_emit_text
+      ;;
+    *)
+      log_warn "[report] Unknown --report-format '${REPORT_FORMAT}', defaulting to json+text"
+      _report_emit_json
+      _report_emit_text
+      ;;
+  esac
+
+  # ── 10. Print summary to stderr ─────────────────────────────────────────────
   local end_time
   end_time=$(date +%s)
   local duration=$(( end_time - _START_TIME ))
 
-  local total=$(( _PHASE_PASS + _PHASE_FAIL + _PHASE_SKIP ))
+  local _report_output_dir
+  _report_output_dir=$(_report_get_output_dir)
 
-  # Determine overall status
-  local overall_status="pass"
-  if [[ $_PHASE_FAIL -gt 0 && $_PHASE_PASS -gt 0 ]]; then
-    overall_status="partial"
-  elif [[ $_PHASE_FAIL -gt 0 ]]; then
-    overall_status="fail"
-  fi
+  echo "" >&2
+  echo "=========================================" >&2
+  echo " VPS Lifecycle Report" >&2
+  echo " Mode: ${MODE} | VPS: ${VPS_IP}" >&2
+  echo " Deploy: ${DEPLOY_MODE:-auto} | Duration: ${duration}s" >&2
+  echo "=========================================" >&2
 
-  # Build phase results JSON
-  local results_json="[]"
-  for entry in "${_PHASE_RESULTS[@]+"${_PHASE_RESULTS[@]}"}"; do
-    local name="${entry%%:*}"
-    local status="${entry##*:}"
-    results_json=$(echo "$results_json" | jq --arg n "$name" --arg s "$status" \
-      '. + [{phase: $n, status: $s}]')
+  local _entry _eg_group _eg_status _eg_bar
+  for _entry in "${_REPORT_FEATURE_GROUPS[@]}"; do
+    _eg_group=$(echo "$_entry" | jq -r '.group')
+    _eg_status=$(echo "$_entry" | jq -r '.status')
+    case "$_eg_status" in
+      pass)         _eg_bar="████████" ;;
+      fail)         _eg_bar="████░░░░" ;;
+      skip-disabled) _eg_bar="░░░░░░░░" ;;
+      not-run)      _eg_bar="────────" ;;
+      *)            _eg_bar="????????" ;;
+    esac
+    echo "  ${_eg_bar} ${_eg_group}  [${_eg_status^^}]" >&2
   done
 
-  # Collect evidence file paths
-  local evidence_files="[]"
-  for f in "${EVIDENCE_DIR}"/*.json; do
-    if [[ -f "$f" ]]; then
-      evidence_files=$(echo "$evidence_files" | jq --arg p "$f" '. + [$p]')
-    fi
-  done
-
-  # Generate JSON report
-  local report
-  report=$(jq -nc \
-    --arg phase "$PHASE" \
-    --arg mode "$MODE" \
-    --arg vps_ip "$VPS_IP" \
-    --arg deploy_mode "${DEPLOY_MODE:-none}" \
-    --arg overall "$overall_status" \
-    --argjson duration "$duration" \
-    --argjson pass "$_PHASE_PASS" \
-    --argjson fail "$_PHASE_FAIL" \
-    --argjson skip "$_PHASE_SKIP" \
-    --argjson results "$results_json" \
-    --argjson evidence "$evidence_files" \
-    '{
-      phase: $phase,
-      mode: $mode,
-      vps_ip: $vps_ip,
-      deploy_mode: $deploy_mode,
-      overall_status: $overall,
-      duration_seconds: $duration,
-      summary: {
-        pass: $pass,
-        fail: $fail,
-        skip: $skip
-      },
-      phases: $results,
-      evidence_paths: $evidence,
-      timestamp: (now | todate)
-    }')
-
-  echo "$report" > "${EVIDENCE_DIR}/lifecycle-report.json"
-
-  # Text report
-  if [[ "$REPORT_FORMAT" == "text" || "$REPORT_FORMAT" == "json+text" ]]; then
-    echo ""
-    echo "========================================="
-    echo " VPS Lifecycle Report"
-    echo " Phase: ${PHASE} | Mode: ${MODE}"
-    echo " VPS: ${VPS_IP} | Deploy: ${DEPLOY_MODE:-auto}"
-    echo " Duration: ${duration}s"
-    echo "========================================="
-    for entry in "${_PHASE_RESULTS[@]+"${_PHASE_RESULTS[@]}"}"; do
-      local name="${entry%%:*}"
-      local status="${entry##*:}"
-      local icon="?"
-      case "$status" in
-        pass) icon="PASS" ;;
-        fail) icon="FAIL" ;;
-        skip) icon="SKIP" ;;
-      esac
-      echo "  ${icon}: ${name}"
-    done
-    echo "========================================="
-    echo " Overall: ${overall_status}"
-    echo " ${_PHASE_PASS} PASS | ${_PHASE_FAIL} FAIL | ${_PHASE_SKIP} SKIP"
-    echo " Report: ${EVIDENCE_DIR}/lifecycle-report.json"
-    echo "========================================="
-  fi
+  echo "=========================================" >&2
+  echo " Verdict: ${verdict}" >&2
+  echo " Report:  ${_report_output_dir}/report.json" >&2
+  echo " Text:    ${_report_output_dir}/report.txt" >&2
+  echo "=========================================" >&2
 
   record_phase "report" "pass"
-  return 0
+
+  # ── 11. Exit with appropriate code ──────────────────────────────────────────
+  case "$verdict" in
+    pass)    return 0 ;;
+    partial) return 2 ;;
+    fail)    return 1 ;;
+    blocked) return 1 ;;
+    *)       return 1 ;;
+  esac
 }
 
 # ── Main: phase dispatch ─────────────────────────────────────────────────────
@@ -884,6 +1022,7 @@ case "$PHASE" in
     ;;
   report)
     phase_report
+    exit $?
     ;;
   all)
     # Run all phases in sequence
@@ -899,7 +1038,7 @@ case "$PHASE" in
     fi
 
     phase_validate || true
-    phase_report
+    phase_report || true
     ;;
 esac
 
