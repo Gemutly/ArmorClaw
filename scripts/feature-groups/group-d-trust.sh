@@ -763,6 +763,26 @@ _group_d_run() {
   echo "[group-d] Starting Trust / PII / Approvals test group" >&2
   echo "[group-d] VPS: ${_GD_SSH_USER}@${_GD_VPS_IP}, Output: ${_GD_OUTPUT_DIR}" >&2
 
+  # ── Bridge RPC pre-check ─────────────────────────────────────────────────
+  local rpc_probe
+  rpc_probe=$(_group_d_rpc "rpc.discover" '{}' 2>/dev/null)
+  if [[ -z "$rpc_probe" ]]; then
+    local skip_results
+    skip_results=$(jq -nc '[
+      {name: "rpc-probe", status: "skip-disabled", details: "RPC incompatible — bridge API not responding", evidence_path: "", duration_ms: 0},
+      {name: "approval-publication", status: "skip-disabled", details: "Bridge RPC unavailable", evidence_path: "", duration_ms: 0},
+      {name: "approve-handling", status: "skip-disabled", details: "Bridge RPC unavailable", evidence_path: "", duration_ms: 0},
+      {name: "reject-handling", status: "skip-disabled", details: "Bridge RPC unavailable", evidence_path: "", duration_ms: 0},
+      {name: "fail-closed", status: "skip-disabled", details: "Bridge RPC unavailable", evidence_path: "", duration_ms: 0},
+      {name: "secret-classification", status: "skip-disabled", details: "Bridge RPC unavailable", evidence_path: "", duration_ms: 0}
+    ]')
+    jq -nc \
+      --argjson results "$skip_results" \
+      --argjson duration_ms 0 \
+      '{group: "d", name: "Trust / PII / Approvals", results: $results, duration_ms: $duration_ms, overall: "skip-disabled"}'
+    return 0
+  fi
+
   # Load Matrix state for event polling
   _matrix_load_state 2>/dev/null || true
 

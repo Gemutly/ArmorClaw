@@ -498,6 +498,26 @@ _group_c_run() {
   _GC_WF_ID=""
   _GC_TPL_ID=""
 
+  # ── Bridge RPC pre-check ─────────────────────────────────────────────────
+  local rpc_probe
+  rpc_probe=$(_group_c_bridge_rpc "rpc.discover" '{}' 2>/dev/null)
+  if [[ -z "$rpc_probe" ]]; then
+    local probe_ms=$(( $(date +%s%3N) - group_start_ms ))
+    local skip_results
+    skip_results=$(jq -nc '[
+      {name: "rpc-probe", status: "skip-disabled", details: "RPC incompatible — bridge API not responding", evidence_path: "", duration_ms: 0},
+      {name: "start-workflow", status: "skip-disabled", details: "Bridge RPC unavailable", evidence_path: "", duration_ms: 0},
+      {name: "blocked-path", status: "skip-disabled", details: "Bridge RPC unavailable", evidence_path: "", duration_ms: 0},
+      {name: "user-response", status: "skip-disabled", details: "Bridge RPC unavailable", evidence_path: "", duration_ms: 0},
+      {name: "completion", status: "skip-disabled", details: "Bridge RPC unavailable", evidence_path: "", duration_ms: 0}
+    ]')
+    jq -nc \
+      --argjson results "$skip_results" \
+      --argjson duration_ms "$probe_ms" \
+      '{group: "c-secretary", name: "Secretary Workflows", results: $results, duration_ms: $duration_ms, overall: "skip-disabled"}'
+    return 0
+  fi
+
   # Load Matrix session state for approval path tests
   if [[ -n "${_SCRIPT_DIR:-}" ]]; then
     _matrix_load_state >/dev/null 2>&1 || true

@@ -122,14 +122,16 @@ _ga_poll_for_response() {
   return 1
 }
 
-# _ga_make_result(name, status, details, evidence_path, duration_ms)
+# _ga_make_result(name, status, details, evidence_path, duration_ms, category)
 # Produce a single test result JSON object.
+# category: "transport" or "bridge-command"
 _ga_make_result() {
   local name="${1:?}"
   local status="${2:?}"
   local details="${3:-}"
   local evidence_path="${4:-}"
   local duration_ms="${5:-0}"
+  local category="${6:-}"
 
   jq -nc \
     --arg name "$name" \
@@ -137,7 +139,8 @@ _ga_make_result() {
     --arg details "$details" \
     --arg evidence "$evidence_path" \
     --argjson duration "$duration_ms" \
-    '{name: $name, status: $status, details: $details, evidence_path: $evidence, duration_ms: $duration}'
+    --arg category "$category" \
+    '{name: $name, status: $status, details: $details, evidence_path: $evidence, duration_ms: $duration, category: $category}'
 }
 
 # _ga_save_evidence(filename, content) — save evidence JSON to output dir
@@ -162,7 +165,7 @@ _ga_test_login() {
     local end_ms=$(( $(date +%s%N) / 1000000 ))
     local evidence_path
     evidence_path=$(_ga_save_evidence "group-a-login.json" '{"error": "whoami request failed"}')
-    _ga_make_result "matrix-login" "fail" "whoami request failed (curl error)" "$evidence_path" $(( end_ms - start_ms ))
+    _ga_make_result "matrix-login" "fail" "whoami request failed (curl error)" "$evidence_path" $(( end_ms - start_ms )) "transport"
     return 0
   }
 
@@ -175,11 +178,11 @@ _ga_test_login() {
   local end_ms=$(( $(date +%s%N) / 1000000 ))
 
   if [[ -n "$user_id" && "$user_id" != "null" ]]; then
-    _ga_make_result "matrix-login" "pass" "whoami confirmed: ${user_id}" "$evidence_path" $(( end_ms - start_ms ))
+    _ga_make_result "matrix-login" "pass" "whoami confirmed: ${user_id}" "$evidence_path" $(( end_ms - start_ms )) "transport"
   else
     local errcode
     errcode=$(echo "$resp" | jq -r '.errcode // "unknown"' 2>/dev/null)
-    _ga_make_result "matrix-login" "fail" "whoami returned error: ${errcode}" "$evidence_path" $(( end_ms - start_ms ))
+    _ga_make_result "matrix-login" "fail" "whoami returned error: ${errcode}" "$evidence_path" $(( end_ms - start_ms )) "transport"
   fi
 }
 
@@ -194,7 +197,7 @@ _ga_test_send_receive() {
     local end_ms=$(( $(date +%s%N) / 1000000 ))
     local evidence_path
     evidence_path=$(_ga_save_evidence "group-a-send-receive.json" '{"error": "initial sync failed"}')
-    _ga_make_result "send-receive" "fail" "initial sync failed" "$evidence_path" $(( end_ms - start_ms ))
+    _ga_make_result "send-receive" "fail" "initial sync failed" "$evidence_path" $(( end_ms - start_ms )) "transport"
     return 0
   }
 
@@ -208,7 +211,7 @@ _ga_test_send_receive() {
     local end_ms=$(( $(date +%s%N) / 1000000 ))
     local evidence_path
     evidence_path=$(_ga_save_evidence "group-a-send-receive.json" '{"error": "send message failed"}')
-    _ga_make_result "send-receive" "fail" "send message failed (curl error)" "$evidence_path" $(( end_ms - start_ms ))
+    _ga_make_result "send-receive" "fail" "send message failed (curl error)" "$evidence_path" $(( end_ms - start_ms )) "transport"
     return 0
   }
 
@@ -220,7 +223,7 @@ _ga_test_send_receive() {
     evidence_path=$(_ga_save_evidence "group-a-send-receive.json" \
       "$(jq -nc --arg eid "$event_id" --arg msg "$msg_body" \
         '{sent_event_id: $eid, sent_body: $msg, error: "message not found in timeline within 30s"}')")
-    _ga_make_result "send-receive" "fail" "sent ${event_id} but message not found in timeline within 30s" "$evidence_path" $(( end_ms - start_ms ))
+    _ga_make_result "send-receive" "fail" "sent ${event_id} but message not found in timeline within 30s" "$evidence_path" $(( end_ms - start_ms )) "transport"
     return 0
   }
 
@@ -233,7 +236,7 @@ _ga_test_send_receive() {
       '{sent_event_id: $eid, sent_body: $msg, matched_event: ($match | fromjson)}')")
 
   local end_ms=$(( $(date +%s%N) / 1000000 ))
-  _ga_make_result "send-receive" "pass" "sent ${event_id}, confirmed in timeline" "$evidence_path" $(( end_ms - start_ms ))
+  _ga_make_result "send-receive" "pass" "sent ${event_id}, confirmed in timeline" "$evidence_path" $(( end_ms - start_ms )) "transport"
 }
 
 # _ga_test_status_command() — send /status, poll for m.notice response
@@ -247,7 +250,7 @@ _ga_test_status_command() {
     local end_ms=$(( $(date +%s%N) / 1000000 ))
     local evidence_path
     evidence_path=$(_ga_save_evidence "group-a-status.json" '{"error": "initial sync failed"}')
-    _ga_make_result "status-command" "fail" "initial sync failed" "$evidence_path" $(( end_ms - start_ms ))
+    _ga_make_result "status-command" "fail" "initial sync failed" "$evidence_path" $(( end_ms - start_ms )) "bridge-command"
     return 0
   }
   local since_token
@@ -259,7 +262,7 @@ _ga_test_status_command() {
     local end_ms=$(( $(date +%s%N) / 1000000 ))
     local evidence_path
     evidence_path=$(_ga_save_evidence "group-a-status.json" '{"error": "send /status failed"}')
-    _ga_make_result "status-command" "fail" "send /status failed" "$evidence_path" $(( end_ms - start_ms ))
+    _ga_make_result "status-command" "fail" "send /status failed" "$evidence_path" $(( end_ms - start_ms )) "bridge-command"
     return 0
   }
 
@@ -270,7 +273,7 @@ _ga_test_status_command() {
     local evidence_path
     evidence_path=$(_ga_save_evidence "group-a-status.json" \
       "$(jq -nc --arg eid "$event_id" '{sent_event_id: $eid, error: "no m.notice response within 30s"}')")
-    _ga_make_result "status-command" "fail" "sent /status (${event_id}) but no m.notice response within 30s" "$evidence_path" $(( end_ms - start_ms ))
+    _ga_make_result "status-command" "fail" "sent /status (${event_id}) but no m.notice response within 30s" "$evidence_path" $(( end_ms - start_ms )) "bridge-command"
     return 0
   }
 
@@ -289,9 +292,9 @@ _ga_test_status_command() {
   local end_ms=$(( $(date +%s%N) / 1000000 ))
 
   if [[ "$msgtype" == "m.notice" ]]; then
-    _ga_make_result "status-command" "pass" "m.notice received: ${body:0:80}" "$evidence_path" $(( end_ms - start_ms ))
+    _ga_make_result "status-command" "pass" "m.notice received: ${body:0:80}" "$evidence_path" $(( end_ms - start_ms )) "bridge-command"
   else
-    _ga_make_result "status-command" "fail" "response msgtype='${msgtype}', expected m.notice" "$evidence_path" $(( end_ms - start_ms ))
+    _ga_make_result "status-command" "fail" "response msgtype='${msgtype}', expected m.notice" "$evidence_path" $(( end_ms - start_ms )) "bridge-command"
   fi
 }
 
@@ -305,7 +308,7 @@ _ga_test_help_command() {
     local end_ms=$(( $(date +%s%N) / 1000000 ))
     local evidence_path
     evidence_path=$(_ga_save_evidence "group-a-help.json" '{"error": "initial sync failed"}')
-    _ga_make_result "help-command" "fail" "initial sync failed" "$evidence_path" $(( end_ms - start_ms ))
+    _ga_make_result "help-command" "fail" "initial sync failed" "$evidence_path" $(( end_ms - start_ms )) "bridge-command"
     return 0
   }
   local since_token
@@ -316,7 +319,7 @@ _ga_test_help_command() {
     local end_ms=$(( $(date +%s%N) / 1000000 ))
     local evidence_path
     evidence_path=$(_ga_save_evidence "group-a-help.json" '{"error": "send /help failed"}')
-    _ga_make_result "help-command" "fail" "send /help failed" "$evidence_path" $(( end_ms - start_ms ))
+    _ga_make_result "help-command" "fail" "send /help failed" "$evidence_path" $(( end_ms - start_ms )) "bridge-command"
     return 0
   }
 
@@ -326,7 +329,7 @@ _ga_test_help_command() {
     local evidence_path
     evidence_path=$(_ga_save_evidence "group-a-help.json" \
       "$(jq -nc --arg eid "$event_id" '{sent_event_id: $eid, error: "no response within 30s"}')")
-    _ga_make_result "help-command" "fail" "sent /help (${event_id}) but no response within 30s" "$evidence_path" $(( end_ms - start_ms ))
+    _ga_make_result "help-command" "fail" "sent /help (${event_id}) but no response within 30s" "$evidence_path" $(( end_ms - start_ms )) "bridge-command"
     return 0
   }
 
@@ -345,9 +348,9 @@ _ga_test_help_command() {
   local end_ms=$(( $(date +%s%N) / 1000000 ))
 
   if [[ "$msgtype" == "m.notice" ]]; then
-    _ga_make_result "help-command" "pass" "m.notice received: ${body:0:80}" "$evidence_path" $(( end_ms - start_ms ))
+    _ga_make_result "help-command" "pass" "m.notice received: ${body:0:80}" "$evidence_path" $(( end_ms - start_ms )) "bridge-command"
   else
-    _ga_make_result "help-command" "fail" "response msgtype='${msgtype}', expected m.notice" "$evidence_path" $(( end_ms - start_ms ))
+    _ga_make_result "help-command" "fail" "response msgtype='${msgtype}', expected m.notice" "$evidence_path" $(( end_ms - start_ms )) "bridge-command"
   fi
 }
 
@@ -361,7 +364,7 @@ _ga_test_agent_list() {
     local end_ms=$(( $(date +%s%N) / 1000000 ))
     local evidence_path
     evidence_path=$(_ga_save_evidence "group-a-agent-list.json" '{"error": "initial sync failed"}')
-    _ga_make_result "agent-list" "fail" "initial sync failed" "$evidence_path" $(( end_ms - start_ms ))
+    _ga_make_result "agent-list" "fail" "initial sync failed" "$evidence_path" $(( end_ms - start_ms )) "bridge-command"
     return 0
   }
   local since_token
@@ -372,7 +375,7 @@ _ga_test_agent_list() {
     local end_ms=$(( $(date +%s%N) / 1000000 ))
     local evidence_path
     evidence_path=$(_ga_save_evidence "group-a-agent-list.json" '{"error": "send !agent list failed"}')
-    _ga_make_result "agent-list" "fail" "send !agent list failed" "$evidence_path" $(( end_ms - start_ms ))
+    _ga_make_result "agent-list" "fail" "send !agent list failed" "$evidence_path" $(( end_ms - start_ms )) "bridge-command"
     return 0
   }
 
@@ -383,7 +386,7 @@ _ga_test_agent_list() {
     local evidence_path
     evidence_path=$(_ga_save_evidence "group-a-agent-list.json" \
       "$(jq -nc --arg eid "$event_id" '{sent_event_id: $eid, error: "no m.notice response within 30s"}')")
-    _ga_make_result "agent-list" "fail" "sent !agent list (${event_id}) but no response within 30s" "$evidence_path" $(( end_ms - start_ms ))
+    _ga_make_result "agent-list" "fail" "sent !agent list (${event_id}) but no response within 30s" "$evidence_path" $(( end_ms - start_ms )) "bridge-command"
     return 0
   }
 
@@ -402,9 +405,9 @@ _ga_test_agent_list() {
   local end_ms=$(( $(date +%s%N) / 1000000 ))
 
   if [[ "$msgtype" == "m.notice" ]]; then
-    _ga_make_result "agent-list" "pass" "m.notice received: ${body:0:80}" "$evidence_path" $(( end_ms - start_ms ))
+    _ga_make_result "agent-list" "pass" "m.notice received: ${body:0:80}" "$evidence_path" $(( end_ms - start_ms )) "bridge-command"
   else
-    _ga_make_result "agent-list" "fail" "response msgtype='${msgtype}', expected m.notice" "$evidence_path" $(( end_ms - start_ms ))
+    _ga_make_result "agent-list" "fail" "response msgtype='${msgtype}', expected m.notice" "$evidence_path" $(( end_ms - start_ms )) "bridge-command"
   fi
 }
 
@@ -418,7 +421,7 @@ _ga_test_secretary_status() {
     local end_ms=$(( $(date +%s%N) / 1000000 ))
     local evidence_path
     evidence_path=$(_ga_save_evidence "group-a-secretary-status.json" '{"error": "initial sync failed"}')
-    _ga_make_result "secretary-status" "fail" "initial sync failed" "$evidence_path" $(( end_ms - start_ms ))
+    _ga_make_result "secretary-status" "fail" "initial sync failed" "$evidence_path" $(( end_ms - start_ms )) "bridge-command"
     return 0
   }
   local since_token
@@ -429,7 +432,7 @@ _ga_test_secretary_status() {
     local end_ms=$(( $(date +%s%N) / 1000000 ))
     local evidence_path
     evidence_path=$(_ga_save_evidence "group-a-secretary-status.json" '{"error": "send !secretary status failed"}')
-    _ga_make_result "secretary-status" "fail" "send !secretary status failed" "$evidence_path" $(( end_ms - start_ms ))
+    _ga_make_result "secretary-status" "fail" "send !secretary status failed" "$evidence_path" $(( end_ms - start_ms )) "bridge-command"
     return 0
   }
 
@@ -440,7 +443,7 @@ _ga_test_secretary_status() {
     local evidence_path
     evidence_path=$(_ga_save_evidence "group-a-secretary-status.json" \
       "$(jq -nc --arg eid "$event_id" '{sent_event_id: $eid, error: "no m.notice response within 30s"}')")
-    _ga_make_result "secretary-status" "fail" "sent !secretary status (${event_id}) but no response within 30s" "$evidence_path" $(( end_ms - start_ms ))
+    _ga_make_result "secretary-status" "fail" "sent !secretary status (${event_id}) but no response within 30s" "$evidence_path" $(( end_ms - start_ms )) "bridge-command"
     return 0
   }
 
@@ -459,9 +462,9 @@ _ga_test_secretary_status() {
   local end_ms=$(( $(date +%s%N) / 1000000 ))
 
   if [[ "$msgtype" == "m.notice" ]]; then
-    _ga_make_result "secretary-status" "pass" "m.notice received: ${body:0:80}" "$evidence_path" $(( end_ms - start_ms ))
+    _ga_make_result "secretary-status" "pass" "m.notice received: ${body:0:80}" "$evidence_path" $(( end_ms - start_ms )) "bridge-command"
   else
-    _ga_make_result "secretary-status" "fail" "response msgtype='${msgtype}', expected m.notice" "$evidence_path" $(( end_ms - start_ms ))
+    _ga_make_result "secretary-status" "fail" "response msgtype='${msgtype}', expected m.notice" "$evidence_path" $(( end_ms - start_ms )) "bridge-command"
   fi
 }
 
@@ -480,8 +483,7 @@ _ga_test_secretary_status() {
 #   - scripts/lib/matrix-state.sh already sourced (provides _matrix_load_state)
 #   - scripts/lib/test-session-bootstrap.sh already sourced if bootstrapping needed
 #
-# Returns: JSON array of test results on stdout. Each element:
-#   {name, status: pass|fail|skip, details, evidence_path, duration_ms}
+# Returns: JSON object {group, name, results, overall, details, duration_ms} on stdout.
 _group_a_run() {
   # Parse arguments
   while [[ $# -gt 0 ]]; do
@@ -503,12 +505,20 @@ _group_a_run() {
   # Validate required params
   if [[ -z "$_GA_VPS_IP" ]]; then
     echo '[group-a] ERROR: --vps-ip or VPS_IP required' >&2
-    jq -nc '[{name:"group-a-matrix",status:"fail",details:"--vps-ip not provided",evidence_path:"",duration_ms:0}]'
+    local group_start_ms
+    group_start_ms=$(( $(date +%s%N) / 1000000 ))
+    jq -nc \
+      --argjson duration_ms "$(( ($(date +%s%N) / 1000000) - group_start_ms ))" \
+      '{group: "A-Matrix", name: "Matrix Control Plane", results: [{name:"group-a-matrix",status:"fail",details:"--vps-ip not provided",evidence_path:"",duration_ms:0,category:""}], overall: "fail", details: "0/0 transport PASS, 0/0 bridge-command FAIL", duration_ms: $duration_ms}'
     return 1
   fi
   if [[ -z "$_GA_SSH_KEY" ]]; then
     echo '[group-a] ERROR: --ssh-key or SSH_KEY_PATH required' >&2
-    jq -nc '[{name:"group-a-matrix",status:"fail",details:"--ssh-key not provided",evidence_path:"",duration_ms:0}]'
+    local group_start_ms
+    group_start_ms=$(( $(date +%s%N) / 1000000 ))
+    jq -nc \
+      --argjson duration_ms "$(( ($(date +%s%N) / 1000000) - group_start_ms ))" \
+      '{group: "A-Matrix", name: "Matrix Control Plane", results: [{name:"group-a-matrix",status:"fail",details:"--ssh-key not provided",evidence_path:"",duration_ms:0,category:""}], overall: "fail", details: "0/0 transport PASS, 0/0 bridge-command FAIL", duration_ms: $duration_ms}'
     return 1
   fi
 
@@ -516,11 +526,15 @@ _group_a_run() {
 
   # Load Matrix session state
   if ! _matrix_load_state 2>/dev/null; then
-    # No valid session — all tests fail with clear message
     echo "[group-a] Matrix session not bootstrapped — failing all tests" >&2
+    local group_start_ms
+    group_start_ms=$(( $(date +%s%N) / 1000000 ))
     local fail_result
-    fail_result=$(_ga_make_result "group-a-matrix-all" "fail" "Matrix session not bootstrapped — run test-session-bootstrap first" "" 0)
-    jq -nc --argjson r "$fail_result" '[$r]'
+    fail_result=$(_ga_make_result "group-a-matrix-all" "fail" "Matrix session not bootstrapped — run test-session-bootstrap first" "" 0 "")
+    jq -nc \
+      --argjson results "[${fail_result}]" \
+      --argjson duration_ms "$(( ($(date +%s%N) / 1000000) - group_start_ms ))" \
+      '{group: "A-Matrix", name: "Matrix Control Plane", results: $results, overall: "fail", details: "0/0 transport PASS, 0/0 bridge-command FAIL", duration_ms: $duration_ms}'
     return 1
   fi
 
@@ -531,13 +545,21 @@ _group_a_run() {
   # Validate session has the minimum fields
   if [[ -z "$_GA_TOKEN" || -z "$_GA_ROOM_ID" ]]; then
     echo "[group-a] Loaded state is incomplete (missing token or room_id)" >&2
+    local group_start_ms
+    group_start_ms=$(( $(date +%s%N) / 1000000 ))
     local fail_result
-    fail_result=$(_ga_make_result "group-a-matrix-all" "fail" "Matrix session not bootstrapped — access_token or test_room_id missing" "" 0)
-    jq -nc --argjson r "$fail_result" '[$r]'
+    fail_result=$(_ga_make_result "group-a-matrix-all" "fail" "Matrix session not bootstrapped — access_token or test_room_id missing" "" 0 "")
+    jq -nc \
+      --argjson results "[${fail_result}]" \
+      --argjson duration_ms "$(( ($(date +%s%N) / 1000000) - group_start_ms ))" \
+      '{group: "A-Matrix", name: "Matrix Control Plane", results: $results, overall: "fail", details: "0/0 transport PASS, 0/0 bridge-command FAIL", duration_ms: $duration_ms}'
     return 1
   fi
 
   echo "[group-a] Session loaded: user=${_TEST_USER_ID:-?} room=${_GA_ROOM_ID}" >&2
+
+  local group_start
+  group_start=$(date +%s%N)
 
   # Run all 6 tests, collecting results
   local results=()
@@ -550,24 +572,42 @@ _group_a_run() {
   results+=( "$(_ga_test_secretary_status)" )
 
   # Build JSON array from results
-  local json_array="["
-  local first=true
-  for r in "${results[@]}"; do
-    if [[ "$first" == "true" ]]; then
-      first=false
-    else
-      json_array+=","
-    fi
-    json_array+="$r"
-  done
-  json_array+="]"
+  local all_results
+  all_results=$(printf '%s\n' "${results[@]}" | jq -s '.')
 
-  # Output results
-  echo "$json_array" | jq -c '.'
+  # Compute overall and details
+  local fail_count transport_pass transport_total bridge_pass bridge_total
+  fail_count=$(echo "$all_results" | jq '[.[] | select(.status == "fail")] | length')
+  transport_pass=$(echo "$all_results" | jq '[.[] | select(.category == "transport" and .status == "pass")] | length')
+  transport_total=$(echo "$all_results" | jq '[.[] | select(.category == "transport")] | length')
+  bridge_pass=$(echo "$all_results" | jq '[.[] | select(.category == "bridge-command" and .status == "pass")] | length')
+  bridge_total=$(echo "$all_results" | jq '[.[] | select(.category == "bridge-command")] | length')
 
-  # Determine overall status
-  local fail_count
-  fail_count=$(echo "$json_array" | jq '[.[] | select(.status == "fail")] | length')
+  local overall
+  if [[ "$fail_count" -eq 0 ]]; then
+    overall="pass"
+  else
+    overall="fail"
+  fi
+
+  local bridge_verdict="FAIL"
+  if [[ "$bridge_pass" -eq "$bridge_total" ]]; then
+    bridge_verdict="PASS"
+  fi
+
+  local details="${transport_pass}/${transport_total} transport PASS, ${bridge_pass}/${bridge_total} bridge-command ${bridge_verdict}"
+
+  local group_ms
+  group_ms=$(( ($(date +%s%N) - group_start) / 1000000 ))
+
+  # Output wrapped object (matches group-f-sidecar.sh format)
+  jq -nc \
+    --argjson results "$all_results" \
+    --arg overall "$overall" \
+    --arg details "$details" \
+    --argjson duration_ms "$group_ms" \
+    '{group: "A-Matrix", name: "Matrix Control Plane", results: $results, overall: $overall, details: $details, duration_ms: $duration_ms}'
+
   if [[ "$fail_count" -gt 0 ]]; then
     echo "[group-a] ${#results[@]} tests, ${fail_count} failed" >&2
     return 1
