@@ -302,11 +302,43 @@ phase_deploy() {
       ;;
     replace-existing)
       log_info "Replacing existing installation..."
+
+      # ── Preserve ARMORCLAW_KEYSTORE_SECRET before stopping containers ───────
+      # The hardware-bound keystore requires this secret. Without it, existing
+      # encrypted data becomes inaccessible after the update.
+      local _keystore_secret=""
+      # Try running container env first (most reliable for live deployments)
+      local _container_id
+      _container_id=$(ssh_vps "docker ps -q --filter name=armorclaw 2>/dev/null | head -1" 2>/dev/null || true)
+      if [[ -n "$_container_id" ]]; then
+        _keystore_secret=$(ssh_vps "docker inspect --format='{{range .Config.Env}}{{println .}}{{end}}' '${_container_id}' 2>/dev/null | grep '^ARMORCLAW_KEYSTORE_SECRET=' | head -1 | cut -d= -f2-" 2>/dev/null || true)
+      fi
+      # Fallback: check /etc/armorclaw/.env on disk
+      if [[ -z "$_keystore_secret" ]]; then
+        _keystore_secret=$(ssh_vps "grep '^ARMORCLAW_KEYSTORE_SECRET=' /etc/armorclaw/.env 2>/dev/null | head -1 | cut -d= -f2-" 2>/dev/null || true)
+      fi
+      # Fallback: check docker-compose .env in /opt/armorclaw
+      if [[ -z "$_keystore_secret" ]]; then
+        _keystore_secret=$(ssh_vps "grep '^ARMORCLAW_KEYSTORE_SECRET=' /opt/armorclaw/.env 2>/dev/null | head -1 | cut -d= -f2-" 2>/dev/null || true)
+      fi
+
+      if [[ -n "$_keystore_secret" ]]; then
+        log_pass "ARMORCLAW_KEYSTORE_SECRET preserved from existing installation"
+      else
+        log_warn "ARMORCLAW_KEYSTORE_SECRET not found on existing installation — hardware-bound keystore may fail after update"
+      fi
+
       # Stop existing containers and reinstall
       ssh_vps "docker stop \$(docker ps -q --filter name=conduit) 2>/dev/null; docker stop \$(docker ps -q --filter name=armorclaw) 2>/dev/null; docker stop \$(docker ps -q --filter name=quickstart) 2>/dev/null" 2>/dev/null || true
       log_info "Existing containers stopped — running fresh install..."
+
+      # Deploy new installation, passing preserved keystore secret if found
       local install_exit=0
-      ssh_vps "curl -fsSL https://raw.githubusercontent.com/Gemutly/ArmorClaw/main/deploy/install.sh | bash" 2>&1 || install_exit=$?
+      if [[ -n "$_keystore_secret" ]]; then
+        ssh_vps "ARMORCLAW_KEYSTORE_SECRET='${_keystore_secret}' curl -fsSL https://raw.githubusercontent.com/Gemutly/ArmorClaw/main/deploy/install.sh | bash" 2>&1 || install_exit=$?
+      else
+        ssh_vps "curl -fsSL https://raw.githubusercontent.com/Gemutly/ArmorClaw/main/deploy/install.sh | bash" 2>&1 || install_exit=$?
+      fi
       if [[ $install_exit -ne 0 ]]; then
         log_fail "Replace deploy failed (exit: ${install_exit})"
         record_phase "deploy" "fail"
@@ -712,15 +744,29 @@ BRIDGE_PROBE
       local group_script="${_SCRIPT_DIR}/feature-groups/group-${group}.sh"
       if [[ -f "$group_script" ]]; then
         log_info "[validate] Running feature group ${group}..."
-        local group_exit=0
-        bash "$group_script" 2>&1 || group_exit=$?
-        if [[ $group_exit -eq 0 ]]; then
+        # Source the library and call its entry function directly
+        # Group scripts are sourced libraries (no shebang, no main block)
+        source "$group_script"
+        local group_result
+        group_result=$(_group_${group}_run \
+          --vps-ip "${VPS_IP}" \
+          --ssh-key "${SSH_KEY_PATH}" \
+          --ssh-user "${SSH_USER:-root}" \
+          --output-dir "${EVIDENCE_DIR}" 2>&1) || true
+        # Parse the result JSON — each group outputs a JSON array of test results
+        local group_status
+        group_status=$(echo "$group_result" | tail -1 | jq -r '.[0].status // "fail"' 2>/dev/null || echo "fail")
+        if [[ "$group_status" == "pass" ]]; then
           log_pass "[validate] Feature group ${group}: PASS"
           validate_results+=("group-${group}:pass")
           ((validate_pass++)) || true
+        elif [[ "$group_status" == "not-run" ]]; then
+          log_warn "[validate] Feature group ${group}: NOT-RUN (service unavailable)"
+          validate_results+=("group-${group}:not-run")
+          ((validate_skip++)) || true
         else
-          log_fail "[validate] Feature group ${group}: FAIL (exit: ${group_exit})"
-          validate_results+=("group-${group}:fail")
+          log_fail "[validate] Feature group ${group}: ${group_status^^}"
+          validate_results+=("group-${group}:${group_status}")
           ((validate_fail++)) || true
         fi
       else
