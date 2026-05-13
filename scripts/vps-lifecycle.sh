@@ -741,7 +741,20 @@ phase_validate() {
     local group_array=($groups)
     unset IFS
 
+    local _bcd_blocker_added=false
     for group in "${group_array[@]}"; do
+      # ── Gate B/C/D on RPC compatibility probe ──────────────────────────────
+      if [[ "$group" == @(b|c|d) && "$rpc_probe_result" != "compatible" ]]; then
+        log_warn "[validate] Feature group ${group}: SKIP-DISABLED (RPC probe: ${rpc_probe_result})"
+        validate_results+=("group-${group}:skip-disabled")
+        ((validate_skip++)) || true
+        if [[ "$_bcd_blocker_added" != "true" ]]; then
+          _report_add_blocker "validate" "Groups B/C/D skipped: RPC probe classified as '${rpc_probe_result}' — bridge API incompatible or unreachable" "high"
+          _bcd_blocker_added=true
+        fi
+        continue
+      fi
+
       local group_script
       group_script=$(compgen -G "${_SCRIPT_DIR}/feature-groups/group-${group}-*.sh" 2>/dev/null | head -1)
       group_script="${group_script:-${_SCRIPT_DIR}/feature-groups/group-${group}.sh}"
