@@ -130,3 +130,4 @@ license-server/license-server
 *.dylibsidecar/target/
 **/target/
 .aider*
+.env.backup-*
