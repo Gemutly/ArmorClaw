@@ -125,7 +125,7 @@ fi
 
 # Check bridge reachability — this is the Tier B gate
 NP0_BRIDGE_RESP=""
-NP0_BRIDGE_RESP=$(rpc_np "status" '{}' 2>/dev/null || true)
+NP0_BRIDGE_RESP=$(rpc_np "bridge.status" '{}' 2>/dev/null || true)
 
 if [[ -n "$NP0_BRIDGE_RESP" ]] && echo "$NP0_BRIDGE_RESP" | jq -e '.result' >/dev/null 2>&1; then
   log_pass "Bridge reachable via RPC"

@@ -63,7 +63,7 @@ else
 fi
 
 BRIDGE_REACHABLE=false
-BRIDGE_RESP=$(rpc_nc "status" 2>/dev/null || true)
+BRIDGE_RESP=$(rpc_nc "bridge.status" 2>/dev/null || true)
 if [[ -n "$BRIDGE_RESP" ]] && echo "$BRIDGE_RESP" | jq -e '.result' &>/dev/null; then
   BRIDGE_REACHABLE=true
   log_pass "Bridge reachable"

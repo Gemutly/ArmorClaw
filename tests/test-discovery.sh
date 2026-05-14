@@ -76,7 +76,7 @@ if [ -S "$SOCKET_PATH" ]; then
     # Test RPC connection
     echo "   Testing RPC connection..."
     if command -v socat &> /dev/null; then
-        RESPONSE=$(echo '{"jsonrpc":"2.0","id":1,"method":"status"}' | \
+        RESPONSE=$(echo '{"jsonrpc":"2.0","id":1,"method":"bridge.status"}' | \
             timeout 2 socat - UNIX-CONNECT:$SOCKET_PATH 2>/dev/null || echo '{"error":"connection failed"}')
 
         if echo "$RESPONSE" | grep -q '"result"'; then

@@ -165,7 +165,7 @@ fi
 # ============================================================================
 log_test "3" "Bridge Status Check"
 
-RESPONSE=$(rpc_call "status" "{}")
+RESPONSE=$(rpc_call "bridge.status" "{}")
 log_info "Response: $(echo "$RESPONSE" | jq -c '.')"
 
 if echo "$RESPONSE" | jq -e '.result' >/dev/null 2>&1; then

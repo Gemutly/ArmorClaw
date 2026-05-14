@@ -9,7 +9,7 @@ import (
 	"github.com/armorclaw/bridge/pkg/logger"
 )
 
-type mockSender struct {
+type mockOutboundSender struct {
 	sendErr   error
 	messageID string
 	lastTo    string
@@ -17,14 +17,14 @@ type mockSender struct {
 	lastBody  string
 }
 
-func (m *mockSender) Send(ctx context.Context, to, subject, bodyText, bodyHTML string, attachments ...*EmailAttachment) (string, error) {
+func (m *mockOutboundSender) Send(ctx context.Context, to, subject, bodyText, bodyHTML string, attachments ...*EmailAttachment) (string, error) {
 	m.lastTo = to
 	m.lastSubj = subject
 	m.lastBody = bodyText
 	return m.messageID, m.sendErr
 }
 
-func (m *mockSender) Provider() string { return "mock" }
+func (m *mockOutboundSender) Provider() string { return "mock" }
 
 func newTestExecutor(senders map[string]EmailSender) *OutboundExecutor {
 	log, _ := logger.New(logger.Config{Output: "stdout"})
@@ -59,7 +59,7 @@ func TestExecute_InvalidSender(t *testing.T) {
 }
 
 func TestExecute_Success(t *testing.T) {
-	sender := &mockSender{messageID: "msg-123"}
+	sender := &mockOutboundSender{messageID: "msg-123"}
 	e := newTestExecutor(map[string]EmailSender{"gmail": sender})
 
 	req := &OutboundRequest{
@@ -92,7 +92,7 @@ func TestExecute_Success(t *testing.T) {
 }
 
 func TestExecute_DefaultProvider(t *testing.T) {
-	sender := &mockSender{messageID: "msg-456"}
+	sender := &mockOutboundSender{messageID: "msg-456"}
 	e := newTestExecutor(map[string]EmailSender{"gmail": sender})
 
 	req := &OutboundRequest{
@@ -109,7 +109,7 @@ func TestExecute_DefaultProvider(t *testing.T) {
 }
 
 func TestExecute_FallbackToSMTP(t *testing.T) {
-	smtpSender := &mockSender{messageID: "msg-smtp"}
+	smtpSender := &mockOutboundSender{messageID: "msg-smtp"}
 	e := newTestExecutor(map[string]EmailSender{"smtp": smtpSender})
 
 	req := &OutboundRequest{
@@ -153,7 +153,7 @@ func TestExecute_NoSenderAvailable(t *testing.T) {
 }
 
 func TestExecute_SenderError(t *testing.T) {
-	sender := &mockSender{sendErr: errors.New("network failure")}
+	sender := &mockOutboundSender{sendErr: errors.New("network failure")}
 	e := newTestExecutor(map[string]EmailSender{"gmail": sender})
 
 	req := &OutboundRequest{
@@ -176,7 +176,7 @@ func TestExecute_SenderError(t *testing.T) {
 }
 
 func TestExecute_PIIResolution(t *testing.T) {
-	sender := &mockSender{messageID: "msg-pii"}
+	sender := &mockOutboundSender{messageID: "msg-pii"}
 	e := newTestExecutor(map[string]EmailSender{"gmail": sender})
 
 	req := &OutboundRequest{
@@ -201,8 +201,8 @@ func TestExecute_PIIResolution(t *testing.T) {
 }
 
 func TestAvailableProviders(t *testing.T) {
-	s1 := &mockSender{}
-	s2 := &mockSender{}
+	s1 := &mockOutboundSender{}
+	s2 := &mockOutboundSender{}
 	e := newTestExecutor(map[string]EmailSender{"gmail": s1, "smtp": s2})
 
 	providers := e.AvailableProviders()

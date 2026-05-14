@@ -201,6 +201,7 @@ RUN chmod +x /opt/armorclaw/generate-keystore-key.sh && \
 
 # Copy configuration files
 COPY configs/ /opt/armorclaw/configs/
+COPY bridge/configs/yara_rules.yar /opt/armorclaw/configs/yara_rules.yar
 COPY docker-compose.yml /opt/armorclaw/
 COPY docker-compose-full.yml /opt/armorclaw/
 COPY docker-compose.matrix.yml /opt/armorclaw/

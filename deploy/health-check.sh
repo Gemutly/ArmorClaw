@@ -153,7 +153,7 @@ if [[ -S "$BRIDGE_SOCK" ]]; then
     check_pass "Bridge socket exists at $BRIDGE_SOCK"
 
     # Try RPC status command
-    if echo '{"jsonrpc":"2.0","id":1,"method":"status"}' | socat - UNIX-CONNECT:"$BRIDGE_SOCK" > /dev/null 2>&1; then
+    if echo '{"jsonrpc":"2.0","id":1,"method":"bridge.status"}' | socat - UNIX-CONNECT:"$BRIDGE_SOCK" > /dev/null 2>&1; then
         check_pass "Bridge RPC is responding"
     else
         check_fail "Bridge RPC is not responding"

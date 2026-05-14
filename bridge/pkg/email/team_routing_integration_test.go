@@ -97,7 +97,8 @@ func TestIntegration_ThreadTracker_MultiMessageThread(t *testing.T) {
 		From: "a@company.com", To: []string{"b@company.com"}, EmailID: "e-003",
 	})
 
-	thread := tracker.GetThread("msg-001")
+	thread, err := tracker.GetThreadContext("msg-001")
+	require.NoError(t, err)
 	require.Len(t, thread, 3, "all 3 messages should be in the thread")
 	assert.Equal(t, "msg-001", thread[0].MessageID)
 	assert.Equal(t, "msg-002", thread[1].MessageID)
@@ -108,20 +109,31 @@ func TestIntegration_DraftManager_CreateSend(t *testing.T) {
 	log, _ := logger.New(logger.Config{Output: "stdout"})
 
 	var sentTo string
-	sender := &mockSender{sendFn: func(ctx context.Context, to, subject, bodyText, bodyHTML string, attachments ...*EmailAttachment) (string, error) {
+	sender := &mockTeamSender{sendFn: func(ctx context.Context, to, subject, bodyText, bodyHTML string, attachments ...*EmailAttachment) (string, error) {
 		sentTo = to
 		return "sent-001", nil
 	}}
 
 	dm := NewDraftManager(DraftManagerConfig{Sender: sender, Log: log})
 
-	draft, err := dm.CreateDraft("team-1", "recipient@test.com", "", "Subject", "Body text", "", nil)
+	draftID, err := dm.SaveDraft(context.Background(), EmailDraft{
+		TeamID:   "team-1",
+		To:       "recipient@test.com",
+		CC:       "",
+		Subject:  "Subject",
+		BodyText: "Body text",
+		BodyHTML: "",
+	})
 	require.NoError(t, err)
-	assert.NotEmpty(t, draft.ID)
+	assert.NotEmpty(t, draftID)
+
+	drafts, err := dm.ListDrafts(context.Background(), "team-1")
+	require.NoError(t, err)
+	draft := drafts[0]
 	assert.Equal(t, "team-1", draft.TeamID)
 	assert.Equal(t, "recipient@test.com", draft.To)
 
-	msgID, err := dm.SendDraft(context.Background(), draft.ID)
+	msgID, err := dm.SendDraft(context.Background(), draftID)
 	require.NoError(t, err)
 	assert.Equal(t, "sent-001", msgID)
 	assert.Equal(t, "recipient@test.com", sentTo)
@@ -166,7 +178,8 @@ func TestIntegration_Dispatcher_ThreadTracker_Composition(t *testing.T) {
 
 	assert.Equal(t, "e-followup", dispatchedEmailID)
 
-	thread := tracker.GetThread("orig-001")
+	thread, err := tracker.GetThreadContext("orig-001")
+	assert.NoError(t, err)
 	assert.Len(t, thread, 1, "original thread should still have 1 message (new email is a separate event)")
 }
 
@@ -227,15 +240,15 @@ func TestIntegration_MultipleTeams_IsolatedRouting(t *testing.T) {
 	mu.Unlock()
 }
 
-type mockSender struct {
+type mockTeamSender struct {
 	sendFn func(ctx context.Context, to, subject, bodyText, bodyHTML string, attachments ...*EmailAttachment) (string, error)
 }
 
-func (m *mockSender) Send(ctx context.Context, to, subject, bodyText, bodyHTML string, attachments ...*EmailAttachment) (string, error) {
+func (m *mockTeamSender) Send(ctx context.Context, to, subject, bodyText, bodyHTML string, attachments ...*EmailAttachment) (string, error) {
 	return m.sendFn(ctx, to, subject, bodyText, bodyHTML, attachments...)
 }
 
-func (m *mockSender) Provider() string { return "mock" }
+func (m *mockTeamSender) Provider() string { return "mock" }
 
 var _ EmailSender = (*mockSender)(nil)
 var _ secretary.Store = (*dispatcherTestStore)(nil)

@@ -55,7 +55,8 @@ const (
 // MatrixAdapter implements Matrix client protocol
 type MatrixAdapter struct {
 	homeserverURL    string
-	userID           string
+	userID           string // Full Matrix ID @localpart:server — only set after successful Login()
+	username         string // Localpart from config — available at construction time
 	password         string
 	accessToken      string
 	refreshToken     string
@@ -222,6 +223,7 @@ func New(cfg Config) (*MatrixAdapter, error) {
 
 	return &MatrixAdapter{
 		homeserverURL:   cfg.HomeserverURL,
+		username:        cfg.Username,
 		deviceID:        cfg.DeviceID,
 		password:        cfg.Password,
 		trustedSenders:  cfg.TrustedSenders,
@@ -2033,7 +2035,7 @@ func (m *MatrixAdapter) ensureValidToken() error {
 		m.mu.RLock()
 		hasRefreshToken := m.refreshToken != ""
 		password := m.password
-		username := m.userID
+		username := m.username
 		m.mu.RUnlock()
 
 		if hasRefreshToken {

@@ -1,6 +1,7 @@
 package email
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"sync"
@@ -121,7 +122,7 @@ func TestMIMEToFormatMapping(t *testing.T) {
 
 func TestAttachmentExtraction_PDF(t *testing.T) {
 	storage := newMockEmailStorage()
-	bus := eventbus.NewEventBus()
+	bus := eventbus.NewEventBus(eventbus.DefaultConfig())
 	log, _ := logger.New(logger.Config{Output: "stdout"})
 
 	s := NewIngestServer(IngestServerConfig{
@@ -153,7 +154,7 @@ func TestAttachmentExtraction_PDF(t *testing.T) {
 
 func TestAttachmentExtraction_Image(t *testing.T) {
 	storage := newMockEmailStorage()
-	bus := eventbus.NewEventBus()
+	bus := eventbus.NewEventBus(eventbus.DefaultConfig())
 	log, _ := logger.New(logger.Config{Output: "stdout"})
 
 	s := NewIngestServer(IngestServerConfig{
@@ -182,7 +183,7 @@ func TestAttachmentExtraction_Image(t *testing.T) {
 
 func TestAttachmentExtraction_Oversized(t *testing.T) {
 	storage := newMockEmailStorage()
-	bus := eventbus.NewEventBus()
+	bus := eventbus.NewEventBus(eventbus.DefaultConfig())
 	log, _ := logger.New(logger.Config{Output: "stdout"})
 
 	s := NewIngestServer(IngestServerConfig{
@@ -211,7 +212,7 @@ func TestAttachmentExtraction_Oversized(t *testing.T) {
 
 func TestAttachmentExtraction_SidecarDown(t *testing.T) {
 	storage := newMockEmailStorage()
-	bus := eventbus.NewEventBus()
+	bus := eventbus.NewEventBus(eventbus.DefaultConfig())
 	log, _ := logger.New(logger.Config{Output: "stdout"})
 
 	s := NewIngestServer(IngestServerConfig{
@@ -240,7 +241,7 @@ func TestAttachmentExtraction_SidecarDown(t *testing.T) {
 
 func TestAttachmentExtraction_AsyncInIngestEmail(t *testing.T) {
 	storage := newMockEmailStorage()
-	bus := eventbus.NewEventBus()
+	bus := eventbus.NewEventBus(eventbus.DefaultConfig())
 	log, _ := logger.New(logger.Config{Output: "stdout"})
 
 	s := NewIngestServer(IngestServerConfig{
@@ -288,9 +289,120 @@ func TestLocalFS_StoreAttachmentText(t *testing.T) {
 	}
 }
 
+func buildMIMEWithAttachment(filename, contentType, body string) []byte {
+	return []byte("From: sender@test.com\r\nTo: recv@test.com\r\nSubject: YARA Test\r\nMIME-Version: 1.0\r\nContent-Type: multipart/mixed; boundary=YBOUND\r\n\r\n--YBOUND\r\nContent-Type: text/plain\r\n\r\nHello\r\n--YBOUND\r\nContent-Type: " + contentType + "\r\nContent-Disposition: attachment; filename=\"" + filename + "\"\r\n\r\n" + body + "\r\n--YBOUND--\r\n")
+}
+
+func TestIngest_YARANotInitialized(t *testing.T) {
+	storage := newMockEmailStorage()
+	bus := eventbus.NewEventBus(eventbus.DefaultConfig())
+	log, _ := logger.New(logger.Config{Output: "stdout"})
+
+	s := NewIngestServer(IngestServerConfig{
+		Storage: storage,
+		Bus:     bus,
+		Log:     log,
+	})
+	s.yaraScan = func(filePath string) (bool, error) {
+		return false, fmt.Errorf("YARA not initialized")
+	}
+
+	rawEmail := buildMIMEWithAttachment("invoice.pdf", "application/pdf", "%PDF-1.4 malware-bytes")
+	resp := s.IngestEmail(nil, rawEmail, "sender@test.com", "recv@test.com", "queue-yara-err")
+
+	if !resp.Accepted {
+		t.Fatalf("expected email to be accepted when YARA returns error, got rejection: %q", resp.RejectionReason)
+	}
+}
+
+func TestIngest_YARABlock(t *testing.T) {
+	storage := newMockEmailStorage()
+	bus := eventbus.NewEventBus(eventbus.DefaultConfig())
+	log, _ := logger.New(logger.Config{Output: "stdout"})
+
+	s := NewIngestServer(IngestServerConfig{
+		Storage: storage,
+		Bus:     bus,
+		Log:     log,
+	})
+	s.yaraScan = func(filePath string) (bool, error) {
+		return false, nil
+	}
+
+	rawEmail := buildMIMEWithAttachment("evil.exe", "application/octet-stream", "MZ\x90\x00 malicious")
+	resp := s.IngestEmail(nil, rawEmail, "bad@test.com", "recv@test.com", "queue-yara-block")
+
+	if resp.Accepted {
+		t.Fatal("expected email to be rejected when YARA detects malware")
+	}
+	if resp.RejectionReason != "malware detected" {
+		t.Errorf("rejection reason = %q, want %q", resp.RejectionReason, "malware detected")
+	}
+}
+
+func TestIngest_YARAClean(t *testing.T) {
+	storage := newMockEmailStorage()
+	bus := eventbus.NewEventBus(eventbus.DefaultConfig())
+	log, _ := logger.New(logger.Config{Output: "stdout"})
+
+	s := NewIngestServer(IngestServerConfig{
+		Storage: storage,
+		Bus:     bus,
+		Log:     log,
+	})
+	s.yaraScan = func(filePath string) (bool, error) {
+		return true, nil
+	}
+
+	rawEmail := buildMIMEWithAttachment("clean.pdf", "application/pdf", "%PDF-1.4 clean content")
+	resp := s.IngestEmail(nil, rawEmail, "sender@test.com", "recv@test.com", "queue-yara-clean")
+
+	if !resp.Accepted {
+		t.Fatalf("expected email to be accepted when YARA reports clean, got rejection: %q", resp.RejectionReason)
+	}
+}
+
+func TestIngest_TempFileCleanup(t *testing.T) {
+	storage := newMockEmailStorage()
+	bus := eventbus.NewEventBus(eventbus.DefaultConfig())
+	log, _ := logger.New(logger.Config{Output: "stdout"})
+
+	var scannedPaths []string
+	s := NewIngestServer(IngestServerConfig{
+		Storage: storage,
+		Bus:     bus,
+		Log:     log,
+	})
+	s.yaraScan = func(filePath string) (bool, error) {
+		scannedPaths = append(scannedPaths, filePath)
+		if _, err := os.Stat(filePath); os.IsNotExist(err) {
+			t.Errorf("temp file %q should exist during scan but does not", filePath)
+		}
+		return true, nil
+	}
+
+	rawEmail := buildMIMEWithAttachment("doc.pdf", "application/pdf", "%PDF-1.4 cleanup-test")
+	resp := s.IngestEmail(nil, rawEmail, "sender@test.com", "recv@test.com", "queue-cleanup")
+
+	if !resp.Accepted {
+		t.Fatalf("expected email accepted, got: %q", resp.RejectionReason)
+	}
+
+	if len(scannedPaths) == 0 {
+		t.Fatal("expected YARA scan to be called")
+	}
+
+	for _, p := range scannedPaths {
+		if _, err := os.Stat(p); !os.IsNotExist(err) {
+			t.Errorf("temp file %q should have been removed after scan", p)
+			os.Remove(p)
+		}
+	}
+}
+
 func TestAttachmentExtraction_MultipleAttachments(t *testing.T) {
 	storage := newMockEmailStorage()
-	bus := eventbus.NewEventBus()
+	bus := eventbus.NewEventBus(eventbus.DefaultConfig())
 	log, _ := logger.New(logger.Config{Output: "stdout"})
 
 	s := NewIngestServer(IngestServerConfig{

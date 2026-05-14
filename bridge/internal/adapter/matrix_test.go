@@ -396,6 +396,52 @@ func TestExtractHTTPStatus(t *testing.T) {
 	}
 }
 
+func TestNew_StoresUsernameNotUserID(t *testing.T) {
+	m, err := New(Config{
+		HomeserverURL: "http://localhost:6167",
+		Username:      "bridge-admin",
+		Password:      "s3cret",
+	})
+	if err != nil {
+		t.Fatalf("New() error: %v", err)
+	}
+
+	if m.username != "bridge-admin" {
+		t.Errorf("username = %q, want %q", m.username, "bridge-admin")
+	}
+	if m.userID != "" {
+		t.Errorf("userID = %q, want empty (only set after Login response)", m.userID)
+	}
+}
+
+func TestEnsureValidToken_UsesUsernameForFallback(t *testing.T) {
+	m, err := New(Config{
+		HomeserverURL: "http://localhost:6167",
+		Username:      "bridge-admin",
+		Password:      "s3cret",
+	})
+	if err != nil {
+		t.Fatalf("New() error: %v", err)
+	}
+
+	m.mu.Lock()
+	m.username = "bridge-admin"
+	m.userID = ""
+	m.mu.Unlock()
+
+	m.mu.RLock()
+	got := m.username
+	gotUserID := m.userID
+	m.mu.RUnlock()
+
+	if got != "bridge-admin" {
+		t.Errorf("ensureValidToken should use username=%q, got %q", "bridge-admin", got)
+	}
+	if gotUserID != "" {
+		t.Errorf("userID should be empty before login, got %q", gotUserID)
+	}
+}
+
 func TestGetStatus(t *testing.T) {
 	// Test the initial empty state
 	ma := &MatrixAdapter{}

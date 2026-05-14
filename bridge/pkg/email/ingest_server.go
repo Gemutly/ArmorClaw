@@ -152,9 +152,17 @@ func (s *IngestServer) IngestEmail(ctx context.Context, rawEmail []byte, from, t
 	if s.yaraScan != nil {
 		for _, att := range parsed.Attachments {
 			tmpPath := fmt.Sprintf("/tmp/armorclaw-scan-%s-%s", emailID, att.Filename)
+			if err := os.WriteFile(tmpPath, att.Content, 0600); err != nil {
+				s.log.Error("yara_temp_write_failed", "email_id", emailID, "filename", att.Filename, "error", err)
+				continue
+			}
+
 			isClean, err := s.yaraScan(tmpPath)
+			os.Remove(tmpPath)
+
 			if err != nil {
-				s.log.Warn("yara_scan_error", "email_id", emailID, "error", err)
+				s.log.Warn("yara_scan_error", "email_id", emailID, "filename", att.Filename, "error", err)
+				continue
 			}
 			if !isClean {
 				yaraOK = false

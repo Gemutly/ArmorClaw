@@ -110,7 +110,7 @@ else
 fi
 
 # Bridge reachable
-REACH_RESP=$(rpc_http "status" "{}")
+REACH_RESP=$(rpc_http "bridge.status" "{}")
 if echo "$REACH_RESP" | jq -e '.result' >/dev/null 2>&1 || echo "$REACH_RESP" | jq -e '.id' >/dev/null 2>&1; then
   log_pass "Bridge reachable via HTTPS RPC"
 else

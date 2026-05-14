@@ -199,7 +199,7 @@ log_test "5" "Trusted Senders Validation"
 # The Matrix adapter should validate senders against allowlist
 
 # Test via status - check if trusted senders are configured
-RESPONSE=$(rpc_call "status" "{}")
+RESPONSE=$(rpc_call "bridge.status" "{}")
 
 if echo "$RESPONSE" | jq -e '.result' >/dev/null 2>&1; then
     log_pass "Status retrieved for trusted sender check"
@@ -335,7 +335,7 @@ else
 fi
 
 # Invalid JSON-RPC version
-RESPONSE=$(echo '{"jsonrpc":"1.0","method":"status","id":1}' | \
+RESPONSE=$(echo '{"jsonrpc":"1.0","method":"bridge.status","id":1}' | \
     socat - UNIX-CONNECT:"$BRIDGE_SOCK" 2>/dev/null)
 
 if echo "$RESPONSE" | jq -e '.error' >/dev/null 2>&1; then

@@ -228,7 +228,7 @@ check_success() {
 echo -e "${BLUE}Test 1: Bridge Status${NC}"
 echo "--------------------"
 
-RESPONSE=$(rpc_call "status" "{}")
+RESPONSE=$(rpc_call "bridge.status" "{}")
 if check_success "$RESPONSE" "Bridge status request"; then
     # Extract and display status info
     STATUS=$(echo "$RESPONSE" | grep -o '"status":"[^"]*"' | cut -d'"' -f4)
