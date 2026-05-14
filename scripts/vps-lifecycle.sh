@@ -993,6 +993,9 @@ phase_report() {
       if [[ $_fg_fail -gt 0 ]]; then
         _fg_status="fail"
         _fg_details="${_fg_fail}/${_fg_total} test(s) failed in ${_fg_name}"
+      elif [[ $_fg_skip -eq $_fg_total ]]; then
+        _fg_status="skip-disabled"
+        _fg_details="All ${_fg_total} test(s) skipped in ${_fg_name}"
       elif [[ $_fg_pass -eq $_fg_total ]]; then
         _fg_status="pass"
         _fg_details="${_fg_total}/${_fg_total} test(s) passed in ${_fg_name}"
