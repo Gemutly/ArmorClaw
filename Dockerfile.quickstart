@@ -238,4 +238,6 @@ EOF
 
 RUN chmod +x /opt/armorclaw/entrypoint-wrapper.sh
 
+WORKDIR /opt/armorclaw
+
 ENTRYPOINT ["/opt/armorclaw/entrypoint-wrapper.sh"]
