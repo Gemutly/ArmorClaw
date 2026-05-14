@@ -752,6 +752,16 @@ phase_validate() {
           _report_add_blocker "validate" "Groups B/C/D skipped: RPC probe classified as '${rpc_probe_result}' — bridge API incompatible or unreachable" "high"
           _bcd_blocker_added=true
         fi
+        # Write skip-disabled evidence file so report phase picks up correct status
+        local _gated_name
+        case "$group" in
+          b) _gated_name="B-Studio" ;;
+          c) _gated_name="C-Secretary" ;;
+          d) _gated_name="D-Trust" ;;
+        esac
+        jq -n --arg group "$_gated_name" --arg classification "$rpc_probe_result" \
+          '{group: $group, overall: "skip-disabled", results: [], details: ("Skipped: RPC probe classified as " + $classification), duration_ms: 0}' \
+          > "${EVIDENCE_DIR}/group-${group}-summary.json"
         continue
       fi
 
