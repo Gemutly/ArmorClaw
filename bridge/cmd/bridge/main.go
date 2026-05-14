@@ -2323,6 +2323,7 @@ func runBridgeServer(cliCfg cliConfig) {
 		var err error
 		matrixAdapter, err = adapter.New(adapter.Config{
 			HomeserverURL: cfg.Matrix.HomeserverURL,
+			Username:      cfg.Matrix.Username,
 			DeviceID:      "armorclaw-bridge",
 			Password:      cfg.Matrix.Password,
 		})
