@@ -752,6 +752,11 @@ phase_validate() {
           _report_add_blocker "validate" "Groups B/C/D skipped: RPC probe classified as '${rpc_probe_result}' — bridge API incompatible or unreachable" "high"
           _bcd_blocker_added=true
         fi
+        # Remove old evidence files for this group (stale results from prior runs)
+        local _old_ev
+        for _old_ev in "${EVIDENCE_DIR}/group-${group}"-*.json; do
+          [[ -f "$_old_ev" ]] && rm -f "$_old_ev"
+        done
         # Write skip-disabled evidence file so report phase picks up correct status
         local _gated_name
         case "$group" in
