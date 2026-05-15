@@ -22,13 +22,29 @@ restart_bridge() {
   (
     flock -x 200 || return 1
 
-    # Detect deployment type and restart accordingly
-    if ssh_vps "docker ps --filter name=armorclaw --format '{{.Names}}'" 2>/dev/null | grep -q "armorclaw"; then
-      echo "[INFO] Restarting armorclaw Docker container..."
-      ssh_vps "docker restart armorclaw" 2>/dev/null || true
+    # Helper: detect if running locally on the VPS
+    _bridge_is_local() {
+      curl -sf --max-time 2 "http://localhost:${BRIDGE_PORT:-8080}/health" >/dev/null 2>&1
+    }
+
+    if _bridge_is_local; then
+      # ── Local restart (running ON the VPS — no SSH) ────────────────────
+      if docker ps --filter name=armorclaw --format '{{.Names}}' 2>/dev/null | grep -q "armorclaw"; then
+        echo "[INFO] Restarting armorclaw Docker container (local)..."
+        docker restart armorclaw 2>/dev/null || true
+      else
+        echo "[INFO] Restarting armorclaw-bridge.service (local)..."
+        systemctl restart armorclaw-bridge.service 2>/dev/null || true
+      fi
     else
-      echo "[INFO] Restarting armorclaw-bridge.service..."
-      ssh_vps "systemctl restart armorclaw-bridge.service" 2>/dev/null || true
+      # ── Remote restart via SSH (running from dev machine) ──────────────
+      if ssh_vps "docker ps --filter name=armorclaw --format '{{.Names}}'" 2>/dev/null | grep -q "armorclaw"; then
+        echo "[INFO] Restarting armorclaw Docker container..."
+        ssh_vps "docker restart armorclaw" 2>/dev/null || true
+      else
+        echo "[INFO] Restarting armorclaw-bridge.service..."
+        ssh_vps "systemctl restart armorclaw-bridge.service" 2>/dev/null || true
+      fi
     fi
 
     # Poll readiness: up to 15 intervals of 2s (matching test-persistence.sh)
@@ -39,12 +55,14 @@ restart_bridge() {
     for i in $(seq 1 "$intervals"); do
       sleep "$sleep_interval"
 
-      # Check health via HTTP (works for both Docker and systemd)
+      # Check health via HTTP (works for both Docker and systemd, local and remote)
       local health_resp
-      health_resp=$(ssh_vps "curl -sfsS -o /dev/null -w '%{http_code}' http://localhost:${BRIDGE_PORT}/health 2>/dev/null || curl -kfsS -o /dev/null -w '%{http_code}' https://localhost:${BRIDGE_PORT}/health 2>/dev/null || echo '000'")
+      if _bridge_is_local; then
+        health_resp=$(curl -sfsS -o /dev/null -w '%{http_code}' "http://localhost:${BRIDGE_PORT}/health" 2>/dev/null || echo '000')
+      else
+        health_resp=$(ssh_vps "curl -sfsS -o /dev/null -w '%{http_code}' http://localhost:${BRIDGE_PORT}/health 2>/dev/null || echo '000'" 2>/dev/null || echo '000')
+      fi
       if [[ "$health_resp" == "200" ]]; then
-        # Socket check is advisory — HTTP health alone means bridge is ready
-        ssh_vps "test -S ${BRIDGE_SOCKET:-/run/armorclaw/bridge.sock}" 2>/dev/null || true
         ready=true
         echo "[INFO] Bridge ready after $((i * sleep_interval))s"
         break

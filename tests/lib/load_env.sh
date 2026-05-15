@@ -59,21 +59,34 @@ ssh_vps() {
 #   2. systemd service armorclaw-bridge.service is active
 #   3. Socket file exists at $BRIDGE_SOCKET
 check_bridge_running() {
-  # 1. Check Docker container
+  # ── Local checks (no SSH — works when running ON the VPS) ─────────────────
+  # 1. HTTP health endpoint (fast, works for Docker and systemd)
+  if curl -sf --max-time 2 "http://localhost:${BRIDGE_PORT}/health" >/dev/null 2>&1; then
+    return 0
+  fi
+
+  # 2. Local Docker container
   local docker_status
+  docker_status=$(docker ps --filter name=armorclaw --format '{{.Status}}' 2>/dev/null || echo "")
+  if [[ "$docker_status" == *"Up"* ]]; then
+    return 0
+  fi
+
+  # ── Remote checks via SSH (fallback — works from dev machine) ─────────────
+  # 3. Docker container via SSH
   docker_status=$(ssh_vps "docker ps --filter name=armorclaw --format '{{.Status}}'" 2>/dev/null || echo "")
   if [[ "$docker_status" == *"Up"* ]]; then
     return 0
   fi
 
-  # 2. Check systemd service
+  # 4. systemd service via SSH
   local svc_status
   svc_status=$(ssh_vps "systemctl is-active armorclaw-bridge.service" 2>/dev/null || echo "")
   if [[ "$svc_status" == "active" ]]; then
     return 0
   fi
 
-  # 3. Check socket file exists
+  # 5. Socket file via SSH
   if ssh_vps "test -S ${BRIDGE_SOCKET}" 2>/dev/null; then
     return 0
   fi
