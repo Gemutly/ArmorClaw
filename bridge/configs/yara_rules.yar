@@ -108,7 +108,7 @@ rule exploit_kit_landing {
         $java_webkit = "java.lang.Runtime" nocase
         $pdf_exploit = /\/Annots\s/ ascii
     condition:
-        ($iframe_inject and $object_cls) or $java_webkit
+        ($iframe_inject and $object_cls) or $java_webkit or $pdf_exploit
 }
 
 rule macro_dropper_indicator {
