@@ -5,6 +5,7 @@ set -uo pipefail
 
 _SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 source "${_SCRIPT_DIR}/lib/load_env.sh"
+source "${_SCRIPT_DIR}/lib/transport.sh"
 source "${_SCRIPT_DIR}/lib/common_output.sh"
 source "${_SCRIPT_DIR}/lib/restart_bridge.sh"
 

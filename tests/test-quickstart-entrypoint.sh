@@ -3,6 +3,9 @@
 
 set -e
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/lib/transport.sh"
+
 TESTS_PASSED=0
 TESTS_FAILED=0
 

@@ -5,6 +5,9 @@ set -euo pipefail
 # Core differentiator: validates that secrets exist ONLY in memory
 # Never on disk, never in docker inspect, never in logs
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/lib/transport.sh"
+
 echo "🧪 Secrets Injection Validation Tests"
 echo "======================================="
 echo ""

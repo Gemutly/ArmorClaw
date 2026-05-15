@@ -16,6 +16,9 @@ set -a
 source .env 2>/dev/null || true
 set +a
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/lib/transport.sh"
+
 # ── Environment variables ─────────────────────────────────────────────────────
 : "${VPS_IP:?missing VPS_IP (set in .env or CLI)}"
 : "${VPS_USER:=root}"
