@@ -21,7 +21,11 @@
 
 # ── Defaults ──────────────────────────────────────────────────────────────────
 export BRIDGE_SOCKET="${BRIDGE_SOCKET:-/run/armorclaw/bridge.sock}"
-export BRIDGE_HTTP_URL="${BRIDGE_HTTP_URL:-http://localhost:${BRIDGE_PORT:-8080}}"
+export BRIDGE_PORT="${BRIDGE_PORT:-8080}"
+export BRIDGE_HTTP_URL="${BRIDGE_HTTP_URL:-http://localhost:${BRIDGE_PORT}}"
+export BRIDGE_HTTPS_URL="${BRIDGE_HTTPS_URL:-https://localhost:${BRIDGE_PORT}}"
+export BRIDGE_HTTPS_MODE="${BRIDGE_HTTPS_MODE:-auto}"  # auto|https|http
+export BRIDGE_CURL_INSECURE="${BRIDGE_CURL_INSECURE:-}"
 export TRANSPORT_MODE="${TRANSPORT_MODE:-}"
 export HAS_SOCKET=false
 export HAS_HTTP=false
@@ -74,12 +78,23 @@ detect_transport() {
     fi
   fi
 
-  # 5. HTTP health
-  if curl -sf "${BRIDGE_HTTP_URL}/health" &>/dev/null; then
-    HAS_HTTP=true
+  # 5. HTTPS health (try before HTTP if mode is auto or https)
+  if [[ "$BRIDGE_HTTPS_MODE" != "http" ]]; then
+    if curl -ksSf "${BRIDGE_HTTPS_URL}/health" &>/dev/null; then
+      HAS_HTTP=true
+      BRIDGE_HTTP_URL="${BRIDGE_HTTPS_URL}"
+      BRIDGE_CURL_INSECURE="-k"
+    fi
   fi
 
-  # 6. Determine mode
+  # 6. HTTP health (fallback, only if HTTPS didn't work)
+  if ! $HAS_HTTP && [[ "$BRIDGE_HTTPS_MODE" != "https" ]]; then
+    if curl -sf "${BRIDGE_HTTP_URL}/health" &>/dev/null; then
+      HAS_HTTP=true
+    fi
+  fi
+
+  # 7. Determine mode
   if $HAS_SOCKET && $HAS_HTTP; then
     TRANSPORT_MODE="both"
   elif $HAS_SOCKET; then
@@ -92,7 +107,7 @@ detect_transport() {
 
   _TRANSPORT_DETECTED=true
 
-  # 7. Print detected mode on first call
+  # 8. Print detected mode on first call
   echo "[INFO] transport: mode=$TRANSPORT_MODE socket=$HAS_SOCKET http=$HAS_HTTP docker=$_docker_up in_docker=$RUNNING_IN_DOCKER"
 }
 
@@ -136,7 +151,7 @@ rpc_call() {
 
   # HTTP transport
   if [[ "$TRANSPORT_MODE" == "http" || "$TRANSPORT_MODE" == "both" ]] && $HAS_HTTP; then
-    curl -sf "${BRIDGE_HTTP_URL}/api" \
+    curl ${BRIDGE_CURL_INSECURE} -sf "${BRIDGE_HTTP_URL}/api" \
       -H "Content-Type: application/json" \
       -d "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"$method\",\"params\":$params}" \
       --max-time "$timeout" 2>/dev/null
@@ -191,7 +206,7 @@ rpc_call_auth() {
 
   # HTTP transport
   if [[ "$TRANSPORT_MODE" == "http" || "$TRANSPORT_MODE" == "both" ]] && $HAS_HTTP; then
-    curl -sf "${BRIDGE_HTTP_URL}/api" \
+    curl ${BRIDGE_CURL_INSECURE} -sf "${BRIDGE_HTTP_URL}/api" \
       -H "Content-Type: application/json" \
       -H "Authorization: Bearer $ADMIN_TOKEN" \
       -d "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"$method\",\"params\":$params}" \

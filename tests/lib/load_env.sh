@@ -60,8 +60,9 @@ ssh_vps() {
 #   3. Socket file exists at $BRIDGE_SOCKET
 check_bridge_running() {
   # ── Local checks (no SSH — works when running ON the VPS) ─────────────────
-  # 1. HTTP health endpoint (fast, works for Docker and systemd)
-  if curl -sf --max-time 2 "http://localhost:${BRIDGE_PORT}/health" >/dev/null 2>&1; then
+  # 1. HTTP health endpoint (fast, works for Docker and systemd; try HTTPS first)
+  if curl -ksSf --max-time 2 "https://localhost:${BRIDGE_PORT}/health" >/dev/null 2>&1 || \
+     curl -sf --max-time 2 "http://localhost:${BRIDGE_PORT}/health" >/dev/null 2>&1; then
     return 0
   fi
 

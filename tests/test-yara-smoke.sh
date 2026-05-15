@@ -22,7 +22,7 @@ source "${SCRIPT_DIR}/lib/common_output.sh"
 # ── Constants ─────────────────────────────────────────────────────────────────
 YARA_RULES_PATH="/opt/armorclaw/configs/yara_rules.yar"
 TEST_DIR="/tmp/armorclaw-yara-smoke"
-CONTAINER_FILTER="ancestor=mikegemut/armorclaw:latest"
+CONTAINER_FILTER="name=armorclaw"
 
 # ── Evidence directory ────────────────────────────────────────────────────────
 EVIDENCE_DIR="${_REPO_ROOT:-$(cd "${SCRIPT_DIR}/.." && pwd)}/.sisyphus/evidence/post-deploy"

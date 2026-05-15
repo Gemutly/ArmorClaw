@@ -24,6 +24,7 @@ restart_bridge() {
 
     # Helper: detect if running locally on the VPS
     _bridge_is_local() {
+      curl -ksSf --max-time 2 "https://localhost:${BRIDGE_PORT:-8080}/health" >/dev/null 2>&1 || \
       curl -sf --max-time 2 "http://localhost:${BRIDGE_PORT:-8080}/health" >/dev/null 2>&1
     }
 
@@ -58,9 +59,10 @@ restart_bridge() {
       # Check health via HTTP (works for both Docker and systemd, local and remote)
       local health_resp
       if _bridge_is_local; then
-        health_resp=$(curl -sfsS -o /dev/null -w '%{http_code}' "http://localhost:${BRIDGE_PORT}/health" 2>/dev/null || echo '000')
+        health_resp=$(curl -ksSf -o /dev/null -w '%{http_code}' "https://localhost:${BRIDGE_PORT}/health" 2>/dev/null || \
+                      curl -sf -o /dev/null -w '%{http_code}' "http://localhost:${BRIDGE_PORT}/health" 2>/dev/null || echo '000')
       else
-        health_resp=$(ssh_vps "curl -sfsS -o /dev/null -w '%{http_code}' http://localhost:${BRIDGE_PORT}/health 2>/dev/null || echo '000'" 2>/dev/null || echo '000')
+        health_resp=$(ssh_vps "curl -ksSf -o /dev/null -w '%{http_code}' https://localhost:${BRIDGE_PORT}/health 2>/dev/null || curl -sf -o /dev/null -w '%{http_code}' http://localhost:${BRIDGE_PORT}/health 2>/dev/null || echo '000'" 2>/dev/null || echo '000')
       fi
       if [[ "$health_resp" == "200" ]]; then
         ready=true
