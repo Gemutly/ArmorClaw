@@ -23,6 +23,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/lib/load_env.sh"
 source "$SCRIPT_DIR/lib/common_output.sh"
 source "$SCRIPT_DIR/lib/assert_json.sh"
+source "$SCRIPT_DIR/lib/transport.sh"
 
 # ── Evidence output directory ─────────────────────────────────────────────────
 EVIDENCE_DIR="$SCRIPT_DIR/../.sisyphus/evidence/browser-automation"
@@ -37,7 +38,7 @@ CREATED_CHART_IDS=()
 
 cleanup_charts() {
   for cid in "${CREATED_CHART_IDS[@]}"; do
-    rpc_np "chart.delete" "{\"chart_id\":\"$cid\"}" >/dev/null 2>&1 || true
+    rpc_call_auth "chart.delete" "{\"chart_id\":\"$cid\"}" >/dev/null 2>&1 || true
   done
 }
 trap cleanup_charts EXIT
@@ -51,46 +52,42 @@ save_evidence() {
   }
 }
 
-# ── Helper: call Bridge JSON-RPC for chart operations ─────────────────────────
-rpc_np() {
-  local method="$1" params="${2:-\{\}}"
-  local resp
-
-  # Try HTTPS first
-  resp=$(curl -ksS --max-time 15 \
-    -X POST "https://${VPS_IP}:${BRIDGE_PORT}/api" \
-    -H "Content-Type: application/json" \
-    -H "Authorization: Bearer ${ADMIN_TOKEN}" \
-    -d "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"${method}\",\"params\":${params}}" \
-    2>/dev/null || true)
-
-  # Fallback to Unix socket via SSH + socat
-  if [[ -z "$resp" ]]; then
-    resp=$(ssh_vps "echo '{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"${method}\",\"auth\":\"${ADMIN_TOKEN}\",\"params\":${params}}' | socat - UNIX-CONNECT:/run/armorclaw/bridge.sock" 2>/dev/null || true)
-  fi
-
-  echo "$resp"
-}
-
 # ── Helper: call Bridge RPC with timing ───────────────────────────────────────
 rpc_np_timed() {
   local method="$1" params="${2:-\{\}}"
   local resp
 
-  # Try HTTPS with curl timing
-  resp=$(curl -ksS --max-time 15 \
-    -w '\n%{time_total}' \
-    -X POST "https://${VPS_IP}:${BRIDGE_PORT}/api" \
-    -H "Content-Type: application/json" \
-    -H "Authorization: Bearer ${ADMIN_TOKEN}" \
-    -d "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"${method}\",\"params\":${params}}" \
-    2>/dev/null || true)
+  detect_transport
 
-  # Fallback to socket (no timing)
-  if [[ -z "$resp" ]]; then
+  if [[ "$TRANSPORT_MODE" == "http" || "$TRANSPORT_MODE" == "both" ]] && $HAS_HTTP; then
+    resp=$(curl -ksS --max-time 15 \
+      -w '\n%{time_total}' \
+      -X POST "https://${VPS_IP}:${BRIDGE_PORT}/api" \
+      -H "Content-Type: application/json" \
+      -H "Authorization: Bearer ${ADMIN_TOKEN}" \
+      -d "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"${method}\",\"params\":${params}}" \
+      2>/dev/null || true)
+  fi
+
+  if [[ -z "$resp" ]] && [[ "$TRANSPORT_MODE" == "socket" || "$TRANSPORT_MODE" == "both" ]] && $HAS_SOCKET; then
     local socket_resp
     socket_resp=$(ssh_vps "echo '{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"${method}\",\"auth\":\"${ADMIN_TOKEN}\",\"params\":${params}}' | socat - UNIX-CONNECT:/run/armorclaw/bridge.sock" 2>/dev/null || true)
     resp="${socket_resp}"$'\n''0.000'
+  fi
+
+  if [[ -z "$resp" ]]; then
+    resp=$(curl -ksS --max-time 15 \
+      -w '\n%{time_total}' \
+      -X POST "https://${VPS_IP}:${BRIDGE_PORT}/api" \
+      -H "Content-Type: application/json" \
+      -H "Authorization: Bearer ${ADMIN_TOKEN}" \
+      -d "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"${method}\",\"params\":${params}}" \
+      2>/dev/null || true)
+    if [[ -z "$resp" ]]; then
+      local socket_resp
+      socket_resp=$(ssh_vps "echo '{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"${method}\",\"auth\":\"${ADMIN_TOKEN}\",\"params\":${params}}' | socat - UNIX-CONNECT:/run/armorclaw/bridge.sock" 2>/dev/null || true)
+      resp="${socket_resp}"$'\n''0.000'
+    fi
   fi
 
   echo "$resp"
@@ -125,7 +122,7 @@ fi
 
 # Check bridge reachability — this is the Tier B gate
 NP0_BRIDGE_RESP=""
-NP0_BRIDGE_RESP=$(rpc_np "bridge.status" '{}' 2>/dev/null || true)
+NP0_BRIDGE_RESP=$(rpc_call_auth "bridge.status" '{}' 2>/dev/null || true)
 
 if [[ -n "$NP0_BRIDGE_RESP" ]] && echo "$NP0_BRIDGE_RESP" | jq -e '.result' >/dev/null 2>&1; then
   log_pass "Bridge reachable via RPC"
@@ -150,7 +147,7 @@ if ! $NP0_PASS; then
 fi
 
 # Check for chart.save RPC availability
-NP0_CHART_CHECK=$(rpc_np "chart.list" "{\"domain\":\"${TEST_DOMAIN}\",\"limit\":1}" 2>/dev/null || true)
+NP0_CHART_CHECK=$(rpc_call_auth "chart.list" "{\"domain\":\"${TEST_DOMAIN}\",\"limit\":1}" 2>/dev/null || true)
 if [[ -n "$NP0_CHART_CHECK" ]]; then
   if echo "$NP0_CHART_CHECK" | jq -e '.error' >/dev/null 2>&1; then
     NP0_ERR=$(echo "$NP0_CHART_CHECK" | jq -r '.error.message // "unknown"' 2>/dev/null)
@@ -214,7 +211,7 @@ else
     }
   }'
 
-  NP1_SAVE_RESP=$(rpc_np "chart.save" "{
+  NP1_SAVE_RESP=$(rpc_call_auth "chart.save" "{
     \"chart\": ${NP1_CHART},
     \"meta\": {\"domain\": \"${TEST_DOMAIN}\", \"title\": \"${TEST_TITLE}\"}
   }" 2>/dev/null || true)
@@ -237,7 +234,7 @@ else
 
   # Verify the chart is retrievable
   if [[ -n "$NP1_CHART_ID" ]]; then
-    NP1_GET_RESP=$(rpc_np "chart.get" "{\"chart_id\":\"${NP1_CHART_ID}\"}" 2>/dev/null || true)
+    NP1_GET_RESP=$(rpc_call_auth "chart.get" "{\"chart_id\":\"${NP1_CHART_ID}\"}" 2>/dev/null || true)
     save_evidence "np1-get-response" "${NP1_GET_RESP:-empty}"
 
     if [[ -n "$NP1_GET_RESP" ]] && assert_rpc_success "$NP1_GET_RESP"; then
@@ -307,7 +304,7 @@ else
     }
   }'
 
-  NP2_SAVE_RESP=$(rpc_np "chart.save" "{
+  NP2_SAVE_RESP=$(rpc_call_auth "chart.save" "{
     \"chart\": ${NP2_CHART},
     \"meta\": {\"domain\": \"${TEST_DOMAIN}\", \"title\": \"pii-placeholder-test\"}
   }" 2>/dev/null || true)
@@ -328,7 +325,7 @@ else
 
   # Retrieve and check placeholders
   if [[ -n "$NP2_CHART_ID" ]]; then
-    NP2_GET_RESP=$(rpc_np "chart.get" "{\"chart_id\":\"${NP2_CHART_ID}\"}" 2>/dev/null || true)
+    NP2_GET_RESP=$(rpc_call_auth "chart.get" "{\"chart_id\":\"${NP2_CHART_ID}\"}" 2>/dev/null || true)
     save_evidence "np2-get-response" "${NP2_GET_RESP:-empty}"
 
     if [[ -n "$NP2_GET_RESP" ]] && echo "$NP2_GET_RESP" | jq -e '.result' >/dev/null 2>&1; then
@@ -417,7 +414,7 @@ else
     }
   }'
 
-  NP3_SAVE_RESP=$(rpc_np "chart.save" "{
+  NP3_SAVE_RESP=$(rpc_call_auth "chart.save" "{
     \"chart\": ${NP3_CHART},
     \"meta\": {\"domain\": \"${TEST_DOMAIN}\", \"title\": \"confidence-test-chart\"}
   }" 2>/dev/null || true)
@@ -438,7 +435,7 @@ else
 
   if [[ -n "$NP3_CHART_ID" ]]; then
     # Step 1: Verify initial confidence is 0.5
-    NP3_GET_RESP=$(rpc_np "chart.get" "{\"chart_id\":\"${NP3_CHART_ID}\"}" 2>/dev/null || true)
+    NP3_GET_RESP=$(rpc_call_auth "chart.get" "{\"chart_id\":\"${NP3_CHART_ID}\"}" 2>/dev/null || true)
     NP3_INITIAL_CONF=$(echo "$NP3_GET_RESP" | jq -r '.result.confidence // empty' 2>/dev/null || true)
 
     if [[ "$NP3_INITIAL_CONF" == "0.5" ]]; then
@@ -448,7 +445,7 @@ else
     fi
 
     # Step 2: Record a success outcome
-    NP3_SUCCESS_RESP=$(rpc_np "chart.recordOutcome" "{\"chart_id\":\"${NP3_CHART_ID}\",\"success\":true}" 2>/dev/null || true)
+    NP3_SUCCESS_RESP=$(rpc_call_auth "chart.recordOutcome" "{\"chart_id\":\"${NP3_CHART_ID}\",\"success\":true}" 2>/dev/null || true)
     save_evidence "np3-success-outcome" "${NP3_SUCCESS_RESP:-empty}"
 
     if [[ -n "$NP3_SUCCESS_RESP" ]] && assert_rpc_success "$NP3_SUCCESS_RESP"; then
@@ -459,7 +456,7 @@ else
     fi
 
     # Verify confidence increased (+0.1 → 0.6)
-    NP3_AFTER_SUCCESS=$(rpc_np "chart.get" "{\"chart_id\":\"${NP3_CHART_ID}\"}" 2>/dev/null || true)
+    NP3_AFTER_SUCCESS=$(rpc_call_auth "chart.get" "{\"chart_id\":\"${NP3_CHART_ID}\"}" 2>/dev/null || true)
     NP3_CONF_AFTER_SUCCESS=$(echo "$NP3_AFTER_SUCCESS" | jq -r '.result.confidence // empty' 2>/dev/null || true)
 
     if [[ "$NP3_CONF_AFTER_SUCCESS" == "0.6" ]]; then
@@ -472,7 +469,7 @@ else
     fi
 
     # Step 3: Record a failure outcome
-    NP3_FAIL_RESP=$(rpc_np "chart.recordOutcome" "{\"chart_id\":\"${NP3_CHART_ID}\",\"success\":false}" 2>/dev/null || true)
+    NP3_FAIL_RESP=$(rpc_call_auth "chart.recordOutcome" "{\"chart_id\":\"${NP3_CHART_ID}\",\"success\":false}" 2>/dev/null || true)
     save_evidence "np3-failure-outcome" "${NP3_FAIL_RESP:-empty}"
 
     if [[ -n "$NP3_FAIL_RESP" ]] && assert_rpc_success "$NP3_FAIL_RESP"; then
@@ -482,7 +479,7 @@ else
     fi
 
     # Verify confidence decreased (-0.2 → 0.4)
-    NP3_AFTER_FAIL=$(rpc_np "chart.get" "{\"chart_id\":\"${NP3_CHART_ID}\"}" 2>/dev/null || true)
+    NP3_AFTER_FAIL=$(rpc_call_auth "chart.get" "{\"chart_id\":\"${NP3_CHART_ID}\"}" 2>/dev/null || true)
     NP3_CONF_AFTER_FAIL=$(echo "$NP3_AFTER_FAIL" | jq -r '.result.confidence // empty' 2>/dev/null || true)
 
     if [[ "$NP3_CONF_AFTER_FAIL" == "0.4" ]]; then
@@ -528,7 +525,7 @@ if $SKIP_ALL; then
   log_skip "NP4 — bridge not reachable"
 else
   # Query for charts in the test domain
-  NP4_LIST_RESP=$(rpc_np "chart.list" "{\"domain\":\"${TEST_DOMAIN}\",\"limit\":10}" 2>/dev/null || true)
+  NP4_LIST_RESP=$(rpc_call_auth "chart.list" "{\"domain\":\"${TEST_DOMAIN}\",\"limit\":10}" 2>/dev/null || true)
   save_evidence "np4-list-response" "${NP4_LIST_RESP:-empty}"
 
   if [[ -z "$NP4_LIST_RESP" ]]; then
@@ -570,7 +567,7 @@ else
     # Simulate reuse: pick the highest-confidence chart and retrieve it
     NP4_BEST_ID=$(echo "$NP4_LIST_RESP" | jq -r '.result[0]?.chart_id // empty' 2>/dev/null || true)
     if [[ -n "$NP4_BEST_ID" ]]; then
-      NP4_REUSE_RESP=$(rpc_np "chart.get" "{\"chart_id\":\"${NP4_BEST_ID}\"}" 2>/dev/null || true)
+      NP4_REUSE_RESP=$(rpc_call_auth "chart.get" "{\"chart_id\":\"${NP4_BEST_ID}\"}" 2>/dev/null || true)
       if [[ -n "$NP4_REUSE_RESP" ]] && assert_rpc_success "$NP4_REUSE_RESP"; then
         log_pass "Reused chart $NP4_BEST_ID retrieved successfully (workflow step simulation)"
         save_evidence "np4-reused-chart" "${NP4_REUSE_RESP}"

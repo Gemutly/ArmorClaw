@@ -24,6 +24,7 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 source "$SCRIPT_DIR/lib/load_env.sh"
 source "$SCRIPT_DIR/lib/common_output.sh"
 source "$SCRIPT_DIR/lib/assert_json.sh"
+source "$SCRIPT_DIR/lib/transport.sh"
 
 EVIDENCE_DIR="$SCRIPT_DIR/../.sisyphus/evidence/full-system-cross-workflow-docs"
 mkdir -p "$EVIDENCE_DIR"
@@ -33,31 +34,7 @@ UNIQUE="x2-$(date +%s)-$$"
 CREATED_TEMPLATE_IDS=()
 CREATED_WORKFLOW_IDS=()
 
-# ── RPC helpers (dual-transport: HTTP then Unix socket) ───────────────────────
-
-rpc_http() {
-  local method="$1" params="${2:-{\}}"
-  curl -ksS -X POST "https://${VPS_IP}:${BRIDGE_PORT}/api" \
-    -H "Content-Type: application/json" \
-    -H "Authorization: Bearer ${ADMIN_TOKEN}" \
-    -d "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"$method\",\"params\":$params}" \
-    --connect-timeout 10 --max-time 30 2>/dev/null
-}
-
-rpc_socket() {
-  local method="$1" params="${2:-{\}}"
-  ssh_vps "echo '{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"$method\",\"auth\":\"${ADMIN_TOKEN}\",\"params\":$params}' | socat - UNIX-CONNECT:/run/armorclaw/bridge.sock" 2>/dev/null
-}
-
-rpc_call() {
-  local method="$1" params="${2:-{\}}"
-  local resp
-  resp=$(rpc_http "$method" "$params")
-  if [[ -z "$resp" ]]; then
-    resp=$(rpc_socket "$method" "$params")
-  fi
-  echo "$resp"
-}
+# ── RPC via shared transport.sh (rpc_call_auth_auth for admin calls) ──────────────
 
 save_evidence() {
   local name="$1" data="$2"
@@ -91,10 +68,10 @@ cleanup() {
   local exit_code=$?
   log_info "Running cleanup..."
   for tid in "${CREATED_TEMPLATE_IDS[@]}"; do
-    rpc_call "secretary.delete_template" "{\"template_id\":\"$tid\"}" >/dev/null 2>&1 || true
+    rpc_call_auth "secretary.delete_template" "{\"template_id\":\"$tid\"}" >/dev/null 2>&1 || true
   done
   for wid in "${CREATED_WORKFLOW_IDS[@]}"; do
-    rpc_call "secretary.cancel_workflow" "{\"workflow_id\":\"$wid\",\"reason\":\"x2 cleanup\"}" >/dev/null 2>&1 || true
+    rpc_call_auth "secretary.cancel_workflow" "{\"workflow_id\":\"$wid\",\"reason\":\"x2 cleanup\"}" >/dev/null 2>&1 || true
   done
   exit $exit_code
 }
@@ -117,7 +94,7 @@ else
 fi
 
 if [[ -z "${ADMIN_TOKEN:-}" ]]; then
-  log_skip "ADMIN_TOKEN not set — skipping cross-subsystem workflow-docs tests"
+  log_env_missing "ADMIN_TOKEN" "skipping cross-subsystem workflow-docs tests"
   harness_summary
   exit 0
 fi
@@ -132,14 +109,14 @@ else
 fi
 
 # Secretary availability
-XD0_SEC_RESP=$(rpc_call "secretary.is_running" '{}')
+XD0_SEC_RESP=$(rpc_call_auth "secretary.is_running" '{}')
 save_evidence "xd0-secretary-is-running" "$XD0_SEC_RESP"
 
 if echo "$XD0_SEC_RESP" | jq -e '.result' >/dev/null 2>&1; then
   log_pass "Secretary RPC available"
   XD0_SECRETARY_OK=true
 else
-  XD0_SEC_RESP2=$(rpc_call "secretary.get_active_count" '{}')
+  XD0_SEC_RESP2=$(rpc_call_auth "secretary.get_active_count" '{}')
   if echo "$XD0_SEC_RESP2" | jq -e '.result' >/dev/null 2>&1; then
     log_pass "Secretary RPC available (get_active_count)"
     XD0_SECRETARY_OK=true
@@ -151,7 +128,7 @@ XD0_RUST_HEALTH=$(grpcurl_rust "Health/Check" '{}' 2>/dev/null || echo "")
 XD0_PYTHON_HEALTH=$(grpcurl_python "Health/Check" '{}' 2>/dev/null || echo "")
 
 # Also check via bridge RPC (doc_query method)
-XD0_DOC_RESP=$(rpc_call "doc_query" '{"content_type":"text/plain","content":"test"}')
+XD0_DOC_RESP=$(rpc_call_auth "doc_query" '{"content_type":"text/plain","content":"test"}')
 save_evidence "xd0-doc-query-probe" "$XD0_DOC_RESP"
 
 if [[ -n "$XD0_RUST_HEALTH" ]] || [[ -n "$XD0_PYTHON_HEALTH" ]]; then
@@ -197,7 +174,7 @@ XD1_CREATE_PARAMS="{\"name\":\"${XD1_TEMPLATE_NAME}\",\"description\":\"X2 cross
 XD1_TEMPLATE_ID=""
 XD1_WORKFLOW_ID=""
 
-XD1_CREATE_RESP=$(rpc_call "secretary.create_template" "$XD1_CREATE_PARAMS")
+XD1_CREATE_RESP=$(rpc_call_auth "secretary.create_template" "$XD1_CREATE_PARAMS")
 save_evidence "xd1-create-template" "$XD1_CREATE_RESP"
 
 if assert_rpc_success "$XD1_CREATE_RESP"; then
@@ -214,7 +191,7 @@ fi
 
 # Start the workflow
 if [[ -n "$XD1_TEMPLATE_ID" ]]; then
-  XD1_CREATE_WF_RESP=$(rpc_call "secretary.create_workflow" "{\"template_id\":\"${XD1_TEMPLATE_ID}\"}")
+  XD1_CREATE_WF_RESP=$(rpc_call_auth "secretary.create_workflow" "{\"template_id\":\"${XD1_TEMPLATE_ID}\"}")
   save_evidence "xd1-create-workflow" "$XD1_CREATE_WF_RESP"
 
   XD1_WF_ID=""
@@ -228,7 +205,7 @@ if [[ -n "$XD1_TEMPLATE_ID" ]]; then
   fi
 
   if [[ -n "$XD1_WF_ID" ]]; then
-    XD1_START_RESP=$(rpc_call "secretary.start_workflow" "{\"workflow_id\":\"${XD1_WF_ID}\"}")
+    XD1_START_RESP=$(rpc_call_auth "secretary.start_workflow" "{\"workflow_id\":\"${XD1_WF_ID}\"}")
     save_evidence "xd1-start-workflow" "$XD1_START_RESP"
 
     if assert_rpc_success "$XD1_START_RESP"; then
@@ -241,7 +218,7 @@ if [[ -n "$XD1_TEMPLATE_ID" ]]; then
 fi
 
 # Verify the document pipeline was invoked — call doc_query directly to confirm sidecar path
-XD1_DOC_RESP=$(rpc_call "doc_query" '{"content_type":"text/plain","content":"Hello from X2 cross-subsystem test"}')
+XD1_DOC_RESP=$(rpc_call_auth "doc_query" '{"content_type":"text/plain","content":"Hello from X2 cross-subsystem test"}')
 save_evidence "xd1-doc-query-direct" "$XD1_DOC_RESP"
 
 if assert_rpc_success "$XD1_DOC_RESP"; then
@@ -270,7 +247,7 @@ XD2_CREATE_PARAMS="{\"name\":\"${XD2_TEMPLATE_NAME}\",\"description\":\"X2 struc
 XD2_TEMPLATE_ID=""
 XD2_WORKFLOW_ID=""
 
-XD2_CREATE_RESP=$(rpc_call "secretary.create_template" "$XD2_CREATE_PARAMS")
+XD2_CREATE_RESP=$(rpc_call_auth "secretary.create_template" "$XD2_CREATE_PARAMS")
 save_evidence "xd2-create-template" "$XD2_CREATE_RESP"
 
 if assert_rpc_success "$XD2_CREATE_RESP"; then
@@ -285,7 +262,7 @@ fi
 
 # Start workflow
 if [[ -n "$XD2_TEMPLATE_ID" ]]; then
-  XD2_CREATE_WF_RESP=$(rpc_call "secretary.create_workflow" "{\"template_id\":\"${XD2_TEMPLATE_ID}\"}")
+  XD2_CREATE_WF_RESP=$(rpc_call_auth "secretary.create_workflow" "{\"template_id\":\"${XD2_TEMPLATE_ID}\"}")
   save_evidence "xd2-create-workflow" "$XD2_CREATE_WF_RESP"
 
   XD2_WF_ID=""
@@ -299,7 +276,7 @@ if [[ -n "$XD2_TEMPLATE_ID" ]]; then
   fi
 
   if [[ -n "$XD2_WF_ID" ]]; then
-    XD2_START_RESP=$(rpc_call "secretary.start_workflow" "{\"workflow_id\":\"${XD2_WF_ID}\"}")
+    XD2_START_RESP=$(rpc_call_auth "secretary.start_workflow" "{\"workflow_id\":\"${XD2_WF_ID}\"}")
     save_evidence "xd2-start-workflow" "$XD2_START_RESP"
 
     if assert_rpc_success "$XD2_START_RESP"; then
@@ -313,7 +290,7 @@ fi
 
 # Send a JSON document through the sidecar pipeline and verify structured result
 XD2_DOC_INPUT='{"title":"Test Document","items":["alpha","beta","gamma"],"count":3}'
-XD2_DOC_RESP=$(rpc_call "doc_query" "{\"content_type\":\"application/json\",\"content\":$(echo "$XD2_DOC_INPUT" | jq -Rs '.')}")
+XD2_DOC_RESP=$(rpc_call_auth "doc_query" "{\"content_type\":\"application/json\",\"content\":$(echo "$XD2_DOC_INPUT" | jq -Rs '.')}")
 save_evidence "xd2-json-doc-query" "$XD2_DOC_RESP"
 
 if assert_rpc_success "$XD2_DOC_RESP"; then
@@ -332,7 +309,7 @@ fi
 
 # Verify workflow can advance after sidecar result
 if [[ -n "$XD2_WORKFLOW_ID" ]]; then
-  XD2_GET_RESP=$(rpc_call "secretary.get_workflow" "{\"workflow_id\":\"${XD2_WORKFLOW_ID}\"}")
+  XD2_GET_RESP=$(rpc_call_auth "secretary.get_workflow" "{\"workflow_id\":\"${XD2_WORKFLOW_ID}\"}")
   save_evidence "xd2-workflow-state" "$XD2_GET_RESP"
 
   if assert_rpc_success "$XD2_GET_RESP"; then
@@ -348,7 +325,7 @@ log_info "── XD3: Format mismatch in workflow context ──────"
 
 # Test the Layer 2 strict-drop routing: content with mismatched format declaration
 # should be rejected, and the workflow should handle the error gracefully.
-XD3_DOC_RESP=$(rpc_call "doc_query" '{"content_type":"application/pdf","content":"not-a-pdf-binary-content"}')
+XD3_DOC_RESP=$(rpc_call_auth "doc_query" '{"content_type":"application/pdf","content":"not-a-pdf-binary-content"}')
 save_evidence "xd3-format-mismatch" "$XD3_DOC_RESP"
 
 if echo "$XD3_DOC_RESP" | jq -e 'has("error")' >/dev/null 2>&1; then
@@ -370,7 +347,7 @@ XD3_TEMPLATE_NAME="${UNIQUE}-xd3-mismatch"
 XD3_STEP_1="{\"step_id\":\"xd3_s1\",\"order\":0,\"type\":\"action\",\"name\":\"Mismatched Doc Step\",\"action_type\":\"doc.extract\"}"
 XD3_CREATE_PARAMS="{\"name\":\"${XD3_TEMPLATE_NAME}\",\"description\":\"X3 format mismatch resilience test\",\"steps\":[${XD3_STEP_1}],\"created_by\":\"harness\"}"
 
-XD3_CREATE_RESP=$(rpc_call "secretary.create_template" "$XD3_CREATE_PARAMS")
+XD3_CREATE_RESP=$(rpc_call_auth "secretary.create_template" "$XD3_CREATE_PARAMS")
 save_evidence "xd3-create-template" "$XD3_CREATE_RESP"
 
 XD3_TEMPLATE_ID=""
@@ -383,7 +360,7 @@ if assert_rpc_success "$XD3_CREATE_RESP"; then
 fi
 
 if [[ -n "$XD3_TEMPLATE_ID" ]]; then
-  XD3_CREATE_WF_RESP=$(rpc_call "secretary.create_workflow" "{\"template_id\":\"${XD3_TEMPLATE_ID}\"}")
+  XD3_CREATE_WF_RESP=$(rpc_call_auth "secretary.create_workflow" "{\"template_id\":\"${XD3_TEMPLATE_ID}\"}")
   save_evidence "xd3-create-workflow" "$XD3_CREATE_WF_RESP"
 
   XD3_WF_ID=""
@@ -397,14 +374,14 @@ if [[ -n "$XD3_TEMPLATE_ID" ]]; then
   fi
 
   if [[ -n "$XD3_WF_ID" ]]; then
-    XD3_START_RESP=$(rpc_call "secretary.start_workflow" "{\"workflow_id\":\"${XD3_WF_ID}\"}")
+    XD3_START_RESP=$(rpc_call_auth "secretary.start_workflow" "{\"workflow_id\":\"${XD3_WF_ID}\"}")
     save_evidence "xd3-start-workflow" "$XD3_START_RESP"
 
     if assert_rpc_success "$XD3_START_RESP"; then
       log_pass "XD3: Workflow started despite potential format mismatch"
 
       # Verify workflow still queryable after mismatch
-      XD3_GET_RESP=$(rpc_call "secretary.get_workflow" "{\"workflow_id\":\"${XD3_WF_ID}\"}")
+      XD3_GET_RESP=$(rpc_call_auth "secretary.get_workflow" "{\"workflow_id\":\"${XD3_WF_ID}\"}")
       if assert_rpc_success "$XD3_GET_RESP"; then
         log_pass "XD3: Workflow queryable after format mismatch (resilient)"
       else

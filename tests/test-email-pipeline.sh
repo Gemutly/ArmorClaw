@@ -21,6 +21,7 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 source "$SCRIPT_DIR/lib/load_env.sh"
+source "$SCRIPT_DIR/lib/transport.sh"
 source "$SCRIPT_DIR/lib/common_output.sh"
 source "$SCRIPT_DIR/lib/assert_json.sh"
 source "$SCRIPT_DIR/lib/restart_bridge.sh"
@@ -29,30 +30,11 @@ source "$SCRIPT_DIR/lib/restart_bridge.sh"
 EVIDENCE_DIR="$SCRIPT_DIR/../.sisyphus/evidence/full-system-t4"
 mkdir -p "$EVIDENCE_DIR"
 
-# ── RPC helpers (dual-transport: HTTP then Unix socket) ───────────────────────
-rpc_http() {
-  local method="$1" params="${2:-{\}}"
-  curl -ksS -X POST "https://${VPS_IP}:${BRIDGE_PORT}/api" \
-    -H "Content-Type: application/json" \
-    -H "Authorization: Bearer ${ADMIN_TOKEN}" \
-    -d "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"$method\",\"params\":$params}" \
-    --connect-timeout 10 --max-time 30 2>/dev/null
-}
+# ── Override transport URL for VPS targeting ────────────────────────────────────
+export BRIDGE_HTTP_URL="https://${VPS_IP}:${BRIDGE_PORT}"
 
-rpc_socket() {
-  local method="$1" params="${2:-{\}}"
-  ssh_vps "echo '{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"$method\",\"auth\":\"${ADMIN_TOKEN}\",\"params\":$params}' | socat - UNIX-CONNECT:/run/armorclaw/bridge.sock" 2>/dev/null
-}
-
-rpc_call() {
-  local method="$1" params="${2:-{\}}"
-  local resp
-  resp=$(rpc_http "$method" "$params")
-  if [[ -z "$resp" ]]; then
-    resp=$(rpc_socket "$method" "$params")
-  fi
-  echo "$resp"
-}
+# ── Auth-aware RPC wrapper (delegates to shared transport.sh) ───────────────────
+rpc_call() { rpc_call_auth "$@"; }
 
 # ── Evidence saver ────────────────────────────────────────────────────────────
 save_evidence() {
@@ -74,7 +56,7 @@ fi
 
 # ADMIN_TOKEN
 if [[ -z "${ADMIN_TOKEN:-}" ]]; then
-  log_skip "M0: ADMIN_TOKEN not set — skipping all RPC tests"
+  log_env_missing "ADMIN_TOKEN not configured — skipping admin-gated tests"
   log_info  "      Set ADMIN_TOKEN in .env to enable email pipeline tests"
   harness_summary
   exit 0

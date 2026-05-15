@@ -26,6 +26,7 @@ source "$SCRIPT_DIR/lib/load_env.sh"
 source "$SCRIPT_DIR/lib/common_output.sh"
 source "$SCRIPT_DIR/lib/assert_json.sh"
 source "$SCRIPT_DIR/lib/event_subscriber_helper.sh"
+source "$SCRIPT_DIR/lib/transport.sh"
 
 EVIDENCE_DIR="$SCRIPT_DIR/../.sisyphus/evidence/full-system-cross-event-truth"
 mkdir -p "$EVIDENCE_DIR"
@@ -33,31 +34,7 @@ mkdir -p "$EVIDENCE_DIR"
 UNIQUE="x4-$(date +%s)-$$"
 WS_URL="wss://${VPS_IP}:${BRIDGE_PORT}/ws"
 
-# ── RPC helpers (dual-transport: HTTP then Unix socket) ───────────────────────
-
-rpc_http() {
-  local method="$1" params="${2:-{\}}"
-  curl -ksS -X POST "https://${VPS_IP}:${BRIDGE_PORT}/api" \
-    -H "Content-Type: application/json" \
-    -H "Authorization: Bearer ${ADMIN_TOKEN}" \
-    -d "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"$method\",\"params\":$params}" \
-    --connect-timeout 10 --max-time 30 2>/dev/null
-}
-
-rpc_socket() {
-  local method="$1" params="${2:-{\}}"
-  ssh_vps "echo '{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"$method\",\"auth\":\"${ADMIN_TOKEN}\",\"params\":$params}' | socat - UNIX-CONNECT:/run/armorclaw/bridge.sock" 2>/dev/null
-}
-
-rpc_call() {
-  local method="$1" params="${2:-{\}}"
-  local resp
-  resp=$(rpc_http "$method" "$params")
-  if [[ -z "$resp" ]]; then
-    resp=$(rpc_socket "$method" "$params")
-  fi
-  echo "$resp"
-}
+# ── RPC via shared transport.sh (rpc_call_auth_auth for admin calls) ──────────────
 
 save_evidence() {
   local name="$1" data="$2"
@@ -72,13 +49,13 @@ cleanup() {
   local exit_code=$?
   log_info "Running cleanup..."
   for tid in "${CREATED_TEMPLATE_IDS[@]}"; do
-    rpc_call "secretary.delete_template" "{\"template_id\":\"$tid\"}" >/dev/null 2>&1 || true
+    rpc_call_auth "secretary.delete_template" "{\"template_id\":\"$tid\"}" >/dev/null 2>&1 || true
   done
   for wid in "${CREATED_WORKFLOW_IDS[@]}"; do
-    rpc_call "secretary.cancel_workflow" "{\"workflow_id\":\"$wid\",\"reason\":\"x4 cleanup\"}" >/dev/null 2>&1 || true
+    rpc_call_auth "secretary.cancel_workflow" "{\"workflow_id\":\"$wid\",\"reason\":\"x4 cleanup\"}" >/dev/null 2>&1 || true
   done
   for rid in "${CREATED_REQUEST_IDS[@]}"; do
-    rpc_call "pii.cancel" "{\"request_id\":\"$rid\"}" >/dev/null 2>&1 || true
+    rpc_call_auth "pii.cancel" "{\"request_id\":\"$rid\"}" >/dev/null 2>&1 || true
   done
   exit $exit_code
 }
@@ -133,7 +110,7 @@ else
 fi
 
 if [[ -z "${ADMIN_TOKEN:-}" ]]; then
-  log_skip "ADMIN_TOKEN not set — skipping event truth tests"
+  log_env_missing "ADMIN_TOKEN" "skipping event truth tests"
   harness_summary
   exit 0
 fi
@@ -189,7 +166,7 @@ XV1_STEP_1="{\"step_id\":\"xv1_s1\",\"order\":0,\"type\":\"action\",\"name\":\"S
 XV1_CREATE_PARAMS="{\"name\":\"${XV1_TEMPLATE_NAME}\",\"description\":\"XV1 event stream trigger\",\"steps\":[${XV1_STEP_1}],\"created_by\":\"harness\"}"
 XV1_WF_ID=""
 
-XV1_TPL_RESP=$(rpc_call "secretary.create_template" "$XV1_CREATE_PARAMS")
+XV1_TPL_RESP=$(rpc_call_auth "secretary.create_template" "$XV1_CREATE_PARAMS")
 if assert_rpc_success "$XV1_TPL_RESP"; then
   XV1_TPL_ID=$(echo "$XV1_TPL_RESP" | jq -r '.result.id // empty' 2>/dev/null || echo "")
   if [[ -n "$XV1_TPL_ID" ]]; then
@@ -198,7 +175,7 @@ if assert_rpc_success "$XV1_TPL_RESP"; then
 fi
 
 if [[ -n "${XV1_TPL_ID:-}" ]]; then
-  XV1_CW_RESP=$(rpc_call "secretary.create_workflow" "{\"template_id\":\"${XV1_TPL_ID}\"}")
+  XV1_CW_RESP=$(rpc_call_auth "secretary.create_workflow" "{\"template_id\":\"${XV1_TPL_ID}\"}")
   if assert_rpc_success "$XV1_CW_RESP"; then
     XV1_WF_ID=$(echo "$XV1_CW_RESP" | jq -r '.result.id // empty' 2>/dev/null || echo "")
     if [[ -n "$XV1_WF_ID" ]]; then
@@ -208,7 +185,7 @@ if [[ -n "${XV1_TPL_ID:-}" ]]; then
 fi
 
 if [[ -n "$XV1_WF_ID" ]]; then
-  XV1_START_RESP=$(rpc_call "secretary.start_workflow" "{\"workflow_id\":\"${XV1_WF_ID}\"}")
+  XV1_START_RESP=$(rpc_call_auth "secretary.start_workflow" "{\"workflow_id\":\"${XV1_WF_ID}\"}")
   save_evidence "xv1-start-workflow" "$XV1_START_RESP"
 
   if assert_rpc_success "$XV1_START_RESP"; then
@@ -222,12 +199,12 @@ else
 fi
 
 # Trigger an email approval event
-XV1_APPROVE_RESP=$(rpc_call "approve_email" "{\"approval_id\":\"x4-xv1-test\",\"user_id\":\"harness\"}")
+XV1_APPROVE_RESP=$(rpc_call_auth "approve_email" "{\"approval_id\":\"x4-xv1-test\",\"user_id\":\"harness\"}")
 save_evidence "xv1-approve-email" "$XV1_APPROVE_RESP"
 log_pass "XV1: Email approval triggered (should emit approval event)"
 
 # Trigger a trust layer event
-XV1_PII_RESP=$(rpc_call "pii.request" "{
+XV1_PII_RESP=$(rpc_call_auth "pii.request" "{
   \"agent_id\": \"event-truth-agent\",
   \"skill_id\": \"x4-test-skill\",
   \"skill_name\": \"Event Truth Test\",
@@ -289,7 +266,7 @@ XV2_STEP_1="{\"step_id\":\"xv2_s1\",\"order\":0,\"type\":\"action\",\"name\":\"C
 XV2_CREATE_PARAMS="{\"name\":\"${XV2_TEMPLATE_NAME}\",\"description\":\"XV2 causal ordering test\",\"steps\":[${XV2_STEP_1}],\"created_by\":\"harness\"}"
 XV2_WF_ID=""
 
-XV2_TPL_RESP=$(rpc_call "secretary.create_template" "$XV2_CREATE_PARAMS")
+XV2_TPL_RESP=$(rpc_call_auth "secretary.create_template" "$XV2_CREATE_PARAMS")
 if assert_rpc_success "$XV2_TPL_RESP"; then
   XV2_TPL_ID=$(echo "$XV2_TPL_RESP" | jq -r '.result.id // empty' 2>/dev/null || echo "")
   if [[ -n "$XV2_TPL_ID" ]]; then
@@ -298,7 +275,7 @@ if assert_rpc_success "$XV2_TPL_RESP"; then
 fi
 
 if [[ -n "${XV2_TPL_ID:-}" ]]; then
-  XV2_CW_RESP=$(rpc_call "secretary.create_workflow" "{\"template_id\":\"${XV2_TPL_ID}\"}")
+  XV2_CW_RESP=$(rpc_call_auth "secretary.create_workflow" "{\"template_id\":\"${XV2_TPL_ID}\"}")
   if assert_rpc_success "$XV2_CW_RESP"; then
     XV2_WF_ID=$(echo "$XV2_CW_RESP" | jq -r '.result.id // empty' 2>/dev/null || echo "")
     if [[ -n "$XV2_WF_ID" ]]; then
@@ -308,7 +285,7 @@ if [[ -n "${XV2_TPL_ID:-}" ]]; then
 fi
 
 if [[ -n "$XV2_WF_ID" ]]; then
-  XV2_START_RESP=$(rpc_call "secretary.start_workflow" "{\"workflow_id\":\"${XV2_WF_ID}\"}")
+  XV2_START_RESP=$(rpc_call_auth "secretary.start_workflow" "{\"workflow_id\":\"${XV2_WF_ID}\"}")
   save_evidence "xv2-start-workflow" "$XV2_START_RESP"
 
   if assert_rpc_success "$XV2_START_RESP"; then
@@ -324,7 +301,7 @@ fi
 sleep 1
 
 # PII request
-XV2_PII_RESP=$(rpc_call "pii.request" "{
+XV2_PII_RESP=$(rpc_call_auth "pii.request" "{
   \"agent_id\": \"causal-test-agent\",
   \"skill_id\": \"xv2-causal-skill\",
   \"skill_name\": \"Causal Order Test\",
@@ -347,7 +324,7 @@ sleep 1
 
 # Deny the PII request
 if [[ -n "$XV2_REQ_ID" ]]; then
-  XV2_DENY_RESP=$(rpc_call "pii.deny" "{
+  XV2_DENY_RESP=$(rpc_call_auth "pii.deny" "{
     \"request_id\": \"$XV2_REQ_ID\",
     \"user_id\": \"harness\",
     \"reason\": \"XV2 causal chain denial\"
@@ -359,7 +336,7 @@ fi
 sleep 1
 
 # Check workflow state
-XV2_GET_RESP=$(rpc_call "secretary.get_workflow" "{\"workflow_id\":\"${XV2_WF_ID}\"}")
+XV2_GET_RESP=$(rpc_call_auth "secretary.get_workflow" "{\"workflow_id\":\"${XV2_WF_ID}\"}")
 save_evidence "xv2-workflow-state" "$XV2_GET_RESP"
 log_pass "XV2: Workflow state checked at end of causal chain"
 
@@ -408,7 +385,7 @@ fi
 log_info "── XV3: Event replay consistency ─────────────────"
 
 # Use events.replay RPC to get historical events and compare with live stream
-XV3_REPLAY_RESP=$(rpc_call "events.replay" '{"offset":0,"limit":50}')
+XV3_REPLAY_RESP=$(rpc_call_auth "events.replay" '{"offset":0,"limit":50}')
 save_evidence "xv3-events-replay" "$XV3_REPLAY_RESP"
 
 if echo "$XV3_REPLAY_RESP" | jq -e '.result' >/dev/null 2>&1; then
@@ -448,7 +425,7 @@ XV3B_STEP_1="{\"step_id\":\"xv3b_s1\",\"order\":0,\"type\":\"action\",\"name\":\
 XV3B_CREATE_PARAMS="{\"name\":\"${XV3B_TEMPLATE_NAME}\",\"description\":\"XV3 replay cross-check\",\"steps\":[${XV3B_STEP_1}],\"created_by\":\"harness\"}"
 XV3B_WF_ID=""
 
-XV3B_TPL_RESP=$(rpc_call "secretary.create_template" "$XV3B_CREATE_PARAMS")
+XV3B_TPL_RESP=$(rpc_call_auth "secretary.create_template" "$XV3B_CREATE_PARAMS")
 if assert_rpc_success "$XV3B_TPL_RESP"; then
   XV3B_TPL_ID=$(echo "$XV3B_TPL_RESP" | jq -r '.result.id // empty' 2>/dev/null || echo "")
   if [[ -n "$XV3B_TPL_ID" ]]; then
@@ -457,7 +434,7 @@ if assert_rpc_success "$XV3B_TPL_RESP"; then
 fi
 
 if [[ -n "${XV3B_TPL_ID:-}" ]]; then
-  XV3B_CW_RESP=$(rpc_call "secretary.create_workflow" "{\"template_id\":\"${XV3B_TPL_ID}\"}")
+  XV3B_CW_RESP=$(rpc_call_auth "secretary.create_workflow" "{\"template_id\":\"${XV3B_TPL_ID}\"}")
   if assert_rpc_success "$XV3B_CW_RESP"; then
     XV3B_WF_ID=$(echo "$XV3B_CW_RESP" | jq -r '.result.id // empty' 2>/dev/null || echo "")
     if [[ -n "$XV3B_WF_ID" ]]; then
@@ -467,7 +444,7 @@ if [[ -n "${XV3B_TPL_ID:-}" ]]; then
 fi
 
 if [[ -n "$XV3B_WF_ID" ]]; then
-  XV3_START_RESP=$(rpc_call "secretary.start_workflow" "{\"workflow_id\":\"${XV3B_WF_ID}\"}")
+  XV3_START_RESP=$(rpc_call_auth "secretary.start_workflow" "{\"workflow_id\":\"${XV3B_WF_ID}\"}")
   save_evidence "xv3-final-trigger" "$XV3_START_RESP"
 
   if assert_rpc_success "$XV3_START_RESP"; then
@@ -475,7 +452,7 @@ if [[ -n "$XV3B_WF_ID" ]]; then
 
     # Wait and check replay again
     sleep 2
-    XV3_REPLAY2=$(rpc_call "events.replay" '{"offset":0,"limit":50}')
+    XV3_REPLAY2=$(rpc_call_auth "events.replay" '{"offset":0,"limit":50}')
     save_evidence "xv3-replay-after-trigger" "$XV3_REPLAY2"
 
     if echo "$XV3_REPLAY2" | jq -e '.result' >/dev/null 2>&1; then

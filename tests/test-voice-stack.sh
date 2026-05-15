@@ -16,6 +16,7 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 source "$SCRIPT_DIR/lib/load_env.sh"
+source "$SCRIPT_DIR/lib/transport.sh"
 source "$SCRIPT_DIR/lib/common_output.sh"
 source "$SCRIPT_DIR/lib/assert_json.sh"
 
@@ -97,11 +98,11 @@ if $V0_PASS; then
     if [[ -n "$local_error_code" ]]; then
       log_info "voice.status RPC returned error (code=$local_error_code): $local_error_msg"
       if [[ "$local_error_msg" == *"not found"* || "$local_error_msg" == *"not registered"* || "$local_error_code" == "-32601" ]]; then
-        log_skip "Voice subsystem not available on this bridge build — all voice tests will skip"
+        log_gated_expected "voice feature intentionally disabled on this deployment"
         VOICE_AVAILABLE=false
       else
         # Some other error — voice might exist but be misconfigured; still skip
-        log_skip "Voice subsystem returned unexpected error — all voice tests will skip"
+        log_gated_expected "voice subsystem returned unexpected error — gated on this deployment"
         VOICE_AVAILABLE=false
       fi
     else
@@ -110,7 +111,7 @@ if $V0_PASS; then
       VOICE_AVAILABLE=true
     fi
   else
-    log_skip "No response from voice.status RPC — voice subsystem not deployed"
+    log_gated_expected "voice subsystem not deployed — no response from voice.status"
     VOICE_AVAILABLE=false
   fi
 

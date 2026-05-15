@@ -24,6 +24,7 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 source "$SCRIPT_DIR/lib/load_env.sh"
 source "$SCRIPT_DIR/lib/common_output.sh"
 source "$SCRIPT_DIR/lib/assert_json.sh"
+source "$SCRIPT_DIR/lib/transport.sh"
 
 EVIDENCE_DIR="$SCRIPT_DIR/../.sisyphus/evidence/full-system-cross-browser-trust"
 mkdir -p "$EVIDENCE_DIR"
@@ -33,31 +34,7 @@ JETSKI_RPC_PORT=9223
 
 CREATED_REQUEST_IDS=()
 
-# ── RPC helpers (dual-transport: HTTP then Unix socket) ───────────────────────
-
-rpc_http() {
-  local method="$1" params="${2:-{\}}"
-  curl -ksS -X POST "https://${VPS_IP}:${BRIDGE_PORT}/api" \
-    -H "Content-Type: application/json" \
-    -H "Authorization: Bearer ${ADMIN_TOKEN}" \
-    -d "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"$method\",\"params\":$params}" \
-    --connect-timeout 10 --max-time 30 2>/dev/null
-}
-
-rpc_socket() {
-  local method="$1" params="${2:-{\}}"
-  ssh_vps "echo '{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"$method\",\"auth\":\"${ADMIN_TOKEN}\",\"params\":$params}' | socat - UNIX-CONNECT:/run/armorclaw/bridge.sock" 2>/dev/null
-}
-
-rpc_call() {
-  local method="$1" params="${2:-{\}}"
-  local resp
-  resp=$(rpc_http "$method" "$params")
-  if [[ -z "$resp" ]]; then
-    resp=$(rpc_socket "$method" "$params")
-  fi
-  echo "$resp"
-}
+# ── RPC via shared transport.sh (rpc_call_auth_auth for admin calls) ──────────────
 
 # ── Jetski RPC helper (direct to port 9223 via SSH) ───────────────────────────
 jetski_rpc() {
@@ -78,7 +55,7 @@ cleanup() {
   local exit_code=$?
   log_info "Running cleanup..."
   for rid in "${CREATED_REQUEST_IDS[@]}"; do
-    rpc_call "pii.cancel" "{\"request_id\":\"$rid\"}" >/dev/null 2>&1 || true
+    rpc_call_auth "pii.cancel" "{\"request_id\":\"$rid\"}" >/dev/null 2>&1 || true
   done
   exit $exit_code
 }
@@ -101,7 +78,7 @@ else
 fi
 
 if [[ -z "${ADMIN_TOKEN:-}" ]]; then
-  log_skip "ADMIN_TOKEN not set — skipping cross-subsystem browser-trust tests"
+  log_env_missing "ADMIN_TOKEN" "skipping cross-subsystem browser-trust tests"
   harness_summary
   exit 0
 fi
@@ -131,7 +108,7 @@ else
 fi
 
 # Trust layer availability — check via pii.stats or pii.list_pending
-XT0_TRUST_RESP=$(rpc_call "pii.stats" '{}')
+XT0_TRUST_RESP=$(rpc_call_auth "pii.stats" '{}')
 save_evidence "xt0-trust-stats" "$XT0_TRUST_RESP"
 
 if echo "$XT0_TRUST_RESP" | jq -e '.result' >/dev/null 2>&1; then
@@ -139,7 +116,7 @@ if echo "$XT0_TRUST_RESP" | jq -e '.result' >/dev/null 2>&1; then
   XT0_TRUST_OK=true
 else
   # Try alternate
-  XT0_TRUST_RESP2=$(rpc_call "pii.list_pending" '{}')
+  XT0_TRUST_RESP2=$(rpc_call_auth "pii.list_pending" '{}')
   if echo "$XT0_TRUST_RESP2" | jq -e '.result' >/dev/null 2>&1; then
     log_pass "Trust/PII layer RPC available (list_pending)"
     XT0_TRUST_OK=true
@@ -188,7 +165,7 @@ else
 fi
 
 # Verify trust layer was consulted — check events
-XT1_EVENTS=$(rpc_call "events.replay" '{"offset":0,"limit":20}')
+XT1_EVENTS=$(rpc_call_auth "events.replay" '{"offset":0,"limit":20}')
 save_evidence "xt1-events-replay" "$XT1_EVENTS"
 
 if echo "$XT1_EVENTS" | jq -e '.result' >/dev/null 2>&1; then
@@ -213,7 +190,7 @@ log_info "── XT2: PII browser action blocked ──────────�
 
 # Create a PII request simulating a browser action that would inject sensitive data
 # The trust layer should block or require approval for this
-XT2_PII_RESP=$(rpc_call "pii.request" "{
+XT2_PII_RESP=$(rpc_call_auth "pii.request" "{
   \"agent_id\": \"browser-trust-agent\",
   \"skill_id\": \"browser.fill_field\",
   \"skill_name\": \"Browser Form Fill\",
@@ -266,7 +243,7 @@ fi
 log_info "── XT3: Approved browser action passthrough ──────"
 
 # Create a PII request for a benign browser action (e.g., URL navigation)
-XT3_PII_RESP=$(rpc_call "pii.request" "{
+XT3_PII_RESP=$(rpc_call_auth "pii.request" "{
   \"agent_id\": \"browser-trust-agent\",
   \"skill_id\": \"browser.navigate\",
   \"skill_name\": \"Browser Navigation\",
@@ -291,7 +268,7 @@ fi
 
 # Approve the benign request
 if [[ -n "$XT3_REQ_ID" ]]; then
-  XT3_APPROVE_RESP=$(rpc_call "pii.approve" "{
+  XT3_APPROVE_RESP=$(rpc_call_auth "pii.approve" "{
     \"request_id\": \"$XT3_REQ_ID\",
     \"user_id\": \"harness\",
     \"approved_fields\": [\"url\"]
@@ -306,7 +283,7 @@ if [[ -n "$XT3_REQ_ID" ]]; then
   fi
 
   # Fulfill to simulate the action proceeding
-  XT3_FULFILL_RESP=$(rpc_call "pii.fulfill" "{
+  XT3_FULFILL_RESP=$(rpc_call_auth "pii.fulfill" "{
     \"request_id\": \"$XT3_REQ_ID\",
     \"resolved_vars\": {\"url\": \"https://example.com\"}
   }")
@@ -321,7 +298,7 @@ if [[ -n "$XT3_REQ_ID" ]]; then
 fi
 
 # Verify trust stats reflect the interactions
-XT3_STATS=$(rpc_call "pii.stats" '{}')
+XT3_STATS=$(rpc_call_auth "pii.stats" '{}')
 save_evidence "xt3-final-stats" "$XT3_STATS"
 if echo "$XT3_STATS" | jq -e '.result' >/dev/null 2>&1; then
   log_pass "XT3: Trust layer stats captured after browser interactions"

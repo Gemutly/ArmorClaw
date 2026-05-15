@@ -23,40 +23,18 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 source "$SCRIPT_DIR/lib/load_env.sh"
+source "$SCRIPT_DIR/lib/transport.sh"
 source "$SCRIPT_DIR/lib/common_output.sh"
 source "$SCRIPT_DIR/lib/assert_json.sh"
 
 EVIDENCE_DIR="$SCRIPT_DIR/../.sisyphus/evidence/full-system-t8"
 mkdir -p "$EVIDENCE_DIR"
 
-# ── Dual-transport RPC helpers (HTTP first, socket fallback) ────────────────────
+# ── Override transport URL for VPS targeting ────────────────────────────────────
+export BRIDGE_HTTP_URL="https://${VPS_IP}:${BRIDGE_PORT}"
 
-# HTTP RPC call via HTTPS to VPS bridge
-rpc_http() {
-  local method="$1" params="${2:-{\}}"
-  curl -ksS -X POST "https://${VPS_IP}:${BRIDGE_PORT}/api" \
-    -H "Content-Type: application/json" \
-    -H "Authorization: Bearer ${ADMIN_TOKEN}" \
-    -d "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"$method\",\"params\":$params}" \
-    --connect-timeout 10 --max-time 30 2>/dev/null
-}
-
-# Socket RPC call via SSH + socat
-rpc_socket() {
-  local method="$1" params="${2:-{\}}"
-  ssh_vps "echo '{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"$method\",\"auth\":\"${ADMIN_TOKEN}\",\"params\":$params}' | socat - UNIX-CONNECT:/run/armorclaw/bridge.sock" 2>/dev/null
-}
-
-# Try HTTP first, fall back to socket
-rpc_call() {
-  local method="$1" params="${2:-{\}}"
-  local resp
-  resp=$(rpc_http "$method" "$params")
-  if [[ -z "$resp" ]]; then
-    resp=$(rpc_socket "$method" "$params")
-  fi
-  echo "$resp"
-}
+# ── Auth-aware RPC wrapper (delegates to shared transport.sh) ───────────────────
+rpc_call() { rpc_call_auth "$@"; }
 
 # ── License states / compliance modes for reference ────────────────────────────
 # States: Valid, GracePeriod, Expired, Invalid, Unknown

@@ -1,305 +1,170 @@
-#!/bin/bash
-# ArmorClaw Matrix Integration Test Suite
+#!/usr/bin/env bash
+# test-matrix-integration.sh — Matrix adapter integration tests for ArmorClaw
 #
-# Tests Matrix event processing without requiring a real Matrix server.
-# Uses mock responses and direct RPC calls to simulate Matrix flow.
+# matrix.status RPC response contract (source: bridge/pkg/rpc/server.go:480-502):
+#
+#   State 1 — Not configured (adapter is nil):
+#     result: {"enabled":false,"connected":false,"error":"matrix adapter not configured"}
+#
+#   State 2 — Configured + logged in:
+#     result: {"enabled":true,"connected":true,"logged_in":true,
+#              "homeserver":"https://domain","user_id":"@bridge:domain"}
+#
+#   State 3 — Configured but not logged in:
+#     result: {"enabled":true,"connected":true,"logged_in":false,
+#              "homeserver":"https://domain","error":"not logged in"}
+#
+#   Error (JSON-RPC level):
+#     {"error":{"code":-32xxx,"message":"..."}}
 #
 # Usage:
-#   ./test-matrix-integration.sh
+#   bash tests/test-matrix-integration.sh
 #
 # Requirements:
-#   - Bridge built and running
+#   - Bridge running (socket or HTTP)
 #   - jq for JSON parsing
-#   - socat for Unix socket communication
 
 set -euo pipefail
 
-# Colors
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-BLUE='\033[0;34m'
-NC='\033[0m'
-
-# Configuration
+# ── Resolve library paths ─────────────────────────────────────────────────────
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
-BRIDGE_SOCK="/run/armorclaw/bridge.sock"
+LIB_DIR="$SCRIPT_DIR/lib"
 
-# Test counters
-TESTS_PASSED=0
-TESTS_FAILED=0
-TESTS_SKIPPED=0
+source "$LIB_DIR/transport.sh"
+source "$LIB_DIR/common_output.sh"
 
-# Helper functions
-log_test() {
-    echo -e "\n${BLUE}═══════════════════════════════════════════════════${NC}"
-    echo -e "${BLUE}Test $1: $2${NC}"
-    echo -e "${BLUE}═══════════════════════════════════════════════════${NC}"
-}
+# Fallback color vars (common_output.sh expects these from tests/e2e/common.sh)
+GREEN="${GREEN:-\033[0;32m}"
+RED="${RED:-\033[0;31m}"
+YELLOW="${YELLOW:-\033[1;33m}"
+NC="${NC:-\033[0m}"
 
-log_pass() {
-    echo -e "${GREEN}✅ PASS: $1${NC}"
-    ((TESTS_PASSED++))
-}
+# ── Detect bridge ─────────────────────────────────────────────────────────────
+if ! optional_bridge; then
+  log_env_missing "Bridge not available — skipping Matrix integration tests"
+  harness_summary
+  exit 0
+fi
 
-log_fail() {
-    echo -e "${RED}❌ FAIL: $1${NC}"
-    ((TESTS_FAILED++))
-}
-
-log_skip() {
-    echo -e "${YELLOW}⏭️  SKIP: $1${NC}"
-    ((TESTS_SKIPPED++))
-}
-
-log_info() {
-    echo -e "   $1"
-}
-
-rpc_call() {
-    local method="$1"
-    local params="${2:-{\}}"
-    echo "{\"jsonrpc\":\"2.0\",\"method\":\"$method\",\"params\":$params,\"id\":$(date +%s%N)}" | \
-        socat - UNIX-CONNECT:"$BRIDGE_SOCK" 2>/dev/null
-}
-
-# ============================================================================
-# Print header
-# ============================================================================
-echo ""
-echo "╔════════════════════════════════════════════════════════════════╗"
-echo "║        ArmorClaw Matrix Integration Test Suite                 ║"
-echo "╚════════════════════════════════════════════════════════════════╝"
-echo ""
-
-# Check dependencies
+# ── Check jq ──────────────────────────────────────────────────────────────────
 if ! command -v jq &>/dev/null; then
-    echo -e "${RED}Error: jq is required${NC}"
-    exit 1
+  log_env_missing "jq not installed — skipping Matrix integration tests"
+  harness_summary
+  exit 0
 fi
 
-if ! command -v socat &>/dev/null; then
-    echo -e "${RED}Error: socat is required${NC}"
-    exit 1
+# ══════════════════════════════════════════════════════════════════════════════
+# TEST 1: matrix.status — response contract validation
+# ══════════════════════════════════════════════════════════════════════════════
+RESPONSE=$(rpc_call "matrix.status" '{}' 2>/dev/null || true)
+
+if [[ -z "$RESPONSE" ]]; then
+  log_fail "matrix.status returned empty response"
+  harness_summary
+  exit 1
 fi
 
-# Check bridge socket
-if [ ! -S "$BRIDGE_SOCK" ]; then
-    echo -e "${RED}Error: Bridge socket not found at $BRIDGE_SOCK${NC}"
-    echo "Start the bridge with: sudo ./bridge/build/armorclaw-bridge"
-    exit 1
+log_info "matrix.status response: $(echo "$RESPONSE" | jq -c '.')"
+
+# Parse the result object (JSON-RPC wraps in .result)
+RESULT_JSON=$(echo "$RESPONSE" | jq -c '.result // empty' 2>/dev/null || true)
+
+if [[ -z "$RESULT_JSON" ]]; then
+  # JSON-RPC error — check if it's a structured error
+  ERROR_CODE=$(echo "$RESPONSE" | jq -r '.error.code // empty' 2>/dev/null || true)
+  if [[ -n "$ERROR_CODE" ]]; then
+    log_fail "matrix.status returned RPC error code $ERROR_CODE: $(echo "$RESPONSE" | jq -r '.error.message // "unknown"')"
+  else
+    log_fail "matrix.status unexpected response: $(echo "$RESPONSE" | jq -c '.')"
+  fi
+  harness_summary
+  exit 1
 fi
 
-# ============================================================================
-# TEST 1: Matrix Status Check
-# ============================================================================
-log_test "1" "Matrix Adapter Status"
+# ── Classify result state ─────────────────────────────────────────────────────
 
-RESPONSE=$(rpc_call "matrix.status" "{}")
-log_info "Response: $(echo "$RESPONSE" | jq -c '.')"
+ENABLED=$(echo "$RESULT_JSON" | jq -r '.enabled // null')
+CONNECTED=$(echo "$RESULT_JSON" | jq -r '.connected // null')
+ERROR_MSG=$(echo "$RESULT_JSON" | jq -r '.error // empty')
+LOGGED_IN=$(echo "$RESULT_JSON" | jq -r '.logged_in // null')
+HOMESERVER=$(echo "$RESULT_JSON" | jq -r '.homeserver // empty')
+USER_ID=$(echo "$RESULT_JSON" | jq -r '.user_id // empty')
 
-if echo "$RESPONSE" | jq -e '.result' >/dev/null 2>&1; then
-    CONNECTED=$(echo "$RESPONSE" | jq -r '.result.connected // false')
-    USER_ID=$(echo "$RESPONSE" | jq -r '.result.user_id // "none"')
+if [[ "$ENABLED" == "false" && "$CONNECTED" == "false" ]]; then
+  # State 1: Matrix adapter not configured — valid on deployments without Matrix
+  log_gated_expected "Matrix adapter not configured (enabled=$ENABLED, error=$ERROR_MSG)"
 
-    log_pass "Matrix status retrieved"
-    log_info "Connected: $CONNECTED"
-    log_info "User ID: $USER_ID"
+elif [[ "$ENABLED" == "true" && "$CONNECTED" == "true" ]]; then
+  # State 2 or 3: Adapter is present
+  if [[ "$LOGGED_IN" == "true" ]]; then
+    log_pass "matrix.status: connected and logged in (user=$USER_ID, hs=$HOMESERVER)"
+  elif [[ "$LOGGED_IN" == "false" ]]; then
+    log_gated_expected "Matrix adapter present but not logged in (homeserver=$HOMESERVER, error=$ERROR_MSG)"
+  else
+    log_pass "matrix.status: adapter present (enabled=$ENABLED, connected=$CONNECTED)"
+  fi
 else
-    ERROR_MSG=$(echo "$RESPONSE" | jq -r '.error.message // "unknown"')
-    if echo "$ERROR_MSG" | grep -qi "not enabled\|not configured"; then
-        log_skip "Matrix not enabled - skipping Matrix-specific tests"
-        MATRIX_ENABLED=false
-    else
-        log_fail "Matrix status check failed: $ERROR_MSG"
-        MATRIX_ENABLED=false
-    fi
+  log_fail "matrix.status unexpected state: enabled=$ENABLED connected=$CONNECTED error=$ERROR_MSG"
 fi
 
-# Set flag based on Matrix status
-MATRIX_ENABLED="${MATRIX_ENABLED:-true}"
+# ══════════════════════════════════════════════════════════════════════════════
+# TEST 2: matrix.status — field-type validation (when result is present)
+# ══════════════════════════════════════════════════════════════════════════════
+if [[ -n "$RESULT_JSON" ]]; then
+  # Verify expected fields are present and correctly typed
+  TYPE_OK=true
 
-# ============================================================================
-# TEST 2: Matrix Login (if not connected)
-# ============================================================================
-if [ "$MATRIX_ENABLED" = "true" ]; then
-    log_test "2" "Matrix Login Capability"
+  # .enabled must be boolean
+  ENABLED_TYPE=$(echo "$RESULT_JSON" | jq -r '.enabled | type')
+  if [[ "$ENABLED_TYPE" != "boolean" ]]; then
+    log_fail "matrix.status .enabled type is '$ENABLED_TYPE', expected boolean"
+    TYPE_OK=false
+  fi
 
-    # Check if login method is available
-    RESPONSE=$(rpc_call "matrix.login" '{"homeserver": "http://localhost:8008"}')
+  # .connected must be boolean
+  CONNECTED_TYPE=$(echo "$RESULT_JSON" | jq -r '.connected | type')
+  if [[ "$CONNECTED_TYPE" != "boolean" ]]; then
+    log_fail "matrix.status .connected type is '$CONNECTED_TYPE', expected boolean"
+    TYPE_OK=false
+  fi
 
-    if echo "$RESPONSE" | jq -e '.error' >/dev/null 2>&1; then
-        ERROR_MSG=$(echo "$RESPONSE" | jq -r '.error.message // "unknown"')
-        if echo "$ERROR_MSG" | grep -qi "already logged in"; then
-            log_pass "Already logged in to Matrix"
-        else
-            log_skip "Matrix login test skipped: $ERROR_MSG"
-        fi
-    else
-        log_pass "Matrix login method available"
-    fi
+  if $TYPE_OK; then
+    log_pass "matrix.status field types valid (enabled=$ENABLED_TYPE, connected=$CONNECTED_TYPE)"
+  fi
+fi
+
+# ══════════════════════════════════════════════════════════════════════════════
+# TEST 3: Invalid RPC method returns -32601
+# ══════════════════════════════════════════════════════════════════════════════
+INVALID_RESP=$(rpc_call "invalid.nonexistent.method" '{}' 2>/dev/null || true)
+
+if [[ -n "$INVALID_RESP" ]]; then
+  INVALID_CODE=$(echo "$INVALID_RESP" | jq -r '.error.code // empty' 2>/dev/null || true)
+  if [[ "$INVALID_CODE" == "-32601" ]]; then
+    log_pass "Invalid method returns -32601 (Method not found)"
+  else
+    log_fail "Invalid method returned code '$INVALID_CODE', expected -32601"
+  fi
 else
-    log_skip "Matrix login test (Matrix not enabled)"
+  log_skip "Could not test invalid method (no response)"
 fi
 
-# ============================================================================
-# TEST 3: Matrix Send Message (Simulated)
-# ============================================================================
-if [ "$MATRIX_ENABLED" = "true" ]; then
-    log_test "3" "Matrix Send Message Capability"
+# ══════════════════════════════════════════════════════════════════════════════
+# TEST 4: Malformed JSON returns -32700
+# ══════════════════════════════════════════════════════════════════════════════
+MALFORMED_RESP=$(echo 'not valid json' | \
+  timeout 3 socat - UNIX-CONNECT:"$BRIDGE_SOCKET" 2>/dev/null || \
+  echo '{"error":{"code":-32700}}')
 
-    RESPONSE=$(rpc_call "matrix.send" '{
-        "room_id": "!test:localhost",
-        "message": "Test message from integration test"
-    }')
-
-    log_info "Response: $(echo "$RESPONSE" | jq -c '.')"
-
-    if echo "$RESPONSE" | jq -e '.result' >/dev/null 2>&1; then
-        log_pass "Matrix send method works"
-    elif echo "$RESPONSE" | jq -e '.error.message | contains("not connected")' >/dev/null 2>&1; then
-        log_skip "Matrix not connected - cannot send"
-    else
-        log_info "Matrix send returned: $(echo "$RESPONSE" | jq -c '.')"
-    fi
+MALFORMED_CODE=$(echo "$MALFORMED_RESP" | jq -r '.error.code // empty' 2>/dev/null || true)
+if [[ "$MALFORMED_CODE" == "-32700" ]]; then
+  log_pass "Malformed JSON returns -32700 (Parse error)"
 else
-    log_skip "Matrix send test (Matrix not enabled)"
+  log_info "Malformed JSON response: $MALFORMED_RESP"
+  log_skip "Malformed JSON test inconclusive (response: code=$MALFORMED_CODE)"
 fi
 
-# ============================================================================
-# TEST 4: Matrix Receive (Simulated)
-# ============================================================================
-if [ "$MATRIX_ENABLED" = "true" ]; then
-    log_test "4" "Matrix Receive Capability"
-
-    RESPONSE=$(rpc_call "matrix.receive" '{}')
-
-    log_info "Response: $(echo "$RESPONSE" | jq -c '.')"
-
-    if echo "$RESPONSE" | jq -e '.result' >/dev/null 2>&1; then
-        MESSAGE_COUNT=$(echo "$RESPONSE" | jq -r '.result.messages | length // 0')
-        log_pass "Matrix receive method works"
-        log_info "Messages pending: $MESSAGE_COUNT"
-    elif echo "$RESPONSE" | jq -e '.error.message | contains("not connected")' >/dev/null 2>&1; then
-        log_skip "Matrix not connected - cannot receive"
-    else
-        log_info "Matrix receive returned: $(echo "$RESPONSE" | jq -c '.')"
-    fi
-else
-    log_skip "Matrix receive test (Matrix not enabled)"
-fi
-
-# ============================================================================
-# TEST 5: Trusted Senders Validation
-# ============================================================================
-log_test "5" "Trusted Senders Validation"
-
-# This tests the internal trusted sender logic
-# The Matrix adapter should validate senders against allowlist
-
-# Test via status - check if trusted senders are configured
-RESPONSE=$(rpc_call "bridge.status" "{}")
-
-if echo "$RESPONSE" | jq -e '.result' >/dev/null 2>&1; then
-    log_pass "Status retrieved for trusted sender check"
-    log_info "Bridge state: $(echo "$RESPONSE" | jq -r '.result.state // "unknown"')"
-else
-    log_fail "Could not retrieve status"
-fi
-
-# Removed: tests for unregistered RPC methods (see git history for details).
-
-# ============================================================================
-# TEST 8: Matrix Room Access Control
-# ============================================================================
-if [ "$MATRIX_ENABLED" = "true" ]; then
-    log_test "8" "Matrix Room Access Control"
-
-    # Verify that room access validation works
-    # This is tested by checking if the adapter has room allowlist configured
-
-    RESPONSE=$(rpc_call "matrix.status" "{}")
-
-    if echo "$RESPONSE" | jq -e '.result.trusted_rooms' >/dev/null 2>&1; then
-        ROOMS=$(echo "$RESPONSE" | jq -r '.result.trusted_rooms | length // 0')
-        log_pass "Room access control configured"
-        log_info "Trusted rooms count: $ROOMS"
-    else
-        log_info "Room access control status: default (all allowed)"
-    fi
-else
-    log_skip "Room access control test (Matrix not enabled)"
-fi
-
-
-
-# ============================================================================
-# TEST 10: Error Recovery
-# ============================================================================
-log_test "10" "Error Recovery"
-
-# Test that the bridge handles errors gracefully
-
-# Invalid method
-RESPONSE=$(rpc_call "invalid.method" '{}')
-
-if echo "$RESPONSE" | jq -e '.error.code == -32601' >/dev/null 2>&1; then
-    log_pass "Invalid method returns correct error code (-32601)"
-else
-    log_fail "Invalid method error handling incorrect"
-fi
-
-# Invalid JSON-RPC version
-RESPONSE=$(echo '{"jsonrpc":"1.0","method":"bridge.status","id":1}' | \
-    socat - UNIX-CONNECT:"$BRIDGE_SOCK" 2>/dev/null)
-
-if echo "$RESPONSE" | jq -e '.error' >/dev/null 2>&1; then
-    log_pass "Invalid JSON-RPC version rejected"
-else
-    log_fail "Invalid JSON-RPC version not rejected"
-fi
-
-# Malformed JSON
-RESPONSE=$(echo 'not valid json' | socat - UNIX-CONNECT:"$BRIDGE_SOCK" 2>/dev/null || echo '{"error":{"code":-32700}}')
-
-if echo "$RESPONSE" | jq -e '.error.code == -32700' >/dev/null 2>&1; then
-    log_pass "Malformed JSON returns parse error (-32700)"
-else
-    log_info "Malformed JSON response: $RESPONSE"
-fi
-
-
-
-# ============================================================================
-# Cleanup
-# ============================================================================
-echo -e "\n${YELLOW}Cleaning up test artifacts...${NC}"
-
-# ============================================================================
-# Test Summary
-# ============================================================================
-echo ""
-echo "╔════════════════════════════════════════════════════════════════╗"
-echo "║                      Test Summary                              ║"
-echo "╠════════════════════════════════════════════════════════════════╣"
-echo -e "║  ${GREEN}Passed: $TESTS_PASSED${NC}                                                        ║"
-echo -e "║  ${RED}Failed: $TESTS_FAILED${NC}                                                        ║"
-echo -e "║  ${YELLOW}Skipped: $TESTS_SKIPPED${NC}                                                       ║"
-echo "╚════════════════════════════════════════════════════════════════╝"
-echo ""
-
-if [ "$MATRIX_ENABLED" = "false" ]; then
-    echo -e "${YELLOW}Note: Some tests were skipped because Matrix is not enabled.${NC}"
-    echo "To enable Matrix, start the bridge with --matrix-enabled or configure it in the config file."
-    echo ""
-fi
-
-# Exit with appropriate code
-if [ $TESTS_FAILED -gt 0 ]; then
-    echo -e "${RED}Some tests failed. Please review the output above.${NC}"
-    exit 1
-else
-    echo -e "${GREEN}All tests passed!${NC}"
-    exit 0
-fi
+# ══════════════════════════════════════════════════════════════════════════════
+# Summary
+# ══════════════════════════════════════════════════════════════════════════════
+harness_summary

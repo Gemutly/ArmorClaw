@@ -22,6 +22,7 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 source "$SCRIPT_DIR/lib/load_env.sh"
+source "$SCRIPT_DIR/lib/transport.sh"
 source "$SCRIPT_DIR/lib/common_output.sh"
 source "$SCRIPT_DIR/lib/assert_json.sh"
 
@@ -29,50 +30,22 @@ source "$SCRIPT_DIR/lib/assert_json.sh"
 EVIDENCE_DIR="$SCRIPT_DIR/../.sisyphus/evidence/full-system-t9"
 mkdir -p "$EVIDENCE_DIR"
 
-# ── Dual-transport RPC helper ─────────────────────────────────────────────────
-# Detects available transport (socket via socat or HTTP via curl) and calls
-# the bridge RPC endpoint using whichever is available.
-# Falls back to HTTP if socket is not present.
+# ── Use shared transport detector ─────────────────────────────────────────────
+detect_transport
 
-HAS_SOCKET=false
-HAS_HTTP=false
-
-# Detect socket transport
-if ssh_vps "command -v socat >/dev/null 2>&1 && test -S /run/armorclaw/bridge.sock" 2>/dev/null; then
-  HAS_SOCKET=true
-fi
-
-# Detect HTTP transport
-HTTP_CODE=$(ssh_vps "curl -kfsS -o /dev/null -w '%{http_code}' https://localhost:${BRIDGE_PORT}/health 2>/dev/null || echo 000" 2>/dev/null) || HTTP_CODE="000"
-if [[ "$HTTP_CODE" == "200" ]]; then
-  HAS_HTTP=true
-fi
-
-log_info "Transport: socket=$HAS_SOCKET http=$HAS_HTTP"
-
-if ! $HAS_SOCKET && ! $HAS_HTTP; then
+if [[ "$TRANSPORT_MODE" == "none" ]]; then
   log_fail "No transport available (neither socket nor HTTP)"
   harness_summary
   exit 1
 fi
 
-# rpc_call: Sends JSON-RPC via available transport (prefers socket).
-# Args: method [params_json] [timeout_seconds]
-rpc_call() {
-  local method="$1"
-  local params="${2:-{\}}"
-  local timeout_s="${3:-10}"
-  local payload="{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"${method}\",\"params\":${params},\"auth\":\"${ADMIN_TOKEN}\"}"
+log_info "Transport: socket=$HAS_SOCKET http=$HAS_HTTP"
 
-  if $HAS_SOCKET; then
-    ssh_vps "timeout ${timeout_s} bash -c 'echo '\''${payload}'\'' | socat - UNIX-CONNECT:/run/armorclaw/bridge.sock'" 2>/dev/null || true
-  elif $HAS_HTTP; then
-    # Strip auth field from payload — use header-based auth for HTTP
-    local http_payload
-    http_payload=$(echo "$payload" | jq 'del(.auth)' 2>/dev/null || echo "$payload")
-    ssh_vps "curl -ksS --max-time ${timeout_s} -X POST https://localhost:${BRIDGE_PORT}/api -H 'Authorization: Bearer ${ADMIN_TOKEN}' -H 'Content-Type: application/json' -d '${http_payload}'" 2>/dev/null || true
-  fi
-}
+# ── Override transport URL for VPS targeting ────────────────────────────────────
+export BRIDGE_HTTP_URL="https://${VPS_IP}:${BRIDGE_PORT}"
+
+# ── Auth-aware RPC wrapper (delegates to shared transport.sh) ───────────────────
+rpc_call() { rpc_call_auth "$@"; }
 
 # save_evidence: Append JSON blob to evidence file
 save_evidence() {
@@ -120,7 +93,7 @@ fi
 if [[ -n "${ADMIN_TOKEN:-}" ]]; then
   log_pass "ADMIN_TOKEN is set"
 else
-  log_fail "ADMIN_TOKEN is not set — adapter RPCs require authentication"
+  log_env_missing "ADMIN_TOKEN not configured — skipping admin-gated tests"
   P0_PASS=false
 fi
 
@@ -398,8 +371,7 @@ TEST_SUMMARY=$(cat <<HEREDOC
   "test": "T9-platform-adapters",
   "timestamp": "${TIMESTAMP}",
   "transport": {
-    "socket": $HAS_SOCKET,
-    "http": $HAS_HTTP
+    "transport_mode": "${TRANSPORT_MODE}"
   },
   "passed": $FULL_SYSTEM_PASSED,
   "failed": $FULL_SYSTEM_FAILED,

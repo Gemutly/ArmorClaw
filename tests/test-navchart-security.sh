@@ -23,25 +23,12 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 source "$SCRIPT_DIR/lib/load_env.sh"
 source "$SCRIPT_DIR/lib/common_output.sh"
 source "$SCRIPT_DIR/lib/assert_json.sh"
+source "$SCRIPT_DIR/lib/transport.sh"
 
 EVIDENCE_DIR="$SCRIPT_DIR/../.sisyphus/evidence/full-system-navchart"
 mkdir -p "$EVIDENCE_DIR"
 
 SKIP_ALL=false
-
-rpc_nc() {
-  local method="$1" params="${2:-{\}}"
-  local resp
-  resp=$(curl -ksS -X POST "https://${VPS_IP}:${BRIDGE_PORT}/api" \
-    -H "Content-Type: application/json" \
-    -H "Authorization: Bearer ${ADMIN_TOKEN}" \
-    -d "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"$method\",\"params\":$params}" \
-    --connect-timeout 10 --max-time 30 2>/dev/null || true)
-  if [[ -z "$resp" ]]; then
-    resp=$(ssh_vps "echo '{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"$method\",\"auth\":\"${ADMIN_TOKEN}\",\"params\":$params}' | socat - UNIX-CONNECT:/run/armorclaw/bridge.sock" 2>/dev/null || true)
-  fi
-  echo "$resp"
-}
 
 # ══════════════════════════════════════════════════════════════════════════════
 # NS0: Prerequisites
@@ -63,7 +50,7 @@ else
 fi
 
 BRIDGE_REACHABLE=false
-BRIDGE_RESP=$(rpc_nc "bridge.status" 2>/dev/null || true)
+BRIDGE_RESP=$(rpc_call_auth "bridge.status" 2>/dev/null || true)
 if [[ -n "$BRIDGE_RESP" ]] && echo "$BRIDGE_RESP" | jq -e '.result' &>/dev/null; then
   BRIDGE_REACHABLE=true
   log_pass "Bridge reachable"
@@ -80,7 +67,7 @@ log_info "── NS1: No raw PII in stored charts ──────────
 if $SKIP_ALL; then
   log_skip "NS1 — bridge not reachable"
 else
-  CHARTS_RESP=$(rpc_nc "chart.list" '{"domain":"https://unknown","limit":100}' 2>/dev/null || true)
+  CHARTS_RESP=$(rpc_call_auth "chart.list" '{"domain":"https://unknown","limit":100}' 2>/dev/null || true)
   if [[ -z "$CHARTS_RESP" ]]; then
     log_skip "NS1 — chart.list returned empty response (no charts or method missing)"
   else
@@ -116,7 +103,7 @@ log_info "── NS2: Policy rejection (malformed chart) ────"
 if $SKIP_ALL; then
   log_skip "NS2 — bridge not reachable"
 else
-  MALFORMED_RESP=$(rpc_nc "chart.save" '{
+  MALFORMED_RESP=$(rpc_call_auth "chart.save" '{
     "chart": {"version": -1, "action_map": {}},
     "meta": {"domain": "https://evil.com", "title": "<script>alert(1)</script>"}
   }' 2>/dev/null || true)
@@ -130,7 +117,7 @@ else
   else
     CHART_ID=$(echo "$MALFORMED_RESP" | jq -r '.result.chart_id // empty' 2>/dev/null)
     if [[ -n "$CHART_ID" ]]; then
-      rpc_nc "chart.delete" "{\"chart_id\":\"$CHART_ID\"}" &>/dev/null || true
+      rpc_call_auth "chart.delete" "{\"chart_id\":\"$CHART_ID\"}" &>/dev/null || true
       log_fail "NS2 — malformed chart was accepted (cleaned up)"
     else
       log_skip "NS2 — unexpected response shape"
@@ -146,7 +133,7 @@ log_info "── NS3: Approval required on replay ──────────
 if $SKIP_ALL; then
   log_skip "NS3 — bridge not reachable"
 else
-  APPROVAL_RESP=$(rpc_nc "chart.list" '{"domain":"https://unknown","limit":10}' 2>/dev/null || true)
+  APPROVAL_RESP=$(rpc_call_auth "chart.list" '{"domain":"https://unknown","limit":10}' 2>/dev/null || true)
   if [[ -z "$APPROVAL_RESP" ]]; then
     log_skip "NS3 — no chart data available"
   else
@@ -177,7 +164,7 @@ log_info "── NS4: Audit log entries present ──────────�
 if $SKIP_ALL; then
   log_skip "NS4 — bridge not reachable"
 else
-  AUDIT_RESP=$(rpc_nc "audit.list" '{"limit":5}' 2>/dev/null || true)
+  AUDIT_RESP=$(rpc_call_auth "audit.list" '{"limit":5}' 2>/dev/null || true)
   if [[ -z "$AUDIT_RESP" ]]; then
     log_skip "NS4 — audit.list returned empty (method may not exist)"
   else
@@ -200,7 +187,7 @@ log_info "── NS5: Malicious chart rejected ───────────
 if $SKIP_ALL; then
   log_skip "NS5 — bridge not reachable"
 else
-  INJECT_RESP=$(rpc_nc "chart.save" '{
+  INJECT_RESP=$(rpc_call_auth "chart.save" '{
     "chart": {
       "version": 1,
       "target_domain": "https://evil.com",
@@ -223,7 +210,7 @@ else
   else
     INJECT_ID=$(echo "$INJECT_RESP" | jq -r '.result.chart_id // empty' 2>/dev/null)
     if [[ -n "$INJECT_ID" ]]; then
-      rpc_nc "chart.delete" "{\"chart_id\":\"$INJECT_ID\"}" &>/dev/null || true
+      rpc_call_auth "chart.delete" "{\"chart_id\":\"$INJECT_ID\"}" &>/dev/null || true
       log_fail "NS5 — javascript: URL chart was accepted (cleaned up)"
     else
       log_skip "NS5 — unexpected response shape"

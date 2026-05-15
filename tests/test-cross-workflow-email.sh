@@ -25,6 +25,7 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 source "$SCRIPT_DIR/lib/load_env.sh"
 source "$SCRIPT_DIR/lib/common_output.sh"
 source "$SCRIPT_DIR/lib/assert_json.sh"
+source "$SCRIPT_DIR/lib/transport.sh"
 
 EVIDENCE_DIR="$SCRIPT_DIR/../.sisyphus/evidence/full-system-cross-workflow-email"
 mkdir -p "$EVIDENCE_DIR"
@@ -37,33 +38,8 @@ CREATED_TEMPLATE_IDS=()
 CREATED_WORKFLOW_IDS=()
 CREATED_REQUEST_IDS=()
 
-# ── RPC helpers (dual-transport: HTTP then Unix socket) ───────────────────────
+# ── RPC via shared transport.sh (rpc_call_auth_auth for admin calls) ──────────────
 
-rpc_http() {
-  local method="$1" params="${2:-{\}}"
-  curl -ksS -X POST "https://${VPS_IP}:${BRIDGE_PORT}/api" \
-    -H "Content-Type: application/json" \
-    -H "Authorization: Bearer ${ADMIN_TOKEN}" \
-    -d "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"$method\",\"params\":$params}" \
-    --connect-timeout 10 --max-time 30 2>/dev/null
-}
-
-rpc_socket() {
-  local method="$1" params="${2:-{\}}"
-  ssh_vps "echo '{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"$method\",\"auth\":\"${ADMIN_TOKEN}\",\"params\":$params}' | socat - UNIX-CONNECT:/run/armorclaw/bridge.sock" 2>/dev/null
-}
-
-rpc_call() {
-  local method="$1" params="${2:-{\}}"
-  local resp
-  resp=$(rpc_http "$method" "$params")
-  if [[ -z "$resp" ]]; then
-    resp=$(rpc_socket "$method" "$params")
-  fi
-  echo "$resp"
-}
-
-# ── Evidence saver ────────────────────────────────────────────────────────────
 save_evidence() {
   local name="$1" data="$2"
   echo "$data" > "$EVIDENCE_DIR/${name}.json"
@@ -74,13 +50,13 @@ cleanup() {
   local exit_code=$?
   log_info "Running cleanup..."
   for tid in "${CREATED_TEMPLATE_IDS[@]}"; do
-    rpc_call "secretary.delete_template" "{\"template_id\":\"$tid\"}" >/dev/null 2>&1 || true
+    rpc_call_auth "secretary.delete_template" "{\"template_id\":\"$tid\"}" >/dev/null 2>&1 || true
   done
   for wid in "${CREATED_WORKFLOW_IDS[@]}"; do
-    rpc_call "secretary.cancel_workflow" "{\"workflow_id\":\"$wid\",\"reason\":\"x1 cleanup\"}" >/dev/null 2>&1 || true
+    rpc_call_auth "secretary.cancel_workflow" "{\"workflow_id\":\"$wid\",\"reason\":\"x1 cleanup\"}" >/dev/null 2>&1 || true
   done
   for rid in "${CREATED_REQUEST_IDS[@]}"; do
-    rpc_call "pii.cancel" "{\"request_id\":\"$rid\"}" >/dev/null 2>&1 || true
+    rpc_call_auth "pii.cancel" "{\"request_id\":\"$rid\"}" >/dev/null 2>&1 || true
   done
   exit $exit_code
 }
@@ -105,7 +81,7 @@ fi
 
 # ADMIN_TOKEN
 if [[ -z "${ADMIN_TOKEN:-}" ]]; then
-  log_skip "ADMIN_TOKEN not set — skipping cross-subsystem workflow-email tests"
+  log_env_missing "ADMIN_TOKEN" "skipping cross-subsystem workflow-email tests"
   harness_summary
   exit 0
 fi
@@ -121,14 +97,14 @@ else
 fi
 
 # Secretary availability
-XE0_SEC_RESP=$(rpc_call "secretary.is_running" '{}')
+XE0_SEC_RESP=$(rpc_call_auth "secretary.is_running" '{}')
 save_evidence "xe0-secretary-is-running" "$XE0_SEC_RESP"
 
 if echo "$XE0_SEC_RESP" | jq -e '.result' >/dev/null 2>&1; then
   log_pass "Secretary RPC available"
   XE0_SECRETARY_OK=true
 else
-  XE0_SEC_RESP2=$(rpc_call "secretary.get_active_count" '{}')
+  XE0_SEC_RESP2=$(rpc_call_auth "secretary.get_active_count" '{}')
   if echo "$XE0_SEC_RESP2" | jq -e '.result' >/dev/null 2>&1; then
     log_pass "Secretary RPC available (get_active_count)"
     XE0_SECRETARY_OK=true
@@ -136,7 +112,7 @@ else
 fi
 
 # Email availability
-XE0_EMAIL_RESP=$(rpc_call "email_approval_status" '{}')
+XE0_EMAIL_RESP=$(rpc_call_auth "email_approval_status" '{}')
 save_evidence "xe0-email-approval-status" "$XE0_EMAIL_RESP"
 
 if echo "$XE0_EMAIL_RESP" | jq -e '.result' >/dev/null 2>&1 || echo "$XE0_EMAIL_RESP" | jq -e '.pending_count' >/dev/null 2>&1; then
@@ -176,7 +152,7 @@ XE1_TEMPLATE_ID=""
 XE1_WORKFLOW_ID=""
 
 # Create email-sending workflow template
-XE1_CREATE_RESP=$(rpc_call "secretary.create_template" "$XE1_CREATE_PARAMS")
+XE1_CREATE_RESP=$(rpc_call_auth "secretary.create_template" "$XE1_CREATE_PARAMS")
 save_evidence "xe1-create-template" "$XE1_CREATE_RESP"
 
 if assert_rpc_success "$XE1_CREATE_RESP"; then
@@ -193,7 +169,7 @@ fi
 
 # Start the workflow
 if [[ -n "$XE1_TEMPLATE_ID" ]]; then
-  XE1_CREATE_WF_RESP=$(rpc_call "secretary.create_workflow" "{\"template_id\":\"${XE1_TEMPLATE_ID}\"}")
+  XE1_CREATE_WF_RESP=$(rpc_call_auth "secretary.create_workflow" "{\"template_id\":\"${XE1_TEMPLATE_ID}\"}")
   save_evidence "xe1-create-workflow" "$XE1_CREATE_WF_RESP"
 
   XE1_WF_ID=""
@@ -210,7 +186,7 @@ if [[ -n "$XE1_TEMPLATE_ID" ]]; then
   fi
 
   if [[ -n "$XE1_WF_ID" ]]; then
-    XE1_START_RESP=$(rpc_call "secretary.start_workflow" "{\"workflow_id\":\"${XE1_WF_ID}\"}")
+    XE1_START_RESP=$(rpc_call_auth "secretary.start_workflow" "{\"workflow_id\":\"${XE1_WF_ID}\"}")
     save_evidence "xe1-start-workflow" "$XE1_START_RESP"
 
     if assert_rpc_success "$XE1_START_RESP"; then
@@ -223,7 +199,7 @@ if [[ -n "$XE1_TEMPLATE_ID" ]]; then
 fi
 
 # Verify email approval was triggered — check pending approvals
-XE1_LIST_RESP=$(rpc_call "email.list_pending" '{}')
+XE1_LIST_RESP=$(rpc_call_auth "email.list_pending" '{}')
 save_evidence "xe1-list-pending" "$XE1_LIST_RESP"
 
 if echo "$XE1_LIST_RESP" | jq -e '.result' >/dev/null 2>&1; then
@@ -248,7 +224,7 @@ XE2_CREATE_PARAMS="{\"name\":\"${XE2_TEMPLATE_NAME}\",\"description\":\"X1 appro
 XE2_TEMPLATE_ID=""
 XE2_WORKFLOW_ID=""
 
-XE2_CREATE_RESP=$(rpc_call "secretary.create_template" "$XE2_CREATE_PARAMS")
+XE2_CREATE_RESP=$(rpc_call_auth "secretary.create_template" "$XE2_CREATE_PARAMS")
 save_evidence "xe2-create-template" "$XE2_CREATE_RESP"
 
 if assert_rpc_success "$XE2_CREATE_RESP"; then
@@ -263,7 +239,7 @@ fi
 
 # Start workflow
 if [[ -n "$XE2_TEMPLATE_ID" ]]; then
-  XE2_CREATE_WF_RESP=$(rpc_call "secretary.create_workflow" "{\"template_id\":\"${XE2_TEMPLATE_ID}\"}")
+  XE2_CREATE_WF_RESP=$(rpc_call_auth "secretary.create_workflow" "{\"template_id\":\"${XE2_TEMPLATE_ID}\"}")
   save_evidence "xe2-create-workflow" "$XE2_CREATE_WF_RESP"
 
   XE2_WF_ID=""
@@ -277,7 +253,7 @@ if [[ -n "$XE2_TEMPLATE_ID" ]]; then
   fi
 
   if [[ -n "$XE2_WF_ID" ]]; then
-    XE2_START_RESP=$(rpc_call "secretary.start_workflow" "{\"workflow_id\":\"${XE2_WF_ID}\"}")
+    XE2_START_RESP=$(rpc_call_auth "secretary.start_workflow" "{\"workflow_id\":\"${XE2_WF_ID}\"}")
     save_evidence "xe2-start-workflow" "$XE2_START_RESP"
 
     if assert_rpc_success "$XE2_START_RESP"; then
@@ -292,14 +268,14 @@ fi
 # Record pre-approval workflow state
 XE2_PRE_STATUS=""
 if [[ -n "$XE2_WORKFLOW_ID" ]]; then
-  XE2_PRE_RESP=$(rpc_call "secretary.get_workflow" "{\"workflow_id\":\"${XE2_WORKFLOW_ID}\"}")
+  XE2_PRE_RESP=$(rpc_call_auth "secretary.get_workflow" "{\"workflow_id\":\"${XE2_WORKFLOW_ID}\"}")
   save_evidence "xe2-pre-approval-state" "$XE2_PRE_RESP"
   XE2_PRE_STATUS=$(echo "$XE2_PRE_RESP" | jq -r '.result.status // "unknown"' 2>/dev/null)
   log_info "XE2: Pre-approval workflow status: $XE2_PRE_STATUS"
 fi
 
 # Simulate approval via approve_email with a test ID
-XE2_APPROVE_RESP=$(rpc_call "approve_email" "{\"approval_id\":\"x1-xe2-test-approval\",\"user_id\":\"harness\"}")
+XE2_APPROVE_RESP=$(rpc_call_auth "approve_email" "{\"approval_id\":\"x1-xe2-test-approval\",\"user_id\":\"harness\"}")
 save_evidence "xe2-approve-email" "$XE2_APPROVE_RESP"
 
 if [[ -n "$XE2_APPROVE_RESP" ]]; then
@@ -317,7 +293,7 @@ fi
 
 # Check workflow state after approval attempt
 if [[ -n "$XE2_WORKFLOW_ID" ]]; then
-  XE2_POST_RESP=$(rpc_call "secretary.get_workflow" "{\"workflow_id\":\"${XE2_WORKFLOW_ID}\"}")
+  XE2_POST_RESP=$(rpc_call_auth "secretary.get_workflow" "{\"workflow_id\":\"${XE2_WORKFLOW_ID}\"}")
   save_evidence "xe2-post-approval-state" "$XE2_POST_RESP"
 
   if assert_rpc_success "$XE2_POST_RESP"; then
@@ -342,7 +318,7 @@ XE3_CREATE_PARAMS="{\"name\":\"${XE3_TEMPLATE_NAME}\",\"description\":\"X1 denia
 XE3_TEMPLATE_ID=""
 XE3_WORKFLOW_ID=""
 
-XE3_CREATE_RESP=$(rpc_call "secretary.create_template" "$XE3_CREATE_PARAMS")
+XE3_CREATE_RESP=$(rpc_call_auth "secretary.create_template" "$XE3_CREATE_PARAMS")
 save_evidence "xe3-create-template" "$XE3_CREATE_RESP"
 
 if assert_rpc_success "$XE3_CREATE_RESP"; then
@@ -357,7 +333,7 @@ fi
 
 # Start workflow
 if [[ -n "$XE3_TEMPLATE_ID" ]]; then
-  XE3_CREATE_WF_RESP=$(rpc_call "secretary.create_workflow" "{\"template_id\":\"${XE3_TEMPLATE_ID}\"}")
+  XE3_CREATE_WF_RESP=$(rpc_call_auth "secretary.create_workflow" "{\"template_id\":\"${XE3_TEMPLATE_ID}\"}")
   save_evidence "xe3-create-workflow" "$XE3_CREATE_WF_RESP"
 
   XE3_WF_ID=""
@@ -371,7 +347,7 @@ if [[ -n "$XE3_TEMPLATE_ID" ]]; then
   fi
 
   if [[ -n "$XE3_WF_ID" ]]; then
-    XE3_START_RESP=$(rpc_call "secretary.start_workflow" "{\"workflow_id\":\"${XE3_WF_ID}\"}")
+    XE3_START_RESP=$(rpc_call_auth "secretary.start_workflow" "{\"workflow_id\":\"${XE3_WF_ID}\"}")
     save_evidence "xe3-start-workflow" "$XE3_START_RESP"
 
     if assert_rpc_success "$XE3_START_RESP"; then
@@ -386,14 +362,14 @@ fi
 # Record pre-denial state
 XE3_PRE_STATUS=""
 if [[ -n "$XE3_WORKFLOW_ID" ]]; then
-  XE3_PRE_RESP=$(rpc_call "secretary.get_workflow" "{\"workflow_id\":\"${XE3_WORKFLOW_ID}\"}")
+  XE3_PRE_RESP=$(rpc_call_auth "secretary.get_workflow" "{\"workflow_id\":\"${XE3_WORKFLOW_ID}\"}")
   save_evidence "xe3-pre-denial-state" "$XE3_PRE_RESP"
   XE3_PRE_STATUS=$(echo "$XE3_PRE_RESP" | jq -r '.result.status // "unknown"' 2>/dev/null)
   log_info "XE3: Pre-denial workflow status: $XE3_PRE_STATUS"
 fi
 
 # Deny the email approval
-XE3_DENY_RESP=$(rpc_call "deny_email" "{\"approval_id\":\"x1-xe3-test-denial\",\"user_id\":\"harness\",\"reason\":\"X1 cross-subsystem denial test\"}")
+XE3_DENY_RESP=$(rpc_call_auth "deny_email" "{\"approval_id\":\"x1-xe3-test-denial\",\"user_id\":\"harness\",\"reason\":\"X1 cross-subsystem denial test\"}")
 save_evidence "xe3-deny-email" "$XE3_DENY_RESP"
 
 if [[ -n "$XE3_DENY_RESP" ]]; then
@@ -409,7 +385,7 @@ fi
 
 # Check workflow state reflects the denial
 if [[ -n "$XE3_WORKFLOW_ID" ]]; then
-  XE3_POST_RESP=$(rpc_call "secretary.get_workflow" "{\"workflow_id\":\"${XE3_WORKFLOW_ID}\"}")
+  XE3_POST_RESP=$(rpc_call_auth "secretary.get_workflow" "{\"workflow_id\":\"${XE3_WORKFLOW_ID}\"}")
   save_evidence "xe3-post-denial-state" "$XE3_POST_RESP"
 
   if assert_rpc_success "$XE3_POST_RESP"; then
