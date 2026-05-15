@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
 # restart_bridge.sh — Serialized bridge restart with readiness polling
 #
-# Restarts the armorclaw-bridge systemd service on the VPS via SSH,
-# then polls until the service is active and accepting RPC calls.
-# Uses flock for serialization so parallel test scripts don't race.
+# Restarts the armorclaw bridge on the VPS via SSH (Docker container or
+# systemd service), then polls until the service is active and accepting
+# RPC calls. Uses flock for serialization so parallel test scripts don't race.
 #
-# Requires: load_env.sh (for ssh_vps, ADMIN_TOKEN, BRIDGE_PORT)
+# Requires: load_env.sh (for ssh_vps, ADMIN_TOKEN, BRIDGE_PORT, BRIDGE_SOCKET)
 #
 # Usage:
 #   source "$(dirname "$0")/load_env.sh"
@@ -22,8 +22,14 @@ restart_bridge() {
   (
     flock -x 200 || return 1
 
-    echo "[INFO] Restarting armorclaw-bridge.service..."
-    ssh_vps "systemctl restart armorclaw-bridge.service" 2>/dev/null || true
+    # Detect deployment type and restart accordingly
+    if ssh_vps "docker ps --filter name=armorclaw --format '{{.Names}}'" 2>/dev/null | grep -q "armorclaw"; then
+      echo "[INFO] Restarting armorclaw Docker container..."
+      ssh_vps "docker restart armorclaw" 2>/dev/null || true
+    else
+      echo "[INFO] Restarting armorclaw-bridge.service..."
+      ssh_vps "systemctl restart armorclaw-bridge.service" 2>/dev/null || true
+    fi
 
     # Poll readiness: up to 15 intervals of 2s (matching test-persistence.sh)
     local intervals=15
@@ -33,15 +39,15 @@ restart_bridge() {
     for i in $(seq 1 "$intervals"); do
       sleep "$sleep_interval"
 
-      if ssh_vps "systemctl is-active armorclaw-bridge.service" 2>/dev/null | grep -q "active"; then
-        # Quick RPC health check — try a lightweight call
-        local health_resp
-        health_resp=$(ssh_vps "curl -kfsS -o /dev/null -w '%{http_code}' https://localhost:${BRIDGE_PORT}/health" 2>/dev/null || echo "000")
-        if [[ "$health_resp" == "200" ]]; then
-          ready=true
-          echo "[INFO] Bridge ready after $((i * sleep_interval))s"
-          break
-        fi
+      # Check health via HTTP (works for both Docker and systemd)
+      local health_resp
+      health_resp=$(ssh_vps "curl -sfsS -o /dev/null -w '%{http_code}' http://localhost:${BRIDGE_PORT}/health 2>/dev/null || curl -kfsS -o /dev/null -w '%{http_code}' https://localhost:${BRIDGE_PORT}/health 2>/dev/null || echo '000'")
+      if [[ "$health_resp" == "200" ]]; then
+        # Socket check is advisory — HTTP health alone means bridge is ready
+        ssh_vps "test -S ${BRIDGE_SOCKET:-/run/armorclaw/bridge.sock}" 2>/dev/null || true
+        ready=true
+        echo "[INFO] Bridge ready after $((i * sleep_interval))s"
+        break
       fi
 
       echo "[INFO] ... waiting ($((i * sleep_interval))s)"

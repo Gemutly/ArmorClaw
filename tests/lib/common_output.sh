@@ -11,6 +11,12 @@
 export FULL_SYSTEM_PASSED=0
 export FULL_SYSTEM_FAILED=0
 export FULL_SYSTEM_SKIPPED=0
+export FULL_SYSTEM_GATED_EXPECTED=0
+export FULL_SYSTEM_ENV_MISSING=0
+
+# Fallback color definitions (may already be set by tests/e2e/common.sh)
+CYAN="${CYAN:-\033[36m}"
+MAGENTA="${MAGENTA:-\033[35m}"
 
 # ── log_pass <message> ────────────────────────────────────────────────────────
 log_pass() {
@@ -33,6 +39,20 @@ log_skip() {
   echo -e "${YELLOW}[SKIP]${NC} $msg"
 }
 
+# ── log_gated_expected <message> ────────────────────────────────────────────────
+log_gated_expected() {
+  local msg="$1"
+  FULL_SYSTEM_GATED_EXPECTED=$((FULL_SYSTEM_GATED_EXPECTED + 1))
+  echo -e "${CYAN}[GATED]${NC} $msg"
+}
+
+# ── log_env_missing <message> ────────────────────────────────────────────────────
+log_env_missing() {
+  local msg="$1"
+  FULL_SYSTEM_ENV_MISSING=$((FULL_SYSTEM_ENV_MISSING + 1))
+  echo -e "${MAGENTA}[ENV_MISSING]${NC} $msg"
+}
+
 # ── log_info <message> ────────────────────────────────────────────────────────
 log_info() {
   local msg="$1"
@@ -49,6 +69,8 @@ harness_summary() {
   echo -e " ${GREEN}Passed:${NC}  $FULL_SYSTEM_PASSED"
   echo -e " ${RED}Failed:${NC}  $FULL_SYSTEM_FAILED"
   echo -e " ${YELLOW}Skipped:${NC} $FULL_SYSTEM_SKIPPED"
+  echo -e " ${CYAN}Gated:${NC}  $FULL_SYSTEM_GATED_EXPECTED"
+  echo -e " ${MAGENTA}Env Missing:${NC} $FULL_SYSTEM_ENV_MISSING"
   echo "========================================="
 
   if [[ $FULL_SYSTEM_FAILED -eq 0 ]]; then
