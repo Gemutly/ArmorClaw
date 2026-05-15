@@ -95,12 +95,12 @@ func TestReplayGating_FlagOff_ReturnsFeatureDisabled(t *testing.T) {
 	}
 }
 
-// TestReplayGating_Discovery_108Methods verifies that the handler map always contains
-// exactly 108 methods regardless of the replay flag state. replay_diagnostics is
+// TestReplayGating_Discovery verifies that the handler map size is
+// stable regardless of the replay flag state. replay_diagnostics is
 // always registered (handler-gated, not registration-gated), so toggling the flag
 // does not change the method count.
-func TestReplayGating_Discovery_108Methods(t *testing.T) {
-	const expectedMethods = 109
+func TestReplayGating_Discovery(t *testing.T) {
+	const expectedMethods = 132
 
 	cases := []struct {
 		name      string
