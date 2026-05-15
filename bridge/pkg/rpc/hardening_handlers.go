@@ -6,6 +6,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log"
 	"os"
 
 	"github.com/armorclaw/bridge/internal/adapter"
@@ -209,7 +210,7 @@ func (h *HardeningHandler) handleHardeningRotatePassword(ctx context.Context, re
 
 	if h.bootstrapPath != "" {
 		if err := os.Remove(h.bootstrapPath); err != nil && !os.IsNotExist(err) {
-			fmt.Printf("[hardening] Warning: failed to delete bootstrap file %s: %v\n", h.bootstrapPath, err)
+			log.Printf("[hardening] Warning: failed to delete bootstrap file %s: %v\n", h.bootstrapPath, err)
 		}
 	}
 

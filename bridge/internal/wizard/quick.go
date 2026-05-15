@@ -4,6 +4,7 @@ import (
 	"crypto/rand"
 	"encoding/base64"
 	"fmt"
+	"log"
 	"strings"
 
 	"github.com/armorclaw/bridge/internal/ai"
@@ -26,13 +27,13 @@ func getProviderOptions() ([]apiProviderOption, bool) {
 	if catwalk.IsAvailable() {
 		providers, err := catwalk.FetchProviders()
 		if err == nil && len(providers) > 0 {
-			fmt.Println("  [Catwalk] Discovered providers from local registry")
+			log.Println("  [Catwalk] Discovered providers from local registry")
 			return ProvidersFromCatwalk(providers), true
 		}
 	}
 
 	// Load from embedded provider registry
-	fmt.Println("  [Wizard] Loading providers from registry")
+	log.Println("  [Wizard] Loading providers from registry")
 	registry := providers.LoadEmbeddedRegistry()
 	providerOptions := make([]apiProviderOption, 0, registry.GetProviderCount())
 
@@ -72,7 +73,7 @@ func getModelOptions(providerKey string) []string {
 					for i, m := range p.Models {
 						models[i] = m.ID
 					}
-					fmt.Println("  [Catwalk] Discovered models for provider:", providerKey)
+					log.Println("  [Catwalk] Discovered models for provider:", providerKey)
 					return models
 				}
 			}
@@ -81,7 +82,7 @@ func getModelOptions(providerKey string) []string {
 
 	// Fallback to static list
 	if models := providers.GetModels(providerKey); len(models) > 0 {
-		fmt.Println("  [Wizard] Using default model list for provider:", providerKey)
+		log.Println("  [Wizard] Using default model list for provider:", providerKey)
 		result := make([]string, len(models))
 		for i, m := range models {
 			result[i] = m.ID
@@ -193,7 +194,7 @@ func runQuickStartForms(result *WizardResult, accessible bool) error {
 		if err := modelForm.Run(); err != nil {
 			// Soft-fail: use first model as default
 			modelChoice = models[0]
-			fmt.Printf("  Using default model: %s\n", modelChoice)
+			log.Printf("  Using default model: %s\n", modelChoice)
 		}
 	} else {
 		modelChoice = "default"
@@ -249,9 +250,9 @@ func runQuickStartForms(result *WizardResult, accessible bool) error {
 			}
 		}
 		adminPassword = generated
-		fmt.Printf("  Generated admin password: %s\n", adminPassword)
-		fmt.Println("  Save this now — it will not be shown again.")
-		fmt.Println()
+		log.Printf("  Generated admin password: %s\n", adminPassword)
+		log.Println("  Save this now — it will not be shown again.")
+		log.Println()
 	}
 
 	result.Secrets.AdminPassword = adminPassword

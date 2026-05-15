@@ -2,7 +2,7 @@ package sidecar
 
 import (
 	"context"
-	"fmt"
+	"log"
 	"time"
 
 	"github.com/armorclaw/bridge/pkg/audit"
@@ -123,7 +123,7 @@ func (ac *AuditClient) HealthCheck(ctx context.Context) (*HealthCheckResponse, e
 	})
 
 	if auditErr != nil {
-		fmt.Printf("audit log warning: %v\n", auditErr)
+		log.Printf("audit log warning: %v\n", auditErr)
 	}
 
 	if err != nil {
@@ -158,7 +158,7 @@ func (ac *AuditClient) UploadBlob(ctx context.Context, req *UploadBlobRequest) (
 	})
 
 	if auditErr != nil {
-		fmt.Printf("audit log warning: %v\n", auditErr)
+		log.Printf("audit log warning: %v\n", auditErr)
 	}
 
 	if err != nil {
@@ -189,7 +189,7 @@ func (ac *AuditClient) DownloadBlob(ctx context.Context, req *DownloadBlobReques
 	})
 
 	if auditErr != nil {
-		fmt.Printf("audit log warning: %v\n", auditErr)
+		log.Printf("audit log warning: %v\n", auditErr)
 	}
 
 	if err != nil {
@@ -223,7 +223,7 @@ func (ac *AuditClient) ListBlobs(ctx context.Context, req *ListBlobsRequest) (*L
 	})
 
 	if auditErr != nil {
-		fmt.Printf("audit log warning: %v\n", auditErr)
+		log.Printf("audit log warning: %v\n", auditErr)
 	}
 
 	if err != nil {
@@ -251,7 +251,7 @@ func (ac *AuditClient) DeleteBlob(ctx context.Context, req *DeleteBlobRequest) (
 	})
 
 	if auditErr != nil {
-		fmt.Printf("audit log warning: %v\n", auditErr)
+		log.Printf("audit log warning: %v\n", auditErr)
 	}
 
 	if err != nil {
@@ -281,7 +281,7 @@ func (ac *AuditClient) ExtractText(ctx context.Context, req *ExtractTextRequest)
 	})
 
 	if auditErr != nil {
-		fmt.Printf("audit log warning: %v\n", auditErr)
+		log.Printf("audit log warning: %v\n", auditErr)
 	}
 
 	if err != nil {
@@ -313,7 +313,7 @@ func (ac *AuditClient) ProcessDocument(ctx context.Context, req *ProcessDocument
 	})
 
 	if auditErr != nil {
-		fmt.Printf("audit log warning: %v\n", auditErr)
+		log.Printf("audit log warning: %v\n", auditErr)
 	}
 
 	if err != nil {

@@ -3,6 +3,7 @@ package skills
 import (
 	"fmt"
 	"io/fs"
+	"log"
 	"os"
 	"path/filepath"
 	"strings"
@@ -68,7 +69,7 @@ func (r *Registry) ScanSkills(skillsDir string) error {
 		if d.Name() == "SKILL.md" {
 			skill, err := parseSkillFile(path)
 			if err != nil {
-				fmt.Printf("Warning: failed to parse skill file %s: %v\n", path, err)
+				log.Printf("Warning: failed to parse skill file %s: %v\n", path, err)
 				return nil // Continue scanning other files
 			}
 

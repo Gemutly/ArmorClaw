@@ -6,6 +6,7 @@ import (
 	"bufio"
 	"encoding/json"
 	"fmt"
+	"log"
 	"io"
 	"os"
 	"path/filepath"
@@ -336,7 +337,7 @@ func (ps *persistentStore) SaveSnapshot(tracker *BudgetTracker) error {
 	// Compact WAL after successful snapshot
 	if err := ps.compactWAL(); err != nil {
 		// Log but don't fail - WAL compaction is optimization
-		fmt.Printf("[BUDGET] Warning: WAL compaction failed: %v\n", err)
+		log.Printf("[BUDGET] Warning: WAL compaction failed: %v\n", err)
 	}
 
 	return nil

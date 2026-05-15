@@ -10,6 +10,7 @@ package wizard
 import (
 	"encoding/json"
 	"fmt"
+	"log"
 	"net"
 	"os"
 	"os/signal"
@@ -132,65 +133,65 @@ func checkTerminal() TerminalCheckResult {
 
 // printTerminalError shows a helpful message when terminal is not suitable for TUI.
 func printTerminalError(check TerminalCheckResult) {
-	fmt.Println()
-	fmt.Println("  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
-	fmt.Println("  Interactive Terminal Required")
-	fmt.Println("  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
-	fmt.Println()
+	log.Println()
+	log.Println("  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+	log.Println("  Interactive Terminal Required")
+	log.Println("  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+	log.Println()
 
 	// Show diagnostic information
-	fmt.Println("  Terminal Diagnostics:")
-	fmt.Printf("    Stdin is TTY:  %v\n", check.StdinIsTTY)
-	fmt.Printf("    Stdout is TTY: %v\n", check.StdoutIsTTY)
-	fmt.Printf("    Stdin open:    %v\n", check.StdinOpen)
-	fmt.Printf("    TERM:          %s\n", func() string {
+	log.Println("  Terminal Diagnostics:")
+	log.Printf("    Stdin is TTY:  %v\n", check.StdinIsTTY)
+	log.Printf("    Stdout is TTY: %v\n", check.StdoutIsTTY)
+	log.Printf("    Stdin open:    %v\n", check.StdinOpen)
+	log.Printf("    TERM:          %s\n", func() string {
 		if check.TERM == "" {
 			return "(not set)"
 		}
 		return check.TERM
 	}())
 	if check.Width > 0 {
-		fmt.Printf("    Terminal size: %dx%d\n", check.Width, check.Height)
+		log.Printf("    Terminal size: %dx%d\n", check.Width, check.Height)
 	}
-	fmt.Println()
+	log.Println()
 
 	if !check.StdinIsTTY || !check.StdoutIsTTY {
-		fmt.Println("  The TUI wizard requires BOTH stdin and stdout to be terminals.")
-		fmt.Println()
-		fmt.Println("  Common causes:")
+		log.Println("  The TUI wizard requires BOTH stdin and stdout to be terminals.")
+		log.Println()
+		log.Println("  Common causes:")
 		if !check.StdinIsTTY {
-			fmt.Println("    • Stdin is piped or redirected")
+			log.Println("    • Stdin is piped or redirected")
 		}
 		if !check.StdoutIsTTY {
-			fmt.Println("    • Stdout is piped or redirected")
+			log.Println("    • Stdout is piped or redirected")
 		}
-		fmt.Println()
-		fmt.Println("  Solutions:")
-		fmt.Println("    1. Run with -it flags: docker run -it ...")
-		fmt.Println("    2. Use environment variables (non-interactive):")
-		fmt.Println("       -e ARMORCLAW_API_KEY=sk-your-key")
-		fmt.Println("       -e ARMORCLAW_PROFILE=quick")
+		log.Println()
+		log.Println("  Solutions:")
+		log.Println("    1. Run with -it flags: docker run -it ...")
+		log.Println("    2. Use environment variables (non-interactive):")
+		log.Println("       -e ARMORCLAW_API_KEY=sk-your-key")
+		log.Println("       -e ARMORCLAW_PROFILE=quick")
 	}
 
 	if check.TERM == "dumb" {
-		fmt.Println("  TERM is set to 'dumb' - terminal does not support ANSI codes.")
-		fmt.Println()
-		fmt.Println("  Solutions:")
-		fmt.Println("    1. Use a terminal that supports ANSI escape codes")
-		fmt.Println("    2. Use environment variables for non-interactive setup")
+		log.Println("  TERM is set to 'dumb' - terminal does not support ANSI codes.")
+		log.Println()
+		log.Println("  Solutions:")
+		log.Println("    1. Use a terminal that supports ANSI escape codes")
+		log.Println("    2. Use environment variables for non-interactive setup")
 	}
 
 	if check.Width > 0 && check.Width < 60 {
-		fmt.Printf("  Terminal is too narrow (%d columns, need 60+).\n", check.Width)
-		fmt.Println("  Please resize your terminal window.")
+		log.Printf("  Terminal is too narrow (%d columns, need 60+).\n", check.Width)
+		log.Println("  Please resize your terminal window.")
 	}
 
-	fmt.Println()
-	fmt.Println("  For non-interactive setup, set these environment variables:")
-	fmt.Println("    ARMORCLAW_PROFILE=quick|enterprise")
-	fmt.Println("    ARMORCLAW_API_KEY=your-api-key")
-	fmt.Println("    ARMORCLAW_SERVER_NAME=your-server (optional, auto-detected)")
-	fmt.Println()
+	log.Println()
+	log.Println("  For non-interactive setup, set these environment variables:")
+	log.Println("    ARMORCLAW_PROFILE=quick|enterprise")
+	log.Println("    ARMORCLAW_API_KEY=your-api-key")
+	log.Println("    ARMORCLAW_SERVER_NAME=your-server (optional, auto-detected)")
+	log.Println()
 }
 
 // Run executes the interactive setup wizard and returns the collected
@@ -214,9 +215,9 @@ func Run(accessible bool) (*WizardResult, error) {
 	if !termCheck.CanRunHuh && !accessible {
 		// If we have a TTY but just missing some capabilities, try accessible mode
 		if termCheck.IsTTY {
-			fmt.Println("  Terminal has limited capabilities - using accessible mode")
-			fmt.Println("  (Arrow keys and colors may not work properly)")
-			fmt.Println()
+			log.Println("  Terminal has limited capabilities - using accessible mode")
+			log.Println("  (Arrow keys and colors may not work properly)")
+			log.Println()
 			accessible = true
 		} else {
 			// No TTY at all - show error and exit
@@ -239,7 +240,7 @@ func Run(accessible bool) (*WizardResult, error) {
 		// Clean up terminal state before exit
 		fmt.Print("\033[?25h") // Show cursor
 		fmt.Print("\033[0m")   // Reset colors
-		fmt.Println("\nSetup cancelled.")
+		log.Println("\nSetup cancelled.")
 		os.Exit(130)
 	}()
 
@@ -271,9 +272,9 @@ func Run(accessible bool) (*WizardResult, error) {
 	case ProfileEnterprise:
 		// Enterprise wizard is a future addition; for now fall through
 		// to quick start with a note.
-		fmt.Println("  Enterprise profile will be available in a future update.")
-		fmt.Println("  Running Quick Start for now.")
-		fmt.Println()
+		log.Println("  Enterprise profile will be available in a future update.")
+		log.Println("  Running Quick Start for now.")
+		log.Println()
 		result.Config.Profile = ProfileQuick
 		if err := runQuickStartForms(result, accessible); err != nil {
 			return nil, err
@@ -335,16 +336,16 @@ func tryNonInteractive() *WizardResult {
 		bridgePassword = "BridgePass123!"
 	}
 
-	fmt.Println()
-	fmt.Println("  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
-	fmt.Println("  Non-Interactive Mode (Environment Variables)")
-	fmt.Println("  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
-	fmt.Printf("  Profile:     %s\n", profile)
-	fmt.Printf("  Server Name: %s\n", serverName)
-	fmt.Printf("  Provider:    %s\n", provider)
-	fmt.Printf("  Base URL:    %s\n", baseURL)
-	fmt.Println("  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
-	fmt.Println()
+	log.Println()
+	log.Println("  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+	log.Println("  Non-Interactive Mode (Environment Variables)")
+	log.Println("  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+	log.Printf("  Profile:     %s\n", profile)
+	log.Printf("  Server Name: %s\n", serverName)
+	log.Printf("  Provider:    %s\n", provider)
+	log.Printf("  Base URL:    %s\n", baseURL)
+	log.Println("  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+	log.Println()
 
 	return &WizardResult{
 		Config: WizardConfig{
@@ -420,12 +421,12 @@ func SecretEnvVars(s *WizardSecrets) []string {
 }
 
 func printBanner() {
-	fmt.Println()
-	fmt.Println("  ╔══════════════════════════════════════════════════════╗")
-	fmt.Println("  ║        ArmorClaw Container Setup                    ║")
-	fmt.Printf("  ║        Version %-40s║\n", Version)
-	fmt.Println("  ╚══════════════════════════════════════════════════════╝")
-	fmt.Println()
+	log.Println()
+	log.Println("  ╔══════════════════════════════════════════════════════╗")
+	log.Println("  ║        ArmorClaw Container Setup                    ║")
+	log.Printf("  ║        Version %-40s║\n", Version)
+	log.Println("  ╚══════════════════════════════════════════════════════╝")
+	log.Println()
 }
 
 // formOpts returns common form options (accessibility, theme).

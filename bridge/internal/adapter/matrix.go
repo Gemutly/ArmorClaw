@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"net/url"
 	"strings"
@@ -457,7 +458,7 @@ func (m *MatrixAdapter) SendMessage(roomID, message, msgType string) (string, er
 		return "", err
 	}
 
-	fmt.Printf("[matrix] SendMessage: room=%s body=%s\n", roomID, string(body))
+	log.Printf("[matrix] SendMessage: room=%s body=%s\n", roomID, string(body))
 
 	// Generate transaction ID
 	txnID := fmt.Sprintf("m%d", time.Now().UnixNano())
@@ -741,13 +742,13 @@ func (m *MatrixAdapter) processEvents(syncResp *SyncResponse) int {
 	for roomID, room := range syncResp.Rooms.Join {
 		eventCount := len(room.Timeline.Events)
 		if eventCount > 0 {
-			fmt.Printf("[matrix] processEvents: room=%s event_count=%d\n", roomID, eventCount)
+			log.Printf("[matrix] processEvents: room=%s event_count=%d\n", roomID, eventCount)
 		}
 		for _, rawEvent := range room.Timeline.Events {
 			processed++
 			var event MatrixEvent
 			if err := json.Unmarshal(rawEvent, &event); err != nil {
-				fmt.Printf("[matrix] processEvents: unmarshal error: %v\n", err)
+				log.Printf("[matrix] processEvents: unmarshal error: %v\n", err)
 				continue
 			}
 
@@ -877,14 +878,14 @@ func (m *MatrixAdapter) processEvents(syncResp *SyncResponse) int {
 
 				if studioHandler != nil {
 					if body, ok := event.Content["body"].(string); ok {
-						fmt.Printf("[matrix] calling studioHandler: room=%s sender=%s body=%s\n", roomID, event.Sender, body)
+						log.Printf("[matrix] calling studioHandler: room=%s sender=%s body=%s\n", roomID, event.Sender, body)
 						if studioHandler.HandleMatrixMessage(context.Background(), roomID, event.Sender, event.EventID, body) {
-							fmt.Printf("[matrix] event handled by studioHandler: event_id=%s\n", event.EventID)
+							log.Printf("[matrix] event handled by studioHandler: event_id=%s\n", event.EventID)
 							continue
 						}
 					}
 				} else {
-					fmt.Printf("[matrix] WARNING: studioHandler is nil\n")
+					log.Printf("[matrix] WARNING: studioHandler is nil\n")
 				}
 
 				select {
@@ -932,7 +933,7 @@ func (m *MatrixAdapter) processEvents(syncResp *SyncResponse) int {
 
 				rawContent, err := json.Marshal(event.Content)
 				if err != nil {
-					fmt.Printf("[matrix] processEvents: marshal encrypted content error: %v\n", err)
+					log.Printf("[matrix] processEvents: marshal encrypted content error: %v\n", err)
 					continue
 				}
 
@@ -940,7 +941,7 @@ func (m *MatrixAdapter) processEvents(syncResp *SyncResponse) int {
 				if err != nil {
 					placeholder := encSvc.HandleDecryptionFailure(
 						m.ctx, roomID, event.EventID, event.Sender, rawContent)
-					fmt.Printf("[matrix] processEvents: decryption failed event_id=%s: %v\n", event.EventID, err)
+					log.Printf("[matrix] processEvents: decryption failed event_id=%s: %v\n", event.EventID, err)
 
 					// Queue placeholder so downstream sees something
 					placeholderEvt := &MatrixEvent{
@@ -1015,33 +1016,28 @@ func (m *MatrixAdapter) processEvents(syncResp *SyncResponse) int {
 			case strings.HasPrefix(event.Type, "workflow."):
 				// workflow.progress, workflow.step_progress, workflow.step_error,
 				// workflow.blocker_warning, workflow.blocked, workflow.timeline
-				fmt.Printf("[matrix] processEvents: workflow event type=%s room=%s sender=%s\n",
-					event.Type, roomID, event.Sender)
+				log.Printf("[matrix] processEvents: workflow event type=%s room=%s sender=%s\n", event.Type, roomID, event.Sender)
 				m.publishCustomEvent(&event, roomID)
 
 			case strings.HasPrefix(event.Type, "agent."):
 				// agent.comment, etc.
-				fmt.Printf("[matrix] processEvents: agent event type=%s room=%s sender=%s\n",
-					event.Type, roomID, event.Sender)
+				log.Printf("[matrix] processEvents: agent event type=%s room=%s sender=%s\n", event.Type, roomID, event.Sender)
 				m.publishCustomEvent(&event, roomID)
 
 			case strings.HasPrefix(event.Type, "blocker."):
 				// blocker.required, etc.
-				fmt.Printf("[matrix] processEvents: blocker event type=%s room=%s sender=%s\n",
-					event.Type, roomID, event.Sender)
+				log.Printf("[matrix] processEvents: blocker event type=%s room=%s sender=%s\n", event.Type, roomID, event.Sender)
 				m.publishCustomEvent(&event, roomID)
 
 			case strings.HasPrefix(event.Type, "com.armorclaw."):
 				// com.armorclaw.agent.status, com.armorclaw.agent.*, etc.
-				fmt.Printf("[matrix] processEvents: armorclaw event type=%s room=%s sender=%s\n",
-					event.Type, roomID, event.Sender)
+				log.Printf("[matrix] processEvents: armorclaw event type=%s room=%s sender=%s\n", event.Type, roomID, event.Sender)
 				m.publishCustomEvent(&event, roomID)
 
 			default:
 				// Unknown custom event types - log at debug but don't silently drop
 				if strings.Contains(event.Type, ".") && !strings.HasPrefix(event.Type, "m.") {
-					fmt.Printf("[matrix] processEvents: unrecognized custom event type=%s room=%s\n",
-						event.Type, roomID)
+					log.Printf("[matrix] processEvents: unrecognized custom event type=%s room=%s\n", event.Type, roomID)
 				}
 			}
 		}
@@ -1070,12 +1066,12 @@ func (m *MatrixAdapter) processToDeviceEvents(events []json.RawMessage) {
 			Content json.RawMessage `json:"content"`
 		}
 		if err := json.Unmarshal(rawEvent, &toDeviceEvent); err != nil {
-			fmt.Printf("[matrix] processToDeviceEvents: unmarshal error: %v\n", err)
+			log.Printf("[matrix] processToDeviceEvents: unmarshal error: %v\n", err)
 			continue
 		}
 
 		if err := ki.HandleKeyEvent(m.ctx, toDeviceEvent.Type, toDeviceEvent.Content, toDeviceEvent.Sender); err != nil {
-			fmt.Printf("[matrix] processToDeviceEvents: HandleKeyEvent error: type=%s err=%v\n", toDeviceEvent.Type, err)
+			log.Printf("[matrix] processToDeviceEvents: HandleKeyEvent error: type=%s err=%v\n", toDeviceEvent.Type, err)
 		}
 	}
 }
@@ -1091,13 +1087,13 @@ func (m *MatrixAdapter) processKeyExchange(syncResp *SyncResponse) {
 
 	if syncResp.DeviceLists != nil && len(syncResp.DeviceLists.Changed) > 0 {
 		if err := kx.ProcessDeviceListChanges(m.ctx, syncResp.DeviceLists.Changed, syncResp.DeviceLists.Left); err != nil {
-			fmt.Printf("[matrix] processKeyExchange: device list change error: %v\n", err)
+			log.Printf("[matrix] processKeyExchange: device list change error: %v\n", err)
 		}
 	}
 
 	if len(syncResp.DeviceOneTimeKeysCount) > 0 {
 		if err := kx.UploadKeys(m.ctx); err != nil {
-			fmt.Printf("[matrix] processKeyExchange: key upload error: %v\n", err)
+			log.Printf("[matrix] processKeyExchange: key upload error: %v\n", err)
 		}
 	}
 }

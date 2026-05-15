@@ -3,6 +3,7 @@ package budget
 
 import (
 	"fmt"
+	"log"
 	"sync"
 	"time"
 
@@ -437,8 +438,7 @@ func (b *BudgetTracker) sendAlert(alertType string, current, limit float64) {
 	}
 
 	// Fallback to console logging
-	fmt.Printf("[BUDGET ALERT] %s - Current: $%.2f, Limit: $%.2f\n",
-		alertType, current, limit)
+	log.Printf("[BUDGET ALERT] %s - Current: $%.2f, Limit: $%.2f\n", alertType, current, limit)
 }
 
 // SetNotifier sets the notification system for budget alerts

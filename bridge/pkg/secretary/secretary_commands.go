@@ -3,6 +3,7 @@ package secretary
 import (
 	"context"
 	"fmt"
+	"log"
 	"strings"
 	"time"
 
@@ -147,12 +148,12 @@ func NewSecretaryCommandHandler(cfg SecretaryCommandHandlerConfig) *SecretaryCom
 // sendMessage is a nil-safe helper for sending Matrix messages
 func (h *SecretaryCommandHandler) sendMessage(ctx context.Context, roomID, message string) error {
 	if h.matrix == nil {
-		fmt.Printf("[secretary] no matrix adapter: room=%s msg=%s\n", roomID, message)
+		log.Printf("[secretary] no matrix adapter: room=%s msg=%s\n", roomID, message)
 		return nil
 	}
 	err := h.matrix.SendMessage(ctx, roomID, message)
 	if err != nil {
-		fmt.Printf("[secretary] SendMessage failed: room=%s err=%v\n", roomID, err)
+		log.Printf("[secretary] SendMessage failed: room=%s err=%v\n", roomID, err)
 	}
 	return err
 }
