@@ -151,7 +151,7 @@ COPY deploy/container-setup.sh /opt/armorclaw/
 COPY deploy/health-check.sh /opt/armorclaw/
 COPY deploy/create-matrix-admin.sh /opt/armorclaw/
 COPY deploy/view-setup-log.sh /opt/armorclaw/
-COPY deploy/quickstart-entrypoint.sh /opt/armorclaw/
+# quickstart-entrypoint.sh removed - dead code in Docker path (never invoked by entrypoint-wrapper.sh)
 COPY deploy/rename-admin.sh /opt/armorclaw/
 COPY deploy/bootstrap-admin.py /opt/armorclaw/bootstrap-admin.py
 COPY deploy/setup-quick.sh /opt/armorclaw/quickstart.sh

@@ -1022,6 +1022,12 @@ generate_config() {
 
     local config_file="$CONFIG_DIR/config.toml"
 
+    # Guard: preserve existing config unless FORCE_REGEN is set
+    if [[ -f "$config_file" ]] && [[ "${FORCE_REGEN:-false}" != "true" ]]; then
+        print_done "Config already exists, preserving: $config_file"
+        return 0
+    fi
+
     # Generate provisioning secret for QR codes
     local provisioning_secret=$(openssl rand -hex 32 2>/dev/null || head -c 32 /dev/urandom | xxd -p -c 32)
 
@@ -1199,7 +1205,14 @@ start_bridge() {
         print_info "Systemd start skipped (ARMORCLAW_SKIP_SYSTEMD=${ARMORCLAW_SKIP_SYSTEMD:-false})"
         if [[ -x "$INSTALL_DIR/armorclaw-bridge" ]]; then
             print_info "Starting bridge directly..."
-            $INSTALL_DIR/armorclaw-bridge -config $CONFIG_DIR/config.toml &
+            if [[ -f /.dockerenv ]] || [[ -f /run/.containerenv ]] || [[ "${container:-}" == "docker" ]]; then
+                print_info "Docker environment detected — bridge will run as PID 1"
+                print_info "Note: setup script will complete, then exec bridge as final process"
+                DOCKER_MODE=true
+                $INSTALL_DIR/armorclaw-bridge -config $CONFIG_DIR/config.toml &
+            else
+                $INSTALL_DIR/armorclaw-bridge -config $CONFIG_DIR/config.toml &
+            fi
             local wait_count=0
             while [[ ! -S "$SOCKET_PATH" ]] && [[ $wait_count -lt 30 ]]; do
                 sleep 0.5
@@ -1670,6 +1683,28 @@ main() {
     # Print header
     print_header
 
+    local bootstrap_flag="$INSTALL_DIR/.bootstrapped"
+    if [[ -f "$bootstrap_flag" ]]; then
+        print_done "Already bootstrapped — starting bridge directly"
+        start_bridge
+
+        if $CI_MODE; then
+            print_success "CI smoke test passed"
+            exec tail -f /dev/null
+        fi
+
+        if [[ -f /.dockerenv ]] || [[ -f /run/.containerenv ]] || [[ "${container:-}" == "docker" ]]; then
+            local bridge_pid=$(pgrep -f "armorclaw-bridge")
+            if [[ -n "$bridge_pid" ]]; then
+                kill "$bridge_pid" 2>/dev/null || true
+                sleep 1
+            fi
+            exec $INSTALL_DIR/armorclaw-bridge -config $CONFIG_DIR/config.toml
+        fi
+
+        exit 0
+    fi
+
     # Run setup steps
     check_prerequisites
 
@@ -1688,10 +1723,7 @@ main() {
     start_bridge
     verify_health
 
-    if $CI_MODE; then
-        print_success "CI smoke test passed - basic setup complete"
-        exec tail -f /dev/null
-    fi
+    touch "$INSTALL_DIR/.bootstrapped"
 
     # Step 9: Matrix Server (auto-install in quickstart)
     print_step "Matrix Server"
@@ -1711,6 +1743,11 @@ main() {
             echo "    sudo ./deploy/setup-matrix.sh"
             echo ""
         fi
+    fi
+
+    if $CI_MODE; then
+        print_success "CI smoke test passed - basic setup complete"
+        exec tail -f /dev/null
     fi
 
     prompt_api_key
@@ -1751,6 +1788,16 @@ main() {
     fi
 
     print_completion
+
+    if [[ "${DOCKER_MODE:-false}" == "true" ]] && ! $CI_MODE; then
+        print_info "Handing off to bridge as PID 1..."
+        local bridge_pid=$(pgrep -f "armorclaw-bridge")
+        if [[ -n "$bridge_pid" ]]; then
+            kill "$bridge_pid" 2>/dev/null || true
+            sleep 1
+        fi
+        exec $INSTALL_DIR/armorclaw-bridge -config $CONFIG_DIR/config.toml
+    fi
 }
 
 # Run main function
