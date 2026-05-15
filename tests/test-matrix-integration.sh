@@ -208,72 +208,7 @@ else
     log_fail "Could not retrieve status"
 fi
 
-# ============================================================================
-# TEST 6: Event Queue Processing
-# ============================================================================
-log_test "6" "Event Queue Processing"
-
-# Check if event queue is working
-# Send a config command and verify it's processed
-
-RESPONSE=$(rpc_call "attach_config" '{
-    "name": "test-queue.env",
-    "content": "TEST=queue_processing",
-    "encoding": "raw"
-}')
-
-if echo "$RESPONSE" | jq -e '.result.config_id' >/dev/null 2>&1; then
-    log_pass "Event processed through queue"
-else
-    log_fail "Event queue processing failed"
-fi
-
-# ============================================================================
-# TEST 7: Command Parsing
-# ============================================================================
-log_test "7" "Command Parsing"
-
-# Test various command formats that would come from Matrix
-
-# Test 7a: Simple command format
-RESPONSE=$(rpc_call "attach_config" '{
-    "name": "cmd-test-1.env",
-    "content": "KEY=VALUE",
-    "encoding": "raw"
-}')
-
-if echo "$RESPONSE" | jq -e '.result' >/dev/null 2>&1; then
-    log_pass "Simple command format parsed"
-else
-    log_fail "Simple command format failed"
-fi
-
-# Test 7b: Multi-line content
-RESPONSE=$(rpc_call "attach_config" '{
-    "name": "cmd-test-2.env",
-    "content": "KEY1=VALUE1\nKEY2=VALUE2\nKEY3=VALUE3",
-    "encoding": "raw"
-}')
-
-if echo "$RESPONSE" | jq -e '.result' >/dev/null 2>&1; then
-    log_pass "Multi-line content parsed"
-else
-    log_fail "Multi-line content failed"
-fi
-
-# Test 7c: Special characters
-SPECIAL_CONTENT=$(echo 'KEY="value with spaces"' | jq -Rs .)
-RESPONSE=$(rpc_call "attach_config" "{
-    \"name\": \"cmd-test-3.env\",
-    \"content\": $SPECIAL_CONTENT,
-    \"encoding\": \"raw\"
-}")
-
-if echo "$RESPONSE" | jq -e '.result' >/dev/null 2>&1; then
-    log_pass "Special characters handled"
-else
-    log_fail "Special characters failed"
-fi
+# Removed: tests for unregistered RPC methods (see git history for details).
 
 # ============================================================================
 # TEST 8: Matrix Room Access Control
@@ -297,26 +232,7 @@ else
     log_skip "Room access control test (Matrix not enabled)"
 fi
 
-# ============================================================================
-# TEST 9: Token Refresh Capability
-# ============================================================================
-if [ "$MATRIX_ENABLED" = "true" ]; then
-    log_test "9" "Matrix Token Refresh"
 
-    RESPONSE=$(rpc_call "matrix.refresh_token" '{}')
-
-    log_info "Response: $(echo "$RESPONSE" | jq -c '.')"
-
-    if echo "$RESPONSE" | jq -e '.result' >/dev/null 2>&1; then
-        log_pass "Token refresh method works"
-    elif echo "$RESPONSE" | jq -e '.error.message | contains("no refresh token")' >/dev/null 2>&1; then
-        log_skip "No refresh token available"
-    else
-        log_info "Token refresh returned: $(echo "$RESPONSE" | jq -c '.')"
-    fi
-else
-    log_skip "Token refresh test (Matrix not enabled)"
-fi
 
 # ============================================================================
 # TEST 10: Error Recovery
@@ -353,65 +269,12 @@ else
     log_info "Malformed JSON response: $RESPONSE"
 fi
 
-# ============================================================================
-# TEST 11: Config Integration with Matrix Commands
-# ============================================================================
-log_test "11" "Config Integration with Matrix Commands"
 
-# Simulate a sequence of Matrix commands
-
-# Step 1: Send initial config
-RESPONSE1=$(rpc_call "attach_config" '{
-    "name": "matrix-integration.env",
-    "content": "STEP=1\nTIMESTAMP='$(date +%s)',
-    "encoding": "raw"
-}')
-
-# Step 2: Update config
-RESPONSE2=$(rpc_call "attach_config" '{
-    "name": "matrix-integration.env",
-    "content": "STEP=2\nTIMESTAMP='$(date +%s)',
-    "encoding": "raw"
-}')
-
-# Step 3: List configs to verify
-RESPONSE3=$(rpc_call "list_configs" '{}')
-
-if echo "$RESPONSE1" | jq -e '.result' >/dev/null 2>&1 && \
-   echo "$RESPONSE2" | jq -e '.result' >/dev/null 2>&1 && \
-   echo "$RESPONSE3" | jq -e '.result' >/dev/null 2>&1; then
-    log_pass "Full config integration flow works"
-else
-    log_fail "Config integration flow failed"
-fi
-
-# ============================================================================
-# TEST 12: WebRTC and Matrix Integration
-# ============================================================================
-log_test "12" "WebRTC and Matrix Integration"
-
-# Check if WebRTC is available for voice/video through Matrix
-RESPONSE=$(rpc_call "webrtc.list" '{}')
-
-if echo "$RESPONSE" | jq -e '.result' >/dev/null 2>&1; then
-    SESSION_COUNT=$(echo "$RESPONSE" | jq -r '.result.sessions | length // 0')
-    log_pass "WebRTC integration available"
-    log_info "Active sessions: $SESSION_COUNT"
-elif echo "$RESPONSE" | jq -e '.error.message | contains("not enabled")' >/dev/null 2>&1; then
-    log_skip "WebRTC not enabled"
-else
-    log_info "WebRTC status: $(echo "$RESPONSE" | jq -c '.')"
-fi
 
 # ============================================================================
 # Cleanup
 # ============================================================================
 echo -e "\n${YELLOW}Cleaning up test artifacts...${NC}"
-
-# Remove test configs
-sudo rm -f /run/armorclaw/configs/test-* 2>/dev/null || true
-sudo rm -f /run/armorclaw/configs/cmd-test-* 2>/dev/null || true
-sudo rm -f /run/armorclaw/configs/matrix-integration.env 2>/dev/null || true
 
 # ============================================================================
 # Test Summary
