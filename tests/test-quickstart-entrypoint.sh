@@ -76,15 +76,19 @@ cd "$TEST_DIR"
 
 # Test 1: Docker socket check - no socket
 log_test "Test 1: Should exit gracefully without Docker socket"
-TEST_OUTPUT=$("$TEST_DIR/entrypoint.sh" 2>&1 || true)
-if echo "$TEST_OUTPUT" | grep -q "Docker socket not available"; then
-    if echo "$TEST_OUTPUT" | grep -q "Bootstrap complete"; then
-        log_pass "Exited gracefully with bridge-only mode"
-    else
-        log_fail "Did not show bootstrap complete message"
-    fi
+if [ -S /var/run/docker.sock ]; then
+    log_info "Docker socket present — skipping no-socket test (not applicable)"
 else
-    log_fail "Did not detect missing Docker socket"
+    TEST_OUTPUT=$("$TEST_DIR/entrypoint.sh" 2>&1 || true)
+    if echo "$TEST_OUTPUT" | grep -q "Docker socket not available"; then
+        if echo "$TEST_OUTPUT" | grep -q "Bootstrap complete"; then
+            log_pass "Exited gracefully with bridge-only mode"
+        else
+            log_fail "Did not show bootstrap complete message"
+        fi
+    else
+        log_fail "Did not detect missing Docker socket"
+    fi
 fi
 
 # Test 2: Check if config templates exist

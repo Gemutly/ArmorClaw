@@ -40,6 +40,15 @@ if [[ -z "$CONTAINER_ID" ]]; then
 fi
 log_info "Container ID: ${CONTAINER_ID}"
 
+# ── Probe: check if yara binary exists in container ────────────────────────────
+YARA_AVAILABLE=$(ssh_vps "docker exec ${CONTAINER_ID} command -v yara" 2>/dev/null) || YARA_AVAILABLE=""
+if [[ -z "$YARA_AVAILABLE" ]]; then
+  log_skip "YARA binary not found in container (feature-gated)"
+  log_info "Skipping remaining YARA tests — yara not provisioned in v4.6.0 image"
+  harness_summary
+  exit 0
+fi
+
 # ── Helper: run yara inside container ─────────────────────────────────────────
 yara_in_container() {
   ssh_vps "docker exec ${CONTAINER_ID} yara -p 1 ${YARA_RULES_PATH} $1" 2>&1

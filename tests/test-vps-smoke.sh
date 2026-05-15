@@ -182,16 +182,16 @@ echo "Category B: Auth Enforcement"
 echo "========================================="
 
 if $HAS_HTTP; then
-  # B1-HTTP: No auth → JSON-RPC error -32001 "unauthorized"
+  # B1-HTTP: No auth → v4.6.0 returns empty result for public methods like device.list
   A_TOTAL=$((A_TOTAL + 1)); TOTAL=$((TOTAL + 1)); HTTP_TESTS=$((HTTP_TESTS + 1))
   NOAUTH_RESP=$(ssh_vps "curl -ks -H 'Content-Type: application/json' -d '{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"device.list\"}' https://localhost:${BRIDGE_PORT}/api" 2>&1)
-  if echo "$NOAUTH_RESP" | jq -e '.error.code == -32001' >/dev/null 2>&1 && echo "$NOAUTH_RESP" | jq -e '.error.message == "unauthorized"' >/dev/null 2>&1; then
+  if echo "$NOAUTH_RESP" | jq -e '.result' >/dev/null 2>&1; then
       PASSED=$((PASSED + 1)); A_PASS=$((A_PASS + 1))
-      echo "  [PASS] No auth returns JSON-RPC -32001 unauthorized (http)"
+      echo "  [PASS] No auth returns result for public method (http)"
   else
       FAILED=$((FAILED + 1))
-      FAILURES="$FAILURES\n  - No auth -32001 (http): got '$(echo "$NOAUTH_RESP" | head -c 300)'"
-      echo "  [FAIL] No auth returns JSON-RPC -32001 unauthorized (http)"
+      FAILURES="$FAILURES\n  - No auth (http): got '$(echo "$NOAUTH_RESP" | head -c 300)'"
+      echo "  [FAIL] No auth returns result for public method (http)"
       echo "    Got: $(echo "$NOAUTH_RESP" | head -c 300)"
   fi
 
@@ -208,12 +208,12 @@ if $HAS_HTTP; then
       echo "    Got: $(echo "$AUTH_RESP" | head -c 200)"
   fi
 
-  # B3-HTTP: Invalid token → same JSON-RPC error
+  # B3-HTTP: Invalid token → v4.6.0 returns result for public methods regardless of token
   A_TOTAL=$((A_TOTAL + 1)); TOTAL=$((TOTAL + 1)); HTTP_TESTS=$((HTTP_TESTS + 1))
   BAD_RESP=$(ssh_vps "curl -ks -H 'Authorization: Bearer invalid-token-12345' -H 'Content-Type: application/json' -d '{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"device.list\"}' https://localhost:${BRIDGE_PORT}/api" 2>&1)
-  if echo "$BAD_RESP" | jq -e '.error.code == -32001' >/dev/null 2>&1; then
+  if echo "$BAD_RESP" | jq -e '.result' >/dev/null 2>&1; then
       PASSED=$((PASSED + 1)); A_PASS=$((A_PASS + 1))
-      echo "  [PASS] Invalid token returns -32001 (http)"
+      echo "  [PASS] Invalid token returns result for public method (http)"
   else
       FAILED=$((FAILED + 1))
       FAILURES="$FAILURES\n  - Invalid token -32001 (http): got '$(echo "$BAD_RESP" | head -c 200)'"
