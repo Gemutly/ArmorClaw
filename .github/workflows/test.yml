@@ -5,6 +5,9 @@ on:
     branches: [main, develop]
   pull_request:
     branches: [main, develop]
+  schedule:
+    - cron: '0 3 * * *'
+  workflow_dispatch:
 
 jobs:
   # Job 0: Script Syntax and Go Package Checks (Pre-BEATO guardrail)
@@ -353,3 +356,51 @@ jobs:
           echo "  ✅ Comprehensive Tests"
           echo ""
           echo "All changes pushed to main branch"
+
+  # Job: Nightly Resilience Tests (T18)
+  nightly-resilience:
+    name: Nightly Resilience Tests
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up SSH key
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.VPS_SSH_KEY }}" > ~/.ssh/vps_key
+          chmod 600 ~/.ssh/vps_key
+
+      - name: Run restart recovery gate (T15)
+        env:
+          VPS_IP: ${{ secrets.VPS_IP }}
+          BRIDGE_PORT: ${{ secrets.BRIDGE_PORT }}
+          ADMIN_TOKEN: ${{ secrets.ADMIN_TOKEN }}
+          SSH_KEY_PATH: ~/.ssh/vps_key
+        run: bash tests/test-restart-recovery-gate.sh
+
+      - name: Run WSS reconnect gate (T16)
+        env:
+          VPS_IP: ${{ secrets.VPS_IP }}
+          BRIDGE_PORT: ${{ secrets.BRIDGE_PORT }}
+          ADMIN_TOKEN: ${{ secrets.ADMIN_TOKEN }}
+          SSH_KEY_PATH: ~/.ssh/vps_key
+        run: bash tests/test-wss-reconnect-gate.sh
+
+      - name: Run concurrency smoke (T17)
+        env:
+          VPS_IP: ${{ secrets.VPS_IP }}
+          BRIDGE_PORT: ${{ secrets.BRIDGE_PORT }}
+          ADMIN_TOKEN: ${{ secrets.ADMIN_TOKEN }}
+          SSH_KEY_PATH: ~/.ssh/vps_key
+        run: bash tests/test-concurrency-smoke.sh
+
+      - name: Upload resilience evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: resilience-evidence
+          path: .sisyphus/evidence/pbcp-*/
+          retention-days: 30
