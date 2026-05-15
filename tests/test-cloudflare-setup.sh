@@ -21,6 +21,8 @@ set -euo pipefail
 # Test configuration
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
+source "$SCRIPT_DIR/lib/transport.sh"
+detect_transport
 LIBRARY_FILE="${PROJECT_ROOT}/deploy/lib/cloudflare-functions.sh"
 TEST_RESULTS=()
 TOTAL_TESTS=0

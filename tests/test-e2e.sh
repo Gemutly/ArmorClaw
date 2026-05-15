@@ -4,6 +4,10 @@ set -euo pipefail
 # ArmorClaw v1: End-to-End Integration Tests
 # Tests the complete user journey: install → configure → start → stop
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/lib/transport.sh"
+detect_transport
+
 echo "🧪 End-to-End Integration Tests"
 echo "================================"
 echo ""

@@ -14,6 +14,9 @@
 
 set -e
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/lib/transport.sh"
+
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
@@ -73,11 +76,11 @@ SOCKET_PATH="/run/armorclaw/bridge.sock"
 if [ -S "$SOCKET_PATH" ]; then
     pass "Bridge socket exists at $SOCKET_PATH"
 
-    # Test RPC connection
+    # Test RPC connection via transport
     echo "   Testing RPC connection..."
-    if command -v socat &> /dev/null; then
-        RESPONSE=$(echo '{"jsonrpc":"2.0","id":1,"method":"bridge.status"}' | \
-            timeout 2 socat - UNIX-CONNECT:$SOCKET_PATH 2>/dev/null || echo '{"error":"connection failed"}')
+    detect_transport
+    if [[ "$TRANSPORT_MODE" != "none" ]]; then
+        RESPONSE=$(rpc_call "bridge.status" '{}' 3 2>/dev/null || echo '{"error":"connection failed"}')
 
         if echo "$RESPONSE" | grep -q '"result"'; then
             pass "RPC connection successful"

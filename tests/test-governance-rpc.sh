@@ -12,6 +12,7 @@ set -euo pipefail
 # ──────────────────────────────────────────────────────────────────────────────
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/lib/transport.sh"
 BRIDGE_BIN="${SCRIPT_DIR}/../bridge/build/armorclaw-bridge"
 SOCKET_PATH="/tmp/bridge-gov-test-$$.sock"
 KEYSTORE_DIR="/tmp/armorclaw-gov-keystore-$$"

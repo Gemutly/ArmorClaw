@@ -22,6 +22,8 @@ EVIDENCE_DIR="$PROJECT_ROOT/.sisyphus/evidence/full-system-t11"
 # common_output.sh provides log_pass/log_fail/log_skip/log_info/harness_summary
 # and color variables (GREEN, RED, YELLOW, NC).
 source "$SCRIPT_DIR/lib/common_output.sh"
+source "$SCRIPT_DIR/lib/transport.sh"
+detect_transport
 
 # Also source e2e/common.sh for color variables if available (fallback below)
 COMMON_SH="$SCRIPT_DIR/e2e/common.sh"

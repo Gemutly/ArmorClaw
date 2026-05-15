@@ -28,6 +28,7 @@ NC='\033[0m'
 
 # Configuration
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/lib/transport.sh"
 PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
 BRIDGE_BIN="${PROJECT_ROOT}/bridge/build/armorclaw-bridge"
 BRIDGE_SOCK="/run/armorclaw/bridge.sock"

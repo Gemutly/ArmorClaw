@@ -21,6 +21,10 @@ set -a
 source .env 2>/dev/null || true
 set +a
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/lib/transport.sh"
+detect_transport
+
 # ── Environment variables ─────────────────────────────────────────────────────
 : "${MATRIX_PORT:=6167}"
 : "${HOMESERVER:=https://${VPS_IP:-localhost}:${MATRIX_PORT}}"
