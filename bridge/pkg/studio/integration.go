@@ -272,7 +272,8 @@ var StudioMethods = []string{
 	"studio.spawn_agent",
 	"studio.list_instances",
 	"studio.stop_instance",
-	"studio.get_stats",
+	"studio.get_instance",
+	"studio.stats",
 	// MCP Registry
 	"studio.list_mcps",
 	"studio.get_mcp",
