@@ -6,13 +6,13 @@ import (
 	"github.com/armorclaw/bridge/pkg/voice"
 )
 
-// TestDiscovery_FlagIndependence verifies that ALL 109 RPC methods are always
+// TestDiscovery_FlagIndependence verifies that ALL RPC methods are always
 // registered regardless of feature flag state. Feature flags control handler
 // behaviour (return feature-disabled error), not registration — every handler
 // is always present in the map so clients get a proper "feature disabled"
 // response instead of "method not found".
 func TestDiscovery_FlagIndependence(t *testing.T) {
-	const expectedMethods = 109
+	const expectedMethods = 132
 
 	// Feature-flagged method groups that MUST always be registered.
 	featureMethods := []string{
