@@ -5,12 +5,13 @@
 
 FROM golang:1.25-bookworm AS builder
 
-# Install build dependencies for CGO and SQLCipher
+# Install build dependencies for CGO, SQLCipher, and libolm
 RUN echo "deb http://deb.debian.org/debian bookworm-backports main" > /etc/apt/sources.list.d/bookworm-backports.list && \
     apt-get update && apt-get install -y --no-install-recommends \
     gcc \
     libc-dev \
     libsqlcipher-dev \
+    libolm-dev \
     libyara-dev/bookworm-backports \
     pkg-config \
     git \
@@ -39,6 +40,7 @@ RUN echo "deb http://deb.debian.org/debian bookworm-backports main" > /etc/apt/s
     apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates \
     libsqlcipher0 \
+    libolm3 \
     libyara10/bookworm-backports \
     curl \
     && rm -rf /var/lib/apt/lists/*

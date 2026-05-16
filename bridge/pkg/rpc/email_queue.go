@@ -5,13 +5,15 @@ import (
 	"encoding/json"
 	"fmt"
 	"time"
+
+	"github.com/armorclaw/bridge/pkg/email"
 )
 
 // OutboxStoreReader defines the read interface for the email outbox store.
 type OutboxStoreReader interface {
 	GetQueueStats(ctx context.Context) (map[string]interface{}, error)
-	GetByID(ctx context.Context, id string) (interface{}, error)
-	ListByStatus(ctx context.Context, status string, limit, offset int) (interface{}, error)
+	GetByID(ctx context.Context, id string) (*email.OutboxEntry, error)
+	ListByStatus(ctx context.Context, status string, limit, offset int) ([]*email.OutboxEntry, error)
 	Retry(ctx context.Context, id string) error
 }
 
