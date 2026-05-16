@@ -15,7 +15,7 @@ import (
 	"github.com/armorclaw/bridge/pkg/studio"
 )
 
-func setupSecretaryServices(ks *keystore.Keystore) (secretary.Store, *secretary.RolodexService, *secretary.WebDAVService, *secretary.CalendarService, *secretary.ArtifactRPCHandler) {
+func setupSecretaryServices(ks *keystore.Keystore) (secretary.Store, *secretary.RolodexService, *secretary.WebDAVService, *secretary.CalendarService, *secretary.ArtifactRPCHandler, *secretary.DelegationService) {
 	log.Println("Initializing Rolodex service...")
 	var rolodexStore secretary.Store
 	store, err := secretary.NewStore(secretary.StoreConfig{
@@ -63,7 +63,15 @@ func setupSecretaryServices(ks *keystore.Keystore) (secretary.Store, *secretary.
 		log.Println("Artifact store initialized")
 	}
 
-	return rolodexStore, rolodexService, webdavService, calendarService, artifactHandler
+	var delegationService *secretary.DelegationService
+	if rolodexStore != nil {
+		delegationService = secretary.NewDelegationService(rolodexStore)
+		if delegationService != nil {
+			log.Println("Delegation service initialized")
+		}
+	}
+
+	return rolodexStore, rolodexService, webdavService, calendarService, artifactHandler, delegationService
 }
 
 func setupApprovalAndTrust(rolodexStore secretary.Store) (*secretary.ApprovalEngineImpl, *secretary.TrustedWorkflowEngine) {

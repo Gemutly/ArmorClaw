@@ -73,15 +73,17 @@ func ErrorResponse(code int, message string, data ...interface{}) *RPCResponse {
 //=============================================================================
 
 type RPCHandler struct {
-	orchestrator *WorkflowOrchestratorImpl
-	store        Store
-	log          *logger.Logger
+	orchestrator       *WorkflowOrchestratorImpl
+	store              Store
+	delegationService  *DelegationService
+	log                *logger.Logger
 }
 
 type RPCHandlerConfig struct {
-	Orchestrator *WorkflowOrchestratorImpl
-	Store        Store
-	Logger       *logger.Logger
+	Orchestrator      *WorkflowOrchestratorImpl
+	Store             Store
+	DelegationService *DelegationService
+	Logger            *logger.Logger
 }
 
 func NewRPCHandler(cfg RPCHandlerConfig) *RPCHandler {
@@ -91,9 +93,10 @@ func NewRPCHandler(cfg RPCHandlerConfig) *RPCHandler {
 	}
 
 	return &RPCHandler{
-		orchestrator: cfg.Orchestrator,
-		store:        cfg.Store,
-		log:          log,
+		orchestrator:      cfg.Orchestrator,
+		store:             cfg.Store,
+		delegationService: cfg.DelegationService,
+		log:               log,
 	}
 }
 
@@ -133,6 +136,12 @@ func (h *RPCHandler) Handle(req *RPCRequest) *RPCResponse {
 		return h.handleTaskCancel(req)
 	case "task.get":
 		return h.handleTaskGet(req)
+	case "secretary.set_approval_delegation":
+		return h.handleSetApprovalDelegation(req)
+	case "secretary.get_approval_delegation":
+		return h.handleGetApprovalDelegation(req)
+	case "secretary.revoke_approval_delegation":
+		return h.handleRevokeApprovalDelegation(req)
 	default:
 		return ErrorResponse(ErrNotFound, fmt.Sprintf("Unknown method: %s", req.Method))
 	}
@@ -742,4 +751,88 @@ func (h *RPCHandler) handleTaskGet(req *RPCRequest) *RPCResponse {
 
 func generateTaskID() string {
 	return fmt.Sprintf("task_%d", time.Now().UnixMilli())
+}
+
+//=============================================================================
+// Delegation Handlers
+//=============================================================================
+
+type SetApprovalDelegationParams struct {
+	PolicyID       string `json:"policy_id"`
+	DelegateTo     string `json:"delegate_to"`
+	TimeoutMinutes int    `json:"timeout_minutes,omitempty"`
+	EscalateTo     string `json:"escalate_to,omitempty"`
+}
+
+func (h *RPCHandler) handleSetApprovalDelegation(req *RPCRequest) *RPCResponse {
+	if h.delegationService == nil {
+		return ErrorResponse(ErrInternal, "delegation service not initialized")
+	}
+
+	var params SetApprovalDelegationParams
+	if err := json.Unmarshal(req.Params, &params); err != nil {
+		return ErrorResponse(ErrInvalidParams, "Invalid params: "+err.Error())
+	}
+
+	info, err := h.delegationService.SetDelegation(context.Background(), DelegationConfig{
+		PolicyID:       params.PolicyID,
+		DelegateTo:     params.DelegateTo,
+		TimeoutMinutes: params.TimeoutMinutes,
+		EscalateTo:     params.EscalateTo,
+	})
+	if err != nil {
+		return ErrorResponse(ErrInternal, err.Error())
+	}
+
+	h.log.Info("delegation_set_via_rpc", "policy_id", params.PolicyID, "delegate_to", params.DelegateTo, "by", req.UserID)
+
+	return SuccessResponse(info)
+}
+
+type GetApprovalDelegationParams struct {
+	PolicyID string `json:"policy_id"`
+}
+
+func (h *RPCHandler) handleGetApprovalDelegation(req *RPCRequest) *RPCResponse {
+	if h.delegationService == nil {
+		return ErrorResponse(ErrInternal, "delegation service not initialized")
+	}
+
+	var params GetApprovalDelegationParams
+	if err := json.Unmarshal(req.Params, &params); err != nil {
+		return ErrorResponse(ErrInvalidParams, "Invalid params: "+err.Error())
+	}
+
+	info, err := h.delegationService.GetDelegation(context.Background(), params.PolicyID)
+	if err != nil {
+		return ErrorResponse(ErrInternal, err.Error())
+	}
+
+	return SuccessResponse(info)
+}
+
+type RevokeApprovalDelegationParams struct {
+	PolicyID string `json:"policy_id"`
+}
+
+func (h *RPCHandler) handleRevokeApprovalDelegation(req *RPCRequest) *RPCResponse {
+	if h.delegationService == nil {
+		return ErrorResponse(ErrInternal, "delegation service not initialized")
+	}
+
+	var params RevokeApprovalDelegationParams
+	if err := json.Unmarshal(req.Params, &params); err != nil {
+		return ErrorResponse(ErrInvalidParams, "Invalid params: "+err.Error())
+	}
+
+	if err := h.delegationService.RevokeDelegation(context.Background(), params.PolicyID); err != nil {
+		return ErrorResponse(ErrInternal, err.Error())
+	}
+
+	h.log.Info("delegation_revoked_via_rpc", "policy_id", params.PolicyID, "by", req.UserID)
+
+	return SuccessResponse(map[string]interface{}{
+		"policy_id": params.PolicyID,
+		"revoked":   true,
+	})
 }
