@@ -5,6 +5,8 @@ package rpc
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"time"
@@ -70,6 +72,8 @@ func (s *Server) handleApproveEmail(ctx context.Context, req *Request) (interfac
 		}
 	}
 
+	s.persistApprovalToOutbox(params.ApprovalID, params.UserID)
+
 	return map[string]interface{}{
 		"approval_id": params.ApprovalID,
 		"status":      "approved",
@@ -118,6 +122,8 @@ func (s *Server) handleDenyEmail(ctx context.Context, req *Request) (interface{}
 			Message: "failed to deny email: " + err.Error(),
 		}
 	}
+
+	s.persistDenialToOutbox(params.ApprovalID, params.UserID)
 
 	return map[string]interface{}{
 		"approval_id": params.ApprovalID,
@@ -177,5 +183,45 @@ func (s *Server) emitEmailApprovalRequestEvent(roomID, approvalID, emailID, to s
 	return s.matrix.SendEvent(roomID, "app.armorclaw.email_approval_request", content)
 }
 
-// Ensure unused import is consumed.
-var _ = fmt.Sprintf
+func (s *Server) persistApprovalToOutbox(approvalID, userID string) {
+	outbox, ok := s.outboxStore.(*email.OutboxStore)
+	if !ok || outbox == nil {
+		return
+	}
+
+	ctx := context.Background()
+
+	entry := &email.OutboxEntry{
+		ID:            approvalID,
+		WorkflowID:    "approval:" + approvalID,
+		RecipientHash: hashForOutbox(userID),
+		Status:        email.StatusApproved,
+	}
+	if err := outbox.Enqueue(ctx, entry); err != nil {
+		return
+	}
+}
+
+func (s *Server) persistDenialToOutbox(approvalID, userID string) {
+	outbox, ok := s.outboxStore.(*email.OutboxStore)
+	if !ok || outbox == nil {
+		return
+	}
+
+	ctx := context.Background()
+
+	entry := &email.OutboxEntry{
+		ID:            approvalID,
+		WorkflowID:    "approval:" + approvalID,
+		RecipientHash: hashForOutbox(userID),
+		Status:        email.StatusFailed,
+	}
+	if err := outbox.Enqueue(ctx, entry); err != nil {
+		return
+	}
+}
+
+func hashForOutbox(s string) string {
+	h := sha256.Sum256([]byte(s))
+	return hex.EncodeToString(h[:16])
+}
