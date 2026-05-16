@@ -75,7 +75,11 @@ func TestArtifactHandlerAdapterUpload(t *testing.T) {
 	if !ok {
 		t.Fatal("result is not a map")
 	}
-	if resultMap["count"] != float64(0) {
-		t.Fatalf("expected count 0, got %v", resultMap["count"])
+	count, ok := resultMap["count"].(int)
+	if !ok {
+		t.Fatalf("expected count to be int, got %T", resultMap["count"])
+	}
+	if count != 0 {
+		t.Fatalf("expected count 0, got %d", count)
 	}
 }
