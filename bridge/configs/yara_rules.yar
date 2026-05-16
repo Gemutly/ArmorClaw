@@ -79,8 +79,8 @@ rule pe_header_in_non_pe {
         description = "PE executable header embedded in non-PE file"
         severity = "critical"
     strings:
-        $mz = "MZ" ascii
-        $pe = "PE" ascii
+        $_mz = "MZ" ascii
+        $_pe = "PE" ascii
         $this_program = { 4D 5A ?? ?? 50 45 00 00 }
     condition:
         $this_program
