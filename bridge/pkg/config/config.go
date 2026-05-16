@@ -148,6 +148,9 @@ type Config struct {
 
 	// Governance configuration (room ID for governance/voting)
 	Governance GovernanceConfig `toml:"governance"`
+
+	// Email pipeline configuration (outbox queue)
+	Email EmailConfig `toml:"email"`
 }
 
 // ServerConfig holds server-specific configuration
@@ -830,6 +833,13 @@ type ProvisioningConfig struct {
 
 type GovernanceConfig struct {
 	RoomID string `toml:"room_id" env:"ARMORCLAW_GOVERNANCE_ROOM"`
+}
+
+// EmailConfig holds email pipeline configuration (outbox queue, SMTP relay).
+type EmailConfig struct {
+	// OutboxDBPath is the path to the SQLite database for the email outbox queue.
+	// When empty, defaults to <keystore_dir>/email-outbox.db.
+	OutboxDBPath string `toml:"outbox_db_path" env:"ARMORCLAW_EMAIL_OUTBOX_DB"`
 }
 
 // SidecarJavaConfig holds configuration for the Java sidecar (legacy .doc/.ppt extraction)

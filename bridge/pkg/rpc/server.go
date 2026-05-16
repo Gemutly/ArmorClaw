@@ -251,6 +251,7 @@ type Config struct {
 	ReplayFlags       ReplayFeatureFlags
 	NavChartStore     *browser.MultiTabStore
 	MethodRateLimiter MethodRateLimiter
+	OutboxStore       OutboxStoreReader
 }
 
 func New(cfg Config) (*Server, error) {
@@ -298,6 +299,7 @@ func New(cfg Config) (*Server, error) {
 		replayFlags:       cfg.ReplayFlags,
 		navChartStore:     cfg.NavChartStore,
 		methodRateLimiter: cfg.MethodRateLimiter,
+		outboxStore:       cfg.OutboxStore,
 	}
 	s.e2eeEnabled.Store(cfg.EnableE2EE)
 

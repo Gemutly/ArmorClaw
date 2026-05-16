@@ -2762,6 +2762,18 @@ func runBridgeServer(cliCfg cliConfig) {
 		rpcCfg.ArtifactHandler = rpc.NewArtifactRPCHandlerAdapter(artifactHandler)
 	}
 
+	outboxDBPath := cfg.Email.OutboxDBPath
+	if outboxDBPath == "" {
+		outboxDBPath = filepath.Join(filepath.Dir(cfg.Keystore.DBPath), "email-outbox.db")
+	}
+	outboxStore, outboxErr := email.NewOutboxStore(outboxDBPath)
+	if outboxErr != nil {
+		log.Printf("Warning: email outbox store init failed (%v), email RPCs will return 'not configured'", outboxErr)
+	} else {
+		rpcCfg.OutboxStore = outboxStore
+		log.Printf("Email outbox store initialized: %s", outboxDBPath)
+	}
+
 	server, err := rpc.New(rpcCfg)
 	if err != nil {
 		log.Fatalf("Failed to create server: %v", err)
