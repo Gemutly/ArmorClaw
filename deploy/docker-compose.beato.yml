@@ -1,0 +1,73 @@
+# Docker Compose Overlay: BEATO Jetski Browser Sidecar
+# Overlay for production deployment with hardened security.
+# Applied ON TOP of the base docker-compose.yml.
+#
+# Usage:
+#   docker compose -f docker-compose.yml -f deploy/docker-compose.beato.yml up -d
+#
+# Changes from docker-compose.jetski.yml:
+#   - NO public ports (expose only, no host port mapping)
+#   - Uses pre-built image (no build context)
+#   - Attaches BOTH bridge and jetski to armorclaw-internal for DNS
+#   - Higher resource limits for production
+#   - Explicit CDP/RPC bind environment variables
+
+services:
+  jetski:
+    image: mikegemut/jetski:beato
+    container_name: armorclaw-jetski
+    restart: unless-stopped
+
+    expose:
+      - "9222"  # CDP WebSocket (internal only)
+      - "9223"  # RPC API (internal only)
+
+    networks:
+      - armorclaw-internal
+
+    environment:
+      - JETSKI_CDP_BIND=0.0.0.0:9222
+      - JETSKI_RPC_BIND=0.0.0.0:9223
+      - JETSKI_ENGINE_PORT=9333
+      - JETSKI_ENGINE_PATH=/usr/local/bin/lightpanda
+      - JETSKI_LOG_LEVEL=${JETSKI_LOG_LEVEL:-INFO}
+      - JETSKI_PROXY_LIST=${JETSKI_PROXY_LIST:-}
+      - JETSKI_SESSION_DIR=/var/lib/armorclaw/jetski
+      - JETSKI_APPROVAL_ENABLED=false
+      - JETSKI_BRIDGE_URL=http://bridge:8080
+      - JETSKI_ROOM_ID=
+
+    volumes:
+      - jetski-sessions:/var/lib/armorclaw/jetski
+
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=128m
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    mem_limit: 512m
+    pids_limit: 256
+
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:9223/rpc/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+
+  bridge:
+    networks:
+      - armorclaw-internal
+
+networks:
+  armorclaw-internal:
+    driver: bridge
+    internal: true
+    name: armorclaw-internal
+
+volumes:
+  jetski-sessions:
+    driver: local
+    name: jetski-sessions
