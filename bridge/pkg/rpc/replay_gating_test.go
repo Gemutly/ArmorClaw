@@ -100,7 +100,7 @@ func TestReplayGating_FlagOff_ReturnsFeatureDisabled(t *testing.T) {
 // always registered (handler-gated, not registration-gated), so toggling the flag
 // does not change the method count.
 func TestReplayGating_Discovery(t *testing.T) {
-	const expectedMethods = 139
+	const expectedMethods = 142
 
 	cases := []struct {
 		name      string

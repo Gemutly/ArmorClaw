@@ -206,6 +206,10 @@ type Server struct {
 	replayFlags       ReplayFeatureFlags
 	navChartStore     *navchart.MultiTabStore
 	methodRateLimiter MethodRateLimiter
+	sidecarOffice    *sidecar.Client
+	sidecarRust      *sidecar.Client
+	sidecarJava      *sidecar.Client
+	extractionJobs   map[string]*ExtractionJob
 }
 
 type Config struct {
@@ -1361,6 +1365,9 @@ func (s *Server) registerHandlers() {
 		"e2ee.create_backup":         s.handleE2EECreateBackup,
 		"e2ee.delete_backup":         s.handleE2EEDeleteBackup,
 		"e2ee.backup_exists":         s.handleE2EEBackupExists,
+		"document.extract_text":      s.handleDocumentExtractText,
+		"document.status":            s.handleDocumentStatus,
+		"document.list_jobs":         s.handleDocumentListJobs,
 	}
 
 	s.handlers = h
