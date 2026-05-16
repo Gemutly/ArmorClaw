@@ -12,6 +12,9 @@ echo "🧪 Secrets Injection Validation Tests"
 echo "======================================="
 echo ""
 
+# Image name: use env var or fall back to known CI name
+TEST_IMAGE="${TEST_IMAGE:-mikegemut/armorclaw:latest}"
+
 # Test secret (fake but realistic format)
 TEST_SECRET="sk-test-secret-$(date +%s)-validation"
 CONTAINER_NAME="test-sec-$$"
@@ -27,14 +30,11 @@ echo "Test 1: Secret exists in process memory (EXPECTED)"
 echo "----------------------------------------------------"
 echo "Starting container with test secret..."
 
-# Start container with test secret
-docker run -d --rm --name $CONTAINER_NAME \
+if ! docker run -d --rm --name $CONTAINER_NAME \
     -e OPENAI_API_KEY="$TEST_SECRET" \
     -e ANTHROPIC_API_KEY="sk-ant-test-$(date +%s)" \
-    REDACTED-REGISTRY/armorclaw:latest python -c "import time; time.sleep(999999)" >/dev/null 2>&1
-
-if [ $? -ne 0 ]; then
-    echo "⚠️  SKIP: Cannot start container (REDACTED-REGISTRY/armorclaw:latest may not be available locally)"
+    "$TEST_IMAGE" python -c "import time; time.sleep(999999)" >/dev/null 2>&1; then
+    echo "⚠️  SKIP: Cannot start container ($TEST_IMAGE may not be available locally)"
     echo "Skipping remaining secrets tests — requires local Docker image"
     exit 0
 fi
@@ -190,7 +190,7 @@ sleep 1
 # Start new container with a DIFFERENT dummy key (container requires API key to start)
 docker run -d --rm --name $CONTAINER_NAME \
     -e OPENAI_API_KEY="sk-restart-dummy-key" \
-    REDACTED-REGISTRY/armorclaw:latest python -c "import time; time.sleep(999999)" >/dev/null 2>&1
+    "$TEST_IMAGE" python -c "import time; time.sleep(999999)" >/dev/null 2>&1
 sleep 2
 
 # Verify NO old secrets in the restarted container

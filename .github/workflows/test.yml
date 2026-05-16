@@ -26,7 +26,15 @@ jobs:
 
       - name: Install system dependencies for Go build
         run: |
-          sudo apt-get update && sudo apt-get install -y libsqlcipher-dev libyara-dev libolm-dev pkg-config
+          sudo apt-get update
+          sudo apt-get install -y libsqlcipher-dev pkg-config
+          sudo apt-get install -y libolm-dev || {
+            echo "libolm-dev not in apt repos, building from source..."
+            sudo apt-get install -y cmake g++ git
+            git clone https://gitlab.matrix.org/matrix-org/olm.git /tmp/olm --depth 1
+            cd /tmp/olm && cmake -S . -B build -DCMAKE_INSTALL_PREFIX=/usr && cmake --build build -j$(nproc) && sudo cmake --install build
+          }
+          sudo apt-get install -y libyara-dev || true
 
       - name: Check bash syntax on all test scripts
         run: |
@@ -103,6 +111,8 @@ jobs:
           fi
 
       - name: Run secrets validation tests
+        env:
+          TEST_IMAGE: mikegemut/armorclaw:latest
         run: |
           chmod +x tests/test-secrets.sh
           ./tests/test-secrets.sh
