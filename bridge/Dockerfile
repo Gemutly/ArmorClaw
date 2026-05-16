@@ -3,7 +3,7 @@
 # NOTE: Must use Debian (glibc) instead of Alpine (musl) because go-sqlcipher
 # requires glibc-specific functions (pread64, pwrite64, off64_t)
 
-FROM golang:1.24-bookworm AS builder
+FROM golang:1.25-bookworm AS builder
 
 # Install build dependencies for CGO and SQLCipher
 RUN echo "deb http://deb.debian.org/debian bookworm-backports main" > /etc/apt/sources.list.d/bookworm-backports.list && \
