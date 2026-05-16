@@ -26,15 +26,15 @@ services:
       - armorclaw-internal
 
     environment:
-      - JETSKI_CDP_BIND=0.0.0.0:9222
-      - JETSKI_RPC_BIND=0.0.0.0:9223
-      - JETSKI_ENGINE_PORT=9333
+      - JETSKI_PORT=9222
+      - JETSKI_HOST=0.0.0.0
       - JETSKI_ENGINE_PATH=/usr/local/bin/lightpanda
+      - JETSKI_ENGINE_PORT=9333
+      - JETSKI_SESSION_DIR=/var/lib/armorclaw/jetski
       - JETSKI_LOG_LEVEL=${JETSKI_LOG_LEVEL:-INFO}
       - JETSKI_PROXY_LIST=${JETSKI_PROXY_LIST:-}
-      - JETSKI_SESSION_DIR=/var/lib/armorclaw/jetski
       - JETSKI_APPROVAL_ENABLED=false
-      - JETSKI_BRIDGE_URL=http://bridge:8080
+      - JETSKI_BRIDGE_URL=http://armorclaw:8443
       - JETSKI_ROOM_ID=
 
     volumes:
@@ -51,15 +51,11 @@ services:
     pids_limit: 256
 
     healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:9223/rpc/health"]
+      test: ["CMD", "curl", "-sf", "http://localhost:9222/health"]
       interval: 10s
       timeout: 5s
       retries: 3
-      start_period: 5s
-
-  bridge:
-    networks:
-      - armorclaw-internal
+      start_period: 10s
 
 networks:
   armorclaw-internal:

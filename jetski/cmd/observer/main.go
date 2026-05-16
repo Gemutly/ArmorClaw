@@ -183,7 +183,7 @@ func loadConfig(path string) (*config.Config, error) {
 func setupProcessManager(cfg *config.Config, log *logger.Logger) *subprocess.ProcessManager {
 	pi := subprocess.NewProcessManager()
 
-	if err := pi.StartWithSupervisor(context.Background(), cfg.Browser.EnginePort); err != nil {
+	if err := pi.StartWithSupervisor(context.Background(), cfg.Browser.EnginePath, cfg.Browser.EnginePort); err != nil {
 		log.Error("Failed to start browser engine", "error", err)
 		os.Exit(1)
 	}

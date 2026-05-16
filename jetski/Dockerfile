@@ -1,5 +1,5 @@
 # Stage 1: Build Go binary
-FROM golang:1.25-alpine AS builder
+FROM golang:1.25-bookworm AS builder
 
 WORKDIR /app
 COPY go.mod go.sum ./
@@ -23,9 +23,11 @@ RUN echo "f29442646d1c62a4175195b0a149b9e368e2f3487d3a493f96ba0702be8974cc  /lig
 RUN chmod +x /lightpanda
 
 # Stage 3: Final minimal image
-FROM alpine:latest
+FROM debian:bookworm-slim
 
-RUN apk --no-cache add ca-certificates
+RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates locales curl && rm -rf /var/lib/apt/lists/* \
+    && sed -i '/en_US.UTF-8/s/^# //g' /etc/locale.gen && locale-gen
+ENV LC_ALL=C.UTF-8
 
 # Copy binaries
 COPY --from=builder /observer /usr/local/bin/observer

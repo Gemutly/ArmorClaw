@@ -16,6 +16,7 @@ type ProcessManager struct {
 	healthTicker *time.Ticker
 	failures     int
 	maxFailures  int
+	enginePath   string
 }
 
 func NewProcessManager() *ProcessManager {
@@ -24,11 +25,12 @@ func NewProcessManager() *ProcessManager {
 	}
 }
 
-func (pm *ProcessManager) StartWithSupervisor(ctx context.Context, port string) error {
+func (pm *ProcessManager) StartWithSupervisor(ctx context.Context, enginePath string, port string) error {
 	pm.mu.Lock()
 	defer pm.mu.Unlock()
 
-	pm.cmd = exec.CommandContext(ctx, "./lightpanda", "--port="+port)
+	pm.enginePath = enginePath
+	pm.cmd = exec.CommandContext(ctx, enginePath, "--port="+port)
 
 	pm.cmd.SysProcAttr = &syscall.SysProcAttr{
 		Setpgid: true,
@@ -92,5 +94,5 @@ func (pm *ProcessManager) checkHealth() bool {
 
 func (pm *ProcessManager) restartEngine(ctx context.Context) {
 	_ = pm.killProcessGroup()
-	_ = pm.StartWithSupervisor(ctx, "9223")
+	_ = pm.StartWithSupervisor(ctx, pm.enginePath, "9223")
 }

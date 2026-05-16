@@ -58,6 +58,7 @@ func New(cfg Config) *Logger {
 		} else {
 			logHandler = &simpleTextHandler{
 				handler: slog.NewTextHandler(cfg.Output, opts),
+				output:  cfg.Output,
 			}
 		}
 	default:
@@ -146,6 +147,7 @@ func (l *Logger) WithGroup(name string) *Logger {
 
 type simpleTextHandler struct {
 	handler slog.Handler
+	output  io.Writer
 }
 
 func (h *simpleTextHandler) Enabled(ctx context.Context, level slog.Level) bool {
@@ -154,18 +156,26 @@ func (h *simpleTextHandler) Enabled(ctx context.Context, level slog.Level) bool 
 
 func (h *simpleTextHandler) Handle(ctx context.Context, r slog.Record) error {
 	msg := r.Message
-	time := r.Time.Format("2006-01-02 15:04:05")
-	level := r.Level.String()
+	ts := r.Time.Format("2006-01-02 15:04:05")
 
+	var formatted string
 	if r.Level >= slog.LevelError {
-		return fmt.Errorf("[%s] [%s] ERROR: %s", time, level, msg)
+		formatted = fmt.Sprintf("[%s] ERROR: %s", ts, msg)
 	} else if r.Level >= slog.LevelWarn {
-		return fmt.Errorf("[%s] [%s] WARN: %s", time, level, msg)
+		formatted = fmt.Sprintf("[%s] WARN: %s", ts, msg)
 	} else if r.Level >= slog.LevelInfo {
-		return fmt.Errorf("[%s] [%s] INFO: %s", time, level, msg)
+		formatted = fmt.Sprintf("[%s] INFO: %s", ts, msg)
 	} else {
-		return fmt.Errorf("[%s] [%s] DEBUG: %s", time, level, msg)
+		formatted = fmt.Sprintf("[%s] DEBUG: %s", ts, msg)
 	}
+
+	r.Attrs(func(a slog.Attr) bool {
+		formatted += fmt.Sprintf(" %s=%v", a.Key, a.Value)
+		return true
+	})
+
+	fmt.Fprintln(h.output, formatted)
+	return nil
 }
 
 func (h *simpleTextHandler) WithAttrs(attrs []slog.Attr) slog.Handler {

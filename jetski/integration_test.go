@@ -255,7 +255,7 @@ func TestIntegration_ProcessManagerLifecycle(t *testing.T) {
 
 	t.Run("StartEngine", func(t *testing.T) {
 		ctx := context.Background()
-		err := pm.StartWithSupervisor(ctx, "9223")
+		err := pm.StartWithSupervisor(ctx, "/usr/local/bin/lightpanda", "9223")
 		if err != nil {
 			t.Logf("StartWithSupervisor failed (expected in test environment): %v", err)
 		}
