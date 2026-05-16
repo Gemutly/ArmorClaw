@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/armorclaw/jetski/navchart"
+	"github.com/armorclaw/bridge/pkg/browser"
 	"github.com/armorclaw/bridge/pkg/voice"
 )
 
@@ -429,7 +429,7 @@ func TestEdgeE2EE_CreateBackup_NilManager(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestEdgeReplay_InvalidTabID(t *testing.T) {
-	store := navchart.NewMultiTabStore()
+	store := browser.NewMultiTabStore()
 	s := &Server{navChartStore: store}
 	s.replayFlags.MultiTabReplay = true
 	ctx := context.Background()
@@ -451,7 +451,7 @@ func TestEdgeReplay_InvalidTabID(t *testing.T) {
 }
 
 func TestEdgeReplay_NoTabsExist(t *testing.T) {
-	store := navchart.NewMultiTabStore() // empty store
+	store := browser.NewMultiTabStore() // empty store
 	s := &Server{navChartStore: store}
 	s.replayFlags.MultiTabReplay = true
 	ctx := context.Background()
@@ -472,7 +472,7 @@ func TestEdgeReplay_NoTabsExist(t *testing.T) {
 }
 
 func TestEdgeReplay_EmptyTabID(t *testing.T) {
-	store := navchart.NewMultiTabStore()
+	store := browser.NewMultiTabStore()
 	s := &Server{navChartStore: store}
 	s.replayFlags.MultiTabReplay = true
 	ctx := context.Background()
@@ -691,7 +691,7 @@ func TestEdgeGeneral_E2EEMalformedJSON(t *testing.T) {
 }
 
 func TestEdgeGeneral_ReplayMalformedJSON(t *testing.T) {
-	store := navchart.NewMultiTabStore()
+	store := browser.NewMultiTabStore()
 	s := &Server{navChartStore: store}
 	s.replayFlags.MultiTabReplay = true
 	ctx := context.Background()
@@ -749,7 +749,7 @@ func TestEdgeCrossSubsystem_NilParamsNoPanic(t *testing.T) {
 		{"e2ee_create", (&Server{e2eeBackupEnabled: true}).handleE2EECreateBackup},
 		{"e2ee_delete", (&Server{e2eeBackupEnabled: true}).handleE2EEDeleteBackup},
 		{"e2ee_exists", (&Server{e2eeBackupEnabled: true}).handleE2EEBackupExists},
-		{"replay_diag", (&Server{replayFlags: ReplayFeatureFlags{MultiTabReplay: true}, navChartStore: navchart.NewMultiTabStore()}).handleBrowserReplayDiagnostics},
+		{"replay_diag", (&Server{replayFlags: ReplayFeatureFlags{MultiTabReplay: true}, navChartStore: browser.NewMultiTabStore()}).handleBrowserReplayDiagnostics},
 	}
 
 	for _, tc := range cases {

@@ -5,13 +5,13 @@ import (
 	"encoding/json"
 	"testing"
 
-	"github.com/armorclaw/jetski/navchart"
+	"github.com/armorclaw/bridge/pkg/browser"
 )
 
 // TestReplayGating_FlagOn_ReturnsData verifies that when MultiTabReplay is enabled,
 // the handler returns replay diagnostics data (success response) instead of an error.
 func TestReplayGating_FlagOn_ReturnsData(t *testing.T) {
-	store := navchart.NewMultiTabStore()
+	store := browser.NewMultiTabStore()
 	s := &Server{
 		navChartStore: store,
 	}
@@ -19,12 +19,12 @@ func TestReplayGating_FlagOn_ReturnsData(t *testing.T) {
 	s.registerHandlers()
 
 	// Store a chart so the handler has data to return.
-	chart := navchart.NavChart{
+	chart := browser.NavChart{
 		Version:      1,
 		TargetDomain: "example.com",
 		TabID:        "tab-gating-on",
-		ActionMap: map[string]navchart.ChartAction{
-			"step1": {ActionType: navchart.ActionNavigate, URL: "https://example.com"},
+		ActionMap: map[string]browser.ChartAction{
+			"step1": {ActionType: browser.ActionNavigate, URL: "https://example.com"},
 		},
 	}
 	if err := store.StoreChart("tab-gating-on", chart); err != nil {

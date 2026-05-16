@@ -25,7 +25,6 @@ import (
 	"github.com/armorclaw/bridge/pkg/audit"
 	"github.com/armorclaw/bridge/pkg/browser"
 	"github.com/armorclaw/bridge/pkg/crypto"
-	"github.com/armorclaw/bridge/pkg/sidecar"
 	"github.com/armorclaw/bridge/pkg/docker"
 	"github.com/armorclaw/bridge/pkg/eventbus"
 	"github.com/armorclaw/bridge/pkg/eventlog"
@@ -35,11 +34,11 @@ import (
 	"github.com/armorclaw/bridge/pkg/mcp"
 	"github.com/armorclaw/bridge/pkg/provisioning"
 	"github.com/armorclaw/bridge/pkg/secretary"
+	"github.com/armorclaw/bridge/pkg/sidecar"
 	"github.com/armorclaw/bridge/pkg/studio"
 	"github.com/armorclaw/bridge/pkg/translator"
 	"github.com/armorclaw/bridge/pkg/trust"
 	"github.com/armorclaw/bridge/pkg/voice"
-	"github.com/armorclaw/jetski/navchart"
 )
 
 // ReplayFeatureFlags holds feature toggles needed by browser replay RPC handlers.
@@ -48,13 +47,13 @@ type ReplayFeatureFlags struct {
 }
 
 const (
-	JSONRPCVersion   = "2.0"
-	BridgeVersion    = "4.6.0"
-	ParseError       = -32700
-	InvalidRequest   = -32600
-	MethodNotFound   = -32601
-	InvalidParams    = -32602
-	InternalError    = -32603
+	JSONRPCVersion      = "2.0"
+	BridgeVersion       = "4.6.0"
+	ParseError          = -32700
+	InvalidRequest      = -32600
+	MethodNotFound      = -32601
+	InvalidParams       = -32602
+	InternalError       = -32603
 	NotFoundError       = -32000
 	TooManyRequests     = -32001
 	RequestCancelled    = -32002
@@ -204,53 +203,53 @@ type Server struct {
 	voiceMgr          *voice.Manager
 	voicePipeline     string
 	replayFlags       ReplayFeatureFlags
-	navChartStore     *navchart.MultiTabStore
+	navChartStore     *browser.MultiTabStore
 	methodRateLimiter MethodRateLimiter
-	sidecarOffice    *sidecar.Client
-	sidecarRust      *sidecar.Client
-	sidecarJava      *sidecar.Client
-	extractionJobs   map[string]*ExtractionJob
-	outboxStore      OutboxStoreReader
+	sidecarOffice     *sidecar.Client
+	sidecarRust       *sidecar.Client
+	sidecarJava       *sidecar.Client
+	extractionJobs    map[string]*ExtractionJob
+	outboxStore       OutboxStoreReader
 }
 
 type Config struct {
-	SocketPath       string
-	RPCTransport     string
-	ListenAddr       string
-	Keystore         Keystore
-	Matrix           MatrixAdapter
-	AIService        *ai.AIService
-	AIMaxConcurrent  int
-	BridgeManager    BridgeManager
-	BrowserJobs      *BrowserJobManager
-	Studio           StudioService
-	AppService       AppService
-	ProvisioningMgr  ProvisioningManager
-	SkillManager     SkillManager
-	SkillGate        interfaces.SkillGate
-	EventBus         *eventbus.EventBus
-	HardeningStore   trust.Store
-	DeviceStore      *trust.DeviceStore
-	InviteStore      *invite.InviteStore
-	Metrics          *Metrics
-	DockerClient     *docker.Client
-	Guard            *trust.TrustedProxyGuard
-	AuditLog         *audit.AuditLog
-	MCPRouter        *mcp.MCPRouter
-	GovernanceRoomID string
-	Translator       *translator.RPCToMCPTranslator
-	SecretaryHandler secretaryRPCHandler
-	ArtifactHandler  *artifactRPCHandlerAdapter
-	SealedKS         *keystore.SealedKeystore
-	KeystoreLimiter  *keystore.RateLimiter
-	ZeroTrustKS      bool
-	BackupMgr        *crypto.BackupManager
+	SocketPath        string
+	RPCTransport      string
+	ListenAddr        string
+	Keystore          Keystore
+	Matrix            MatrixAdapter
+	AIService         *ai.AIService
+	AIMaxConcurrent   int
+	BridgeManager     BridgeManager
+	BrowserJobs       *BrowserJobManager
+	Studio            StudioService
+	AppService        AppService
+	ProvisioningMgr   ProvisioningManager
+	SkillManager      SkillManager
+	SkillGate         interfaces.SkillGate
+	EventBus          *eventbus.EventBus
+	HardeningStore    trust.Store
+	DeviceStore       *trust.DeviceStore
+	InviteStore       *invite.InviteStore
+	Metrics           *Metrics
+	DockerClient      *docker.Client
+	Guard             *trust.TrustedProxyGuard
+	AuditLog          *audit.AuditLog
+	MCPRouter         *mcp.MCPRouter
+	GovernanceRoomID  string
+	Translator        *translator.RPCToMCPTranslator
+	SecretaryHandler  secretaryRPCHandler
+	ArtifactHandler   *artifactRPCHandlerAdapter
+	SealedKS          *keystore.SealedKeystore
+	KeystoreLimiter   *keystore.RateLimiter
+	ZeroTrustKS       bool
+	BackupMgr         *crypto.BackupManager
 	E2EEBackupEnabled bool
 	EnableE2EE        bool
-	VoiceMgr         *voice.Manager
-	VoicePipeline    string
-	ReplayFlags      ReplayFeatureFlags
-	NavChartStore    *navchart.MultiTabStore
+	VoiceMgr          *voice.Manager
+	VoicePipeline     string
+	ReplayFlags       ReplayFeatureFlags
+	NavChartStore     *browser.MultiTabStore
 	MethodRateLimiter MethodRateLimiter
 }
 
@@ -260,44 +259,44 @@ func New(cfg Config) (*Server, error) {
 	}
 
 	s := &Server{
-		keystore:         cfg.Keystore,
-		matrix:           cfg.Matrix,
-		aiService:        cfg.AIService,
-		aiMaxConcurrent:  cfg.AIMaxConcurrent,
-		aiSemaphore:      make(chan struct{}, cfg.AIMaxConcurrent),
-		bridgeMgr:        cfg.BridgeManager,
-		browserJobs:      cfg.BrowserJobs,
-		studio:           cfg.Studio,
-		appService:       cfg.AppService,
-		provisioningMgr:  cfg.ProvisioningMgr,
-		skillMgr:         cfg.SkillManager,
-		skillGate:        cfg.SkillGate,
-		eventBus:         cfg.EventBus,
-		handlers:         make(map[string]HandlerFunc, 32),
-		hardeningStore:   cfg.HardeningStore,
-		deviceStore:      cfg.DeviceStore,
-		inviteStore:      cfg.InviteStore,
-		metrics:          cfg.Metrics,
-		shutdownCh:       make(chan struct{}),
-		rpcTransport:     cfg.RPCTransport,
-		listenAddr:       cfg.ListenAddr,
-		dockerClient:     cfg.DockerClient,
-		guard:            cfg.Guard,
-		auditLog:         cfg.AuditLog,
-		mcpRouter:        cfg.MCPRouter,
-		translator:       cfg.Translator,
-		secretaryHandler: cfg.SecretaryHandler,
-		artifactHandler:  cfg.ArtifactHandler,
-		governanceRoomID: cfg.GovernanceRoomID,
-		sealedKS:         cfg.SealedKS,
-		keystoreLimiter:  cfg.KeystoreLimiter,
-		zeroTrustKS:      cfg.ZeroTrustKS,
+		keystore:          cfg.Keystore,
+		matrix:            cfg.Matrix,
+		aiService:         cfg.AIService,
+		aiMaxConcurrent:   cfg.AIMaxConcurrent,
+		aiSemaphore:       make(chan struct{}, cfg.AIMaxConcurrent),
+		bridgeMgr:         cfg.BridgeManager,
+		browserJobs:       cfg.BrowserJobs,
+		studio:            cfg.Studio,
+		appService:        cfg.AppService,
+		provisioningMgr:   cfg.ProvisioningMgr,
+		skillMgr:          cfg.SkillManager,
+		skillGate:         cfg.SkillGate,
+		eventBus:          cfg.EventBus,
+		handlers:          make(map[string]HandlerFunc, 32),
+		hardeningStore:    cfg.HardeningStore,
+		deviceStore:       cfg.DeviceStore,
+		inviteStore:       cfg.InviteStore,
+		metrics:           cfg.Metrics,
+		shutdownCh:        make(chan struct{}),
+		rpcTransport:      cfg.RPCTransport,
+		listenAddr:        cfg.ListenAddr,
+		dockerClient:      cfg.DockerClient,
+		guard:             cfg.Guard,
+		auditLog:          cfg.AuditLog,
+		mcpRouter:         cfg.MCPRouter,
+		translator:        cfg.Translator,
+		secretaryHandler:  cfg.SecretaryHandler,
+		artifactHandler:   cfg.ArtifactHandler,
+		governanceRoomID:  cfg.GovernanceRoomID,
+		sealedKS:          cfg.SealedKS,
+		keystoreLimiter:   cfg.KeystoreLimiter,
+		zeroTrustKS:       cfg.ZeroTrustKS,
 		backupMgr:         cfg.BackupMgr,
 		e2eeBackupEnabled: cfg.E2EEBackupEnabled,
 		voiceMgr:          cfg.VoiceMgr,
 		voicePipeline:     cfg.VoicePipeline,
-		replayFlags:      cfg.ReplayFlags,
-		navChartStore:    cfg.NavChartStore,
+		replayFlags:       cfg.ReplayFlags,
+		navChartStore:     cfg.NavChartStore,
 		methodRateLimiter: cfg.MethodRateLimiter,
 	}
 	s.e2eeEnabled.Store(cfg.EnableE2EE)
@@ -1065,7 +1064,7 @@ func (s *Server) handleKeystoreSessionStatus(ctx context.Context, req *Request) 
 
 	status := s.sealedKS.SessionStatus()
 	return map[string]interface{}{
-		"sealed":           status.Sealed,
+		"sealed":            status.Sealed,
 		"remaining_seconds": status.RemainingSeconds,
 		"last_activity_at":  status.LastActivityAt.Format(time.RFC3339),
 	}, nil
@@ -1212,9 +1211,9 @@ func (s *Server) handleVoiceStatus(ctx context.Context, req *Request) (interface
 	sessions := make([]map[string]interface{}, 0, len(calls))
 	for _, c := range calls {
 		sessions = append(sessions, map[string]interface{}{
-			"id":     c.ID,
+			"id":      c.ID,
 			"room_id": c.RoomID,
-			"state":  c.State,
+			"state":   c.State,
 		})
 	}
 
@@ -1278,101 +1277,101 @@ func (s *Server) registerHandlers() {
 		"events.replay":              s.handleEventsReplay,
 		"events.stream":              s.handleEventsStream,
 		// Agent Studio methods (delegation gate applied internally by handleStudio)
-		"studio.list_skills":              s.handleStudio,
-		"studio.get_skill":                s.handleStudio,
-		"studio.register_skill":           s.handleStudio,
-		"studio.list_pii":                 s.handleStudio,
-		"studio.get_pii":                  s.handleStudio,
-		"studio.register_pii":             s.handleStudio,
-		"studio.list_profiles":            s.handleStudio,
-		"studio.create_agent":             s.handleStudio,
-		"studio.update_agent":             s.handleStudio,
-		"studio.delete_agent":             s.handleStudio,
-		"studio.list_agents":              s.handleStudio,
-		"studio.get_agent":                s.handleStudio,
-		"studio.spawn_agent":              s.handleStudio,
-		"studio.list_instances":           s.handleStudio,
-		"studio.get_instance":             s.handleStudio,
-		"studio.stop_instance":            s.handleStudio,
-		"studio.stats":                    s.handleStudioStats,
-		"studio.list_mcps":                s.handleStudio,
-		"studio.get_mcp":                  s.handleStudio,
-		"studio.get_mcp_warning":          s.handleStudio,
-		"studio.request_mcp_approval":     s.handleStudio,
-		"studio.list_pending_approvals":   s.handleStudio,
-		"studio.list_my_approvals":        s.handleStudio,
-		"studio.approve_mcp_request":      s.handleStudio,
-		"studio.reject_mcp_request":       s.handleStudio,
-		"store_key":                  s.handleStoreKey,
-		"provisioning.start":         s.handleProvisioningStart,
-		"provisioning.claim":         s.handleProvisioningClaim,
-		"hardening.status":           s.handleHardeningStatus,
-		"hardening.ack":              s.handleHardeningAck,
-		"hardening.rotate_password":  s.handleHardeningRotatePassword,
-		"health.check":               s.handleHealthCheck,
-		"mobile.heartbeat":           s.handleMobileHeartbeat,
-		"container.terminate":        s.handleTerminateContainer,
-		"container.list":             s.handleListContainers,
-		"resolve_blocker":            s.handleResolveBlocker,
-		"approve_email":              s.handleApproveEmail,
-		"deny_email":                 s.handleDenyEmail,
-		"email_approval_status":      s.handleEmailApprovalStatus,
-		"email.list_pending":         s.handleEmailListPending,
-		"account.delete":             s.handleAccountDelete,
-		"secretary.start_workflow":   s.handleSecretaryMethod,
-		"secretary.get_workflow":     s.handleSecretaryMethod,
-		"secretary.cancel_workflow":  s.handleSecretaryMethod,
-		"secretary.create_workflow":  s.handleSecretaryMethod,
-		"secretary.advance_workflow": s.handleSecretaryMethod,
-		"secretary.list_templates":   s.handleSecretaryMethod,
-		"secretary.create_template":  s.handleSecretaryMethod,
-		"secretary.get_template":     s.handleSecretaryMethod,
-		"secretary.delete_template":  s.handleSecretaryMethod,
-		"secretary.update_template":  s.handleSecretaryMethod,
-		"secretary.is_running":              s.handleSecretaryMethod,
-		"secretary.get_active_count":        s.handleSecretaryMethod,
-		"secretary.shutdown":                s.handleSecretaryMethod,
-		"secretary.artifact_upload":         s.handleArtifactMethod,
-		"secretary.artifact_download":       s.handleArtifactMethod,
-		"secretary.artifact_list":           s.handleArtifactMethod,
-		"secretary.artifact_update_status":  s.handleArtifactMethod,
-		"task.create":                       s.handleSecretaryMethod,
-		"task.list":                         s.handleSecretaryMethod,
-		"task.cancel":                       s.handleSecretaryMethod,
-		"task.get":                          s.handleSecretaryMethod,
-		"secretary.set_approval_delegation":   s.handleSecretaryMethod,
-		"secretary.get_approval_delegation":   s.handleSecretaryMethod,
+		"studio.list_skills":                   s.handleStudio,
+		"studio.get_skill":                     s.handleStudio,
+		"studio.register_skill":                s.handleStudio,
+		"studio.list_pii":                      s.handleStudio,
+		"studio.get_pii":                       s.handleStudio,
+		"studio.register_pii":                  s.handleStudio,
+		"studio.list_profiles":                 s.handleStudio,
+		"studio.create_agent":                  s.handleStudio,
+		"studio.update_agent":                  s.handleStudio,
+		"studio.delete_agent":                  s.handleStudio,
+		"studio.list_agents":                   s.handleStudio,
+		"studio.get_agent":                     s.handleStudio,
+		"studio.spawn_agent":                   s.handleStudio,
+		"studio.list_instances":                s.handleStudio,
+		"studio.get_instance":                  s.handleStudio,
+		"studio.stop_instance":                 s.handleStudio,
+		"studio.stats":                         s.handleStudioStats,
+		"studio.list_mcps":                     s.handleStudio,
+		"studio.get_mcp":                       s.handleStudio,
+		"studio.get_mcp_warning":               s.handleStudio,
+		"studio.request_mcp_approval":          s.handleStudio,
+		"studio.list_pending_approvals":        s.handleStudio,
+		"studio.list_my_approvals":             s.handleStudio,
+		"studio.approve_mcp_request":           s.handleStudio,
+		"studio.reject_mcp_request":            s.handleStudio,
+		"store_key":                            s.handleStoreKey,
+		"provisioning.start":                   s.handleProvisioningStart,
+		"provisioning.claim":                   s.handleProvisioningClaim,
+		"hardening.status":                     s.handleHardeningStatus,
+		"hardening.ack":                        s.handleHardeningAck,
+		"hardening.rotate_password":            s.handleHardeningRotatePassword,
+		"health.check":                         s.handleHealthCheck,
+		"mobile.heartbeat":                     s.handleMobileHeartbeat,
+		"container.terminate":                  s.handleTerminateContainer,
+		"container.list":                       s.handleListContainers,
+		"resolve_blocker":                      s.handleResolveBlocker,
+		"approve_email":                        s.handleApproveEmail,
+		"deny_email":                           s.handleDenyEmail,
+		"email_approval_status":                s.handleEmailApprovalStatus,
+		"email.list_pending":                   s.handleEmailListPending,
+		"account.delete":                       s.handleAccountDelete,
+		"secretary.start_workflow":             s.handleSecretaryMethod,
+		"secretary.get_workflow":               s.handleSecretaryMethod,
+		"secretary.cancel_workflow":            s.handleSecretaryMethod,
+		"secretary.create_workflow":            s.handleSecretaryMethod,
+		"secretary.advance_workflow":           s.handleSecretaryMethod,
+		"secretary.list_templates":             s.handleSecretaryMethod,
+		"secretary.create_template":            s.handleSecretaryMethod,
+		"secretary.get_template":               s.handleSecretaryMethod,
+		"secretary.delete_template":            s.handleSecretaryMethod,
+		"secretary.update_template":            s.handleSecretaryMethod,
+		"secretary.is_running":                 s.handleSecretaryMethod,
+		"secretary.get_active_count":           s.handleSecretaryMethod,
+		"secretary.shutdown":                   s.handleSecretaryMethod,
+		"secretary.artifact_upload":            s.handleArtifactMethod,
+		"secretary.artifact_download":          s.handleArtifactMethod,
+		"secretary.artifact_list":              s.handleArtifactMethod,
+		"secretary.artifact_update_status":     s.handleArtifactMethod,
+		"task.create":                          s.handleSecretaryMethod,
+		"task.list":                            s.handleSecretaryMethod,
+		"task.cancel":                          s.handleSecretaryMethod,
+		"task.get":                             s.handleSecretaryMethod,
+		"secretary.set_approval_delegation":    s.handleSecretaryMethod,
+		"secretary.get_approval_delegation":    s.handleSecretaryMethod,
 		"secretary.revoke_approval_delegation": s.handleSecretaryMethod,
-		"device.list":                s.handleDeviceList,
-		"device.get":                 s.handleDeviceGet,
-		"device.approve":             s.handleDeviceApprove,
-		"device.reject":              s.handleDeviceReject,
-		"invite.list":                s.handleInviteList,
-		"invite.create":              s.handleInviteCreate,
-		"invite.revoke":              s.handleInviteRevoke,
-		"invite.validate":            s.handleInviteValidate,
-		"bridge.e2ee_enable":         s.handleE2EEEnable,
-		"bridge.e2ee_disable":        s.handleE2EEDisable,
-		"keystore.unseal":            s.handleKeystoreUnseal,
-		"keystore.sealed":            s.handleKeystoreSealed,
-		"keystore.seal":              s.handleKeystoreSeal,
-		"keystore.extend_session":    s.handleKeystoreExtendSession,
-		"keystore.session_status":    s.handleKeystoreSessionStatus,
-		"keystore.list_keys":         s.handleKeystoreListKeys,
-		"keystore.delete_key":        s.handleKeystoreDeleteKey,
-		"voice.start_session":        s.handleVoiceStartSession,
-		"voice.stop_session":         s.handleVoiceStopSession,
-		"voice.status":               s.handleVoiceStatus,
-		"e2ee.create_backup":         s.handleE2EECreateBackup,
-		"e2ee.delete_backup":         s.handleE2EEDeleteBackup,
-		"e2ee.backup_exists":         s.handleE2EEBackupExists,
-		"document.extract_text":      s.handleDocumentExtractText,
-		"document.status":            s.handleDocumentStatus,
-		"document.list_jobs":         s.handleDocumentListJobs,
-		"email.queue_status":         s.handleEmailQueueStatus,
-		"email.get":                  s.handleEmailGet,
-		"email.retry":                s.handleEmailRetry,
-		"email.list":                 s.handleEmailList,
+		"device.list":                          s.handleDeviceList,
+		"device.get":                           s.handleDeviceGet,
+		"device.approve":                       s.handleDeviceApprove,
+		"device.reject":                        s.handleDeviceReject,
+		"invite.list":                          s.handleInviteList,
+		"invite.create":                        s.handleInviteCreate,
+		"invite.revoke":                        s.handleInviteRevoke,
+		"invite.validate":                      s.handleInviteValidate,
+		"bridge.e2ee_enable":                   s.handleE2EEEnable,
+		"bridge.e2ee_disable":                  s.handleE2EEDisable,
+		"keystore.unseal":                      s.handleKeystoreUnseal,
+		"keystore.sealed":                      s.handleKeystoreSealed,
+		"keystore.seal":                        s.handleKeystoreSeal,
+		"keystore.extend_session":              s.handleKeystoreExtendSession,
+		"keystore.session_status":              s.handleKeystoreSessionStatus,
+		"keystore.list_keys":                   s.handleKeystoreListKeys,
+		"keystore.delete_key":                  s.handleKeystoreDeleteKey,
+		"voice.start_session":                  s.handleVoiceStartSession,
+		"voice.stop_session":                   s.handleVoiceStopSession,
+		"voice.status":                         s.handleVoiceStatus,
+		"e2ee.create_backup":                   s.handleE2EECreateBackup,
+		"e2ee.delete_backup":                   s.handleE2EEDeleteBackup,
+		"e2ee.backup_exists":                   s.handleE2EEBackupExists,
+		"document.extract_text":                s.handleDocumentExtractText,
+		"document.status":                      s.handleDocumentStatus,
+		"document.list_jobs":                   s.handleDocumentListJobs,
+		"email.queue_status":                   s.handleEmailQueueStatus,
+		"email.get":                            s.handleEmailGet,
+		"email.retry":                          s.handleEmailRetry,
+		"email.list":                           s.handleEmailList,
 	}
 
 	s.handlers = h

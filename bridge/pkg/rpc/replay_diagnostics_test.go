@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"testing"
 
-	"github.com/armorclaw/jetski/navchart"
+	"github.com/armorclaw/bridge/pkg/browser"
 )
 
 func TestBrowserReplayDiagnostics_FlagOff(t *testing.T) {
@@ -37,7 +37,7 @@ func TestBrowserReplayDiagnostics_FlagOff(t *testing.T) {
 }
 
 func TestBrowserReplayDiagnostics_MissingTabID(t *testing.T) {
-	store := navchart.NewMultiTabStore()
+	store := browser.NewMultiTabStore()
 	s := &Server{
 		navChartStore: store,
 	}
@@ -60,7 +60,7 @@ func TestBrowserReplayDiagnostics_MissingTabID(t *testing.T) {
 }
 
 func TestBrowserReplayDiagnostics_NoStoredCharts(t *testing.T) {
-	store := navchart.NewMultiTabStore()
+	store := browser.NewMultiTabStore()
 	s := &Server{
 		navChartStore: store,
 	}
@@ -83,19 +83,19 @@ func TestBrowserReplayDiagnostics_NoStoredCharts(t *testing.T) {
 }
 
 func TestBrowserReplayDiagnostics_SingleChart(t *testing.T) {
-	store := navchart.NewMultiTabStore()
+	store := browser.NewMultiTabStore()
 	s := &Server{
 		navChartStore: store,
 	}
 	s.replayFlags.MultiTabReplay = true
 	s.registerHandlers()
 
-	chart := navchart.NavChart{
+	chart := browser.NavChart{
 		Version:      1,
 		TargetDomain: "example.com",
 		TabID:        "tab-1",
-		ActionMap: map[string]navchart.ChartAction{
-			"step1": {ActionType: navchart.ActionNavigate, URL: "https://example.com"},
+		ActionMap: map[string]browser.ChartAction{
+			"step1": {ActionType: browser.ActionNavigate, URL: "https://example.com"},
 		},
 	}
 	if err := store.StoreChart("tab-1", chart); err != nil {
@@ -124,7 +124,7 @@ func TestBrowserReplayDiagnostics_SingleChart(t *testing.T) {
 		t.Errorf("expected match_percentage 100.0, got %v", resultMap["match_percentage"])
 	}
 
-	diffs, ok := resultMap["diffs"].([]navchart.ChartDiff)
+	diffs, ok := resultMap["diffs"].([]browser.ChartDiff)
 	if !ok {
 		t.Fatalf("expected []ChartDiff, got %T", resultMap["diffs"])
 	}
@@ -134,29 +134,29 @@ func TestBrowserReplayDiagnostics_SingleChart(t *testing.T) {
 }
 
 func TestBrowserReplayDiagnostics_TwoChartsWithDiff(t *testing.T) {
-	store := navchart.NewMultiTabStore()
+	store := browser.NewMultiTabStore()
 	s := &Server{
 		navChartStore: store,
 	}
 	s.replayFlags.MultiTabReplay = true
 	s.registerHandlers()
 
-	chart1 := navchart.NavChart{
+	chart1 := browser.NavChart{
 		Version:      1,
 		TargetDomain: "example.com",
 		TabID:        "tab-2",
-		ActionMap: map[string]navchart.ChartAction{
-			"step1": {ActionType: navchart.ActionNavigate, URL: "https://example.com"},
-			"step2": {ActionType: navchart.ActionClick, Selector: &navchart.ChartSelector{PrimaryCSS: "#btn"}},
+		ActionMap: map[string]browser.ChartAction{
+			"step1": {ActionType: browser.ActionNavigate, URL: "https://example.com"},
+			"step2": {ActionType: browser.ActionClick, Selector: &browser.ChartSelector{PrimaryCSS: "#btn"}},
 		},
 	}
-	chart2 := navchart.NavChart{
+	chart2 := browser.NavChart{
 		Version:      1,
 		TargetDomain: "example.com",
 		TabID:        "tab-2",
-		ActionMap: map[string]navchart.ChartAction{
-			"step1": {ActionType: navchart.ActionNavigate, URL: "https://example.com"},
-			"step2": {ActionType: navchart.ActionInput, Value: "hello"},
+		ActionMap: map[string]browser.ChartAction{
+			"step1": {ActionType: browser.ActionNavigate, URL: "https://example.com"},
+			"step2": {ActionType: browser.ActionInput, Value: "hello"},
 		},
 	}
 	if err := store.StoreChart("tab-2", chart1); err != nil {
@@ -177,7 +177,7 @@ func TestBrowserReplayDiagnostics_TwoChartsWithDiff(t *testing.T) {
 	}
 
 	resultMap := result.(map[string]interface{})
-	diffs := resultMap["diffs"].([]navchart.ChartDiff)
+	diffs := resultMap["diffs"].([]browser.ChartDiff)
 
 	if len(diffs) == 0 {
 		t.Fatal("expected diffs for mismatched charts, got 0")

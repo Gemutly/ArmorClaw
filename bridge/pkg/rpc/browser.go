@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/armorclaw/bridge/pkg/browser"
-	"github.com/armorclaw/jetski/navchart"
 )
 
 // BrowserJob represents an active browser automation job
@@ -1000,13 +999,13 @@ func (s *Server) handleBrowserReplayDiagnostics(ctx context.Context, req *Reques
 		}
 	}
 
-	var diffs []navchart.ChartDiff
+	var diffs []browser.ChartDiff
 	var matchPercentage float64
 
 	if len(charts) >= 2 {
 		expected := charts[len(charts)-2]
 		actual := charts[len(charts)-1]
-		diffs = navchart.DiffCharts(expected, actual)
+		diffs = browser.DiffCharts(expected, actual)
 
 		matched := 0
 		for _, d := range diffs {
@@ -1020,7 +1019,7 @@ func (s *Server) handleBrowserReplayDiagnostics(ctx context.Context, req *Reques
 			matchPercentage = 100.0
 		}
 	} else {
-		diffs = []navchart.ChartDiff{}
+		diffs = []browser.ChartDiff{}
 		matchPercentage = 100.0
 	}
 
