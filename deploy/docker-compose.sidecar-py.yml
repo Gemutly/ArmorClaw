@@ -16,6 +16,27 @@
 # Isolation: Container sees ONLY /run/armorclaw/ (not Rust or Bridge sockets)
 
 services:
+  # One-shot init container: generates /run/armorclaw/secrets/office-hmac
+  # before the sidecar starts. Runs as root to create dirs and chown.
+  # The secret is a 64-char hex string (32 bytes of /dev/urandom).
+  office-secret-init:
+    image: busybox:latest
+    user: "0:0"
+    container_name: office-secret-init
+    command: >
+      sh -c '
+        set -eu;
+        mkdir -p /run/armorclaw/secrets;
+        if [ ! -s /run/armorclaw/secrets/office-hmac ]; then
+          head -c 32 /dev/urandom | xxd -p -c 64 > /run/armorclaw/secrets/office-hmac;
+        fi;
+        chown 10001:10001 /run/armorclaw/secrets/office-hmac;
+        chmod 0440 /run/armorclaw/secrets/office-hmac;
+      '
+    volumes:
+      - /run/armorclaw:/run/armorclaw
+    restart: "no"
+
   sidecar-office:
     build:
       context: ../sidecar-python
@@ -23,6 +44,9 @@ services:
     image: armorclaw/sidecar-office:latest
     container_name: armorclaw-sidecar-office
     user: "10001:10001"
+    depends_on:
+      office-secret-init:
+        condition: service_completed_successfully
     restart: unless-stopped
     network_mode: none
     volumes:
@@ -35,7 +59,9 @@ services:
       - ALL
     security_opt:
       - no-new-privileges:true
-      - apparmor=armorclaw-office-worker
+      # AppArmor profile armorclaw-office-worker not available on host;
+      # disable until profile is created on the deployment target.
+      # - apparmor=armorclaw-office-worker
     environment:
       - SIDECAR_SOCKET=/run/armorclaw/sidecar-office.sock
       - SIDECAR_SECRET_FILE=/run/secrets/shared_secret

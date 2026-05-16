@@ -20,7 +20,7 @@ SERVER_VERSION_METADATA_KEY = "x-sidecar-server-version"
 TOKEN_METADATA_KEY = "x-request-token"
 
 
-def load_shared_secret() -> str:
+def load_shared_secret(max_retries: int = 30, retry_interval: float = 1.0) -> str:
     """Read HMAC shared secret from a tmpfs-backed file mounted by the Go Bridge.
 
     The Go Bridge:
@@ -29,13 +29,25 @@ def load_shared_secret() -> str:
     3. Docker Compose mounts this file read-only into the container at /run/secrets/shared_secret
 
     The secret never touches persistent storage. It is never exposed via environment variables.
+
+    Retries up to max_retries times with retry_interval sleep between attempts
+    to handle init-service mount timing races.
     """
     secret_path = os.environ.get("SECRET_PATH", "/run/secrets/shared_secret")
-    with open(secret_path, "r") as f:
-        secret = f.read().strip()
-    if not secret:
-        raise RuntimeError(f"Shared secret is empty or missing at {secret_path}")
-    return secret
+    last_err = None
+    for attempt in range(1, max_retries + 1):
+        try:
+            with open(secret_path, "r") as f:
+                secret = f.read().strip()
+            if not secret:
+                raise RuntimeError(f"Shared secret is empty or missing at {secret_path}")
+            return secret
+        except (FileNotFoundError, PermissionError, RuntimeError) as exc:
+            last_err = exc
+            if attempt < max_retries:
+                print(f"load_shared_secret: attempt {attempt}/{max_retries} failed ({exc}); retrying in {retry_interval}s")
+                time.sleep(retry_interval)
+    raise last_err
 
 
 def _calculate_hmac(shared_secret: str, data: str) -> str:
