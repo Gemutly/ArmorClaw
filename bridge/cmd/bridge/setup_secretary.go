@@ -15,7 +15,7 @@ import (
 	"github.com/armorclaw/bridge/pkg/studio"
 )
 
-func setupSecretaryServices(ks *keystore.Keystore) (secretary.Store, *secretary.RolodexService, *secretary.WebDAVService, *secretary.CalendarService) {
+func setupSecretaryServices(ks *keystore.Keystore) (secretary.Store, *secretary.RolodexService, *secretary.WebDAVService, *secretary.CalendarService, *secretary.ArtifactRPCHandler) {
 	log.Println("Initializing Rolodex service...")
 	var rolodexStore secretary.Store
 	store, err := secretary.NewStore(secretary.StoreConfig{
@@ -51,7 +51,19 @@ func setupSecretaryServices(ks *keystore.Keystore) (secretary.Store, *secretary.
 	calendarService := secretary.NewCalendarService()
 	log.Println("Calendar service initialized")
 
-	return rolodexStore, rolodexService, webdavService, calendarService
+	log.Println("Initializing Artifact store...")
+	var artifactHandler *secretary.ArtifactRPCHandler
+	artifactStore, artErr := secretary.NewArtifactStore(secretary.ArtifactStoreConfig{
+		Path: "/var/lib/armorclaw/artifacts.db",
+	})
+	if artErr != nil {
+		log.Printf("Warning: Failed to initialize Artifact store: %v", artErr)
+	} else {
+		artifactHandler = secretary.NewArtifactRPCHandler(artifactStore)
+		log.Println("Artifact store initialized")
+	}
+
+	return rolodexStore, rolodexService, webdavService, calendarService, artifactHandler
 }
 
 func setupApprovalAndTrust(rolodexStore secretary.Store) (*secretary.ApprovalEngineImpl, *secretary.TrustedWorkflowEngine) {

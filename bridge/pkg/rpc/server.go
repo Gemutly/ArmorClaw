@@ -182,6 +182,7 @@ type Server struct {
 	deviceStore       *trust.DeviceStore
 	inviteStore       *invite.InviteStore
 	secretaryHandler  secretaryRPCHandler
+	artifactHandler   *artifactRPCHandlerAdapter
 	heartbeats        sync.Map
 	metrics           *Metrics
 	listener          net.Listener
@@ -234,6 +235,7 @@ type Config struct {
 	GovernanceRoomID string
 	Translator       *translator.RPCToMCPTranslator
 	SecretaryHandler secretaryRPCHandler
+	ArtifactHandler  *artifactRPCHandlerAdapter
 	SealedKS         *keystore.SealedKeystore
 	KeystoreLimiter  *keystore.RateLimiter
 	ZeroTrustKS      bool
@@ -280,6 +282,7 @@ func New(cfg Config) (*Server, error) {
 		mcpRouter:        cfg.MCPRouter,
 		translator:       cfg.Translator,
 		secretaryHandler: cfg.SecretaryHandler,
+		artifactHandler:  cfg.ArtifactHandler,
 		governanceRoomID: cfg.GovernanceRoomID,
 		sealedKS:         cfg.SealedKS,
 		keystoreLimiter:  cfg.KeystoreLimiter,
@@ -1321,13 +1324,17 @@ func (s *Server) registerHandlers() {
 		"secretary.get_template":     s.handleSecretaryMethod,
 		"secretary.delete_template":  s.handleSecretaryMethod,
 		"secretary.update_template":  s.handleSecretaryMethod,
-		"secretary.is_running":       s.handleSecretaryMethod,
-		"secretary.get_active_count": s.handleSecretaryMethod,
-		"secretary.shutdown":         s.handleSecretaryMethod,
-		"task.create":                s.handleSecretaryMethod,
-		"task.list":                  s.handleSecretaryMethod,
-		"task.cancel":                s.handleSecretaryMethod,
-		"task.get":                   s.handleSecretaryMethod,
+		"secretary.is_running":              s.handleSecretaryMethod,
+		"secretary.get_active_count":        s.handleSecretaryMethod,
+		"secretary.shutdown":                s.handleSecretaryMethod,
+		"secretary.artifact_upload":         s.handleArtifactMethod,
+		"secretary.artifact_download":       s.handleArtifactMethod,
+		"secretary.artifact_list":           s.handleArtifactMethod,
+		"secretary.artifact_update_status":  s.handleArtifactMethod,
+		"task.create":                       s.handleSecretaryMethod,
+		"task.list":                         s.handleSecretaryMethod,
+		"task.cancel":                       s.handleSecretaryMethod,
+		"task.get":                          s.handleSecretaryMethod,
 		"device.list":                s.handleDeviceList,
 		"device.get":                 s.handleDeviceGet,
 		"device.approve":             s.handleDeviceApprove,

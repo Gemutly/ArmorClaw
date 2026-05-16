@@ -2595,7 +2595,7 @@ func runBridgeServer(cliCfg cliConfig) {
 	// Initialize v6 MCP Router (if enabled)
 	mcpRouter, mcpTranslator := setupMCPRouter(cfg, toolsidecarDocker, vaultClient)
 
-	rolodexStore, rolodexService, webdavService, calendarService := setupSecretaryServices(ks)
+	rolodexStore, rolodexService, webdavService, calendarService, artifactHandler := setupSecretaryServices(ks)
 	if rolodexStore != nil {
 		defer rolodexStore.Close()
 	}
@@ -2755,6 +2755,10 @@ func runBridgeServer(cliCfg cliConfig) {
 			Orchestrator: workflowOrchestrator,
 			Store:        rolodexStore,
 		}))
+	}
+
+	if artifactHandler != nil {
+		rpcCfg.ArtifactHandler = rpc.NewArtifactRPCHandlerAdapter(artifactHandler)
 	}
 
 	server, err := rpc.New(rpcCfg)
