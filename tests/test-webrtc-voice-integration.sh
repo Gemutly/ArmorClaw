@@ -387,7 +387,7 @@ echo "  Testing concurrent call limit..."
 MAX_CALLS=10
 OVER_LIMIT_COUNT=0
 
-for i in $(seq 1 $((MAX_CALLS + 2)); do
+for i in $(seq 1 $((MAX_CALLS + 2))); do
     ROOM_ID="${MATRIX_ROOM_PREFIX}-limit-$i-$(date +%s%N):example.com"
     RESPONSE=$(rpc_call "webrtc.start" "{\"room_id\":\"$ROOM_ID\",\"ttl\":\"5m\"}" $((30 + i)))
 
