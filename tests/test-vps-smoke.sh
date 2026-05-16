@@ -22,7 +22,7 @@ source "$SCRIPT_DIR/lib/transport.sh"
 # ── Environment variables ─────────────────────────────────────────────────────
 : "${VPS_IP:?missing VPS_IP (set in .env or CLI)}"
 : "${VPS_USER:=root}"
-: "${BRIDGE_PORT:=8080}"
+: "${BRIDGE_PORT:=8443}"
 : "${ADMIN_TOKEN:?missing ADMIN_TOKEN (pass via CLI)}"
 : "${CI_MODE:=0}"
 

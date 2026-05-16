@@ -24,8 +24,8 @@ restart_bridge() {
 
     # Helper: detect if running locally on the VPS
     _bridge_is_local() {
-      curl -ksSf --max-time 2 "https://localhost:${BRIDGE_PORT:-8080}/health" >/dev/null 2>&1 || \
-      curl -sf --max-time 2 "http://localhost:${BRIDGE_PORT:-8080}/health" >/dev/null 2>&1
+      curl -ksSf --max-time 2 "https://localhost:${BRIDGE_PORT:-8443}/health" >/dev/null 2>&1 || \
+      curl -sf --max-time 2 "http://localhost:${BRIDGE_PORT:-8443}/health" >/dev/null 2>&1
     }
 
     if _bridge_is_local; then

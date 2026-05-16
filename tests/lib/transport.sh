@@ -14,14 +14,14 @@
 # Environment overrides:
 #   BRIDGE_TRANSPORT  — force "socket"|"http"|"both"|"none" (skip detection)
 #   BRIDGE_SOCKET     — Unix socket path (default: /run/armorclaw/bridge.sock)
-#   BRIDGE_PORT       — HTTP port (default: 8080)
+#   BRIDGE_PORT       — HTTP port (default: 8443)
 #   ADMIN_TOKEN       — auth token for rpc_call_auth()
 #
 # Requires: socat, curl (already in CI image)
 
 # ── Defaults ──────────────────────────────────────────────────────────────────
 export BRIDGE_SOCKET="${BRIDGE_SOCKET:-/run/armorclaw/bridge.sock}"
-export BRIDGE_PORT="${BRIDGE_PORT:-8080}"
+export BRIDGE_PORT="${BRIDGE_PORT:-8443}"
 export BRIDGE_HTTP_URL="${BRIDGE_HTTP_URL:-http://localhost:${BRIDGE_PORT}}"
 export BRIDGE_HTTPS_URL="${BRIDGE_HTTPS_URL:-https://localhost:${BRIDGE_PORT}}"
 export BRIDGE_HTTPS_MODE="${BRIDGE_HTTPS_MODE:-auto}"  # auto|https|http

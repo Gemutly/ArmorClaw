@@ -63,7 +63,7 @@ bridge_health() {
 
   # TCP health check (for sentinel mode)
   if [[ "${BRIDGE_TRANSPORT:-unix}" == "tcp" ]]; then
-    local addr="${BRIDGE_LISTEN_ADDR:-localhost:8080}"
+    local addr="${BRIDGE_LISTEN_ADDR:-localhost:8443}"
     echo -e "${YELLOW}[bridge] Waiting for TCP health (${timeout}s): $addr${NC}"
 
     while [[ $count -lt $timeout ]]; do

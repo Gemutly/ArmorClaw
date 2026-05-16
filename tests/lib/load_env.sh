@@ -22,7 +22,7 @@ set +a
 # ── Environment variables with defaults ───────────────────────────────────────
 : "${VPS_IP:?VPS_IP is required — set in .env or export manually}"
 : "${VPS_USER:=root}"
-: "${BRIDGE_PORT:=8080}"
+: "${BRIDGE_PORT:=8443}"
 : "${MATRIX_PORT:=6167}"
 : "${SSH_KEY_PATH:=~/.ssh/openclaw_win}"
 # ADMIN_TOKEN may be empty — tests that need it should check and skip gracefully

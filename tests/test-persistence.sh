@@ -27,7 +27,7 @@ VPS_IP="${VPS_IP:?VPS_IP required}"
 VPS_USER="${VPS_USER:-root}"
 SSH_KEY_PATH="${SSH_KEY_PATH:-~/.ssh/openclaw_win}"
 ADMIN_TOKEN="${ADMIN_TOKEN:?ADMIN_TOKEN required}"
-BRIDGE_PORT="${BRIDGE_PORT:-8080}"
+BRIDGE_PORT="${BRIDGE_PORT:-8443}"
 BRIDGE_SERVICE="${BRIDGE_SERVICE:-armorclaw-bridge}"
 BRIDGE_SOCKET="${BRIDGE_SOCKET:-/run/armorclaw/bridge.sock}"
 

@@ -45,8 +45,8 @@ if [ -z "$MATRIX_PORT" ]; then
 fi
 
 if [ -z "$BRIDGE_PORT" ]; then
-    echo -e "${YELLOW}Warning: BRIDGE_PORT not set, using default 8080${NC}"
-    BRIDGE_PORT=8080
+    echo -e "${YELLOW}Warning: BRIDGE_PORT not set, using default 8443${NC}"
+    BRIDGE_PORT=8443
 fi
 
 # Expand SSH key path
