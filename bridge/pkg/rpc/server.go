@@ -210,6 +210,7 @@ type Server struct {
 	sidecarRust      *sidecar.Client
 	sidecarJava      *sidecar.Client
 	extractionJobs   map[string]*ExtractionJob
+	outboxStore      OutboxStoreReader
 }
 
 type Config struct {
@@ -1368,6 +1369,10 @@ func (s *Server) registerHandlers() {
 		"document.extract_text":      s.handleDocumentExtractText,
 		"document.status":            s.handleDocumentStatus,
 		"document.list_jobs":         s.handleDocumentListJobs,
+		"email.queue_status":         s.handleEmailQueueStatus,
+		"email.get":                  s.handleEmailGet,
+		"email.retry":                s.handleEmailRetry,
+		"email.list":                 s.handleEmailList,
 	}
 
 	s.handlers = h
