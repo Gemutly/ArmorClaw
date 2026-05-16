@@ -1,7 +1,7 @@
 # BEATO Verification Report — v1.1
 
 **Date**: 2026-05-16
-**VPS**: 5.183.11.149
+**VPS**: REDACTED-VPS-IP
 **Bridge HEAD**: `3739906`
 **Baseline**: 74% (beato-progress-report.md)
 **Result**: **100/100 (100%)** — EXCEEDS 90% TARGET ✅
@@ -39,7 +39,7 @@ All 5 BEATO capability pillars have been verified on the production VPS. The BEA
 
 | Criterion | Points | Result |
 |-----------|--------|--------|
-| B1: Jetski deployed | 5 | ✅ armorclaw-jetski Up (healthy), image mikegemut/jetski:beato |
+| B1: Jetski deployed | 5 | ✅ armorclaw-jetski Up (healthy), image REDACTED-REGISTRY/jetski:beato |
 | B2: No public ports | 5 | ✅ PortBindings={}, docker port → NO_PUBLIC_PORTS |
 | B3: Session lifecycle | 10 | ✅ browser.navigate → running, browser.list → 7 jobs, browser.status validates params |
 | B4: External HTTPS | 5 | ✅ browser.navigate to https://example.com → running, completed |
@@ -168,7 +168,7 @@ Simultaneous load: browser.navigate + email.list_pending + document.extract_text
 ## What Changed
 
 ### Wave 0 (Baseline + Prerequisites)
-- Built and pushed Jetski Docker image (`mikegemut/jetski:beato`)
+- Built and pushed Jetski Docker image (`REDACTED-REGISTRY/jetski:beato`)
 - Captured VPS resource baseline and rollback snapshot
 - Created RPC safety middleware framework
 - Audited RPC method registration (129 → 146 methods)
@@ -212,9 +212,9 @@ Simultaneous load: browser.navigate + email.list_pending + document.extract_text
 
 | Container | Image | Status | Purpose |
 |-----------|-------|--------|---------|
-| armorclaw | mikegemut/armorclaw:latest | Up (healthy) | Bridge orchestrator |
-| armorclaw-jetski | mikegemut/jetski:beato | Up (healthy) | Browser sidecar (CDP proxy) |
-| armorclaw-sidecar-office | mikegemut/sidecar-office:beato | Up | Document extraction |
+| armorclaw | REDACTED-REGISTRY/armorclaw:latest | Up (healthy) | Bridge orchestrator |
+| armorclaw-jetski | REDACTED-REGISTRY/jetski:beato | Up (healthy) | Browser sidecar (CDP proxy) |
+| armorclaw-sidecar-office | REDACTED-REGISTRY/sidecar-office:beato | Up | Document extraction |
 | armorclaw-conduit | matrixconduit/matrix-conduit:latest | Up | Matrix homeserver |
 
 ### Network Topology

@@ -20,7 +20,7 @@ Standard JSON-RPC 2.0:
 | `connected` | bool | Yes | Whether the Matrix adapter is initialized (not necessarily sync-connected) |
 | `logged_in` | bool | Yes | Whether the bridge Matrix user is authenticated with the homeserver |
 | `homeserver` | string | Yes | The Matrix homeserver URL (e.g., `http://localhost:6167`) |
-| `user_id` | string | No (omitempty) | The Matrix user ID of the bridge (e.g., `@bridge:5.183.11.149`) |
+| `user_id` | string | No (omitempty) | The Matrix user ID of the bridge (e.g., `@bridge:REDACTED-VPS-IP`) |
 | `last_sync` | string | No (omitempty) | Timestamp of last successful sync (if available) |
 | `error` | string | No (omitempty) | Error message if something is wrong |
 
@@ -33,7 +33,7 @@ Standard JSON-RPC 2.0:
   "connected": true,
   "logged_in": true,
   "homeserver": "http://localhost:6167",
-  "user_id": "@bridge:5.183.11.149"
+  "user_id": "@bridge:REDACTED-VPS-IP"
 }
 ```
 **Meaning**: Matrix adapter is configured, initialized, authenticated, and connected to the homeserver.
@@ -99,8 +99,8 @@ handleMatrixStatus():
 
 ## Live Evidence
 
-- **VPS IP**: 5.183.11.149
+- **VPS IP**: REDACTED-VPS-IP
 - **Bridge version**: 4.6.0
 - **Captured**: 2026-05-15T23:01:53Z
-- **Response**: `{"enabled":true,"connected":true,"logged_in":true,"homeserver":"http://localhost:6167","user_id":"@bridge:5.183.11.149"}`
+- **Response**: `{"enabled":true,"connected":true,"logged_in":true,"homeserver":"http://localhost:6167","user_id":"@bridge:REDACTED-VPS-IP"}`
 - **Evidence file**: `.sisyphus/evidence/pbcp-07/matrix-status-response.json`

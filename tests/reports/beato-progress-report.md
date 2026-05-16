@@ -3,7 +3,7 @@
 **Date**: 2026-05-16
 **Author**: Sisyphus (atlas orchestrator)
 **HEAD**: `8f1b6db` on `main`
-**VPS**: `5.183.11.149` — bridge deployed from `8f1b6db` (Docker image digest `ff0ba549a03a`)
+**VPS**: `REDACTED-VPS-IP` — bridge deployed from `8f1b6db` (Docker image digest `REDACTED-DIGEST`)
 
 ---
 
@@ -104,7 +104,7 @@ Overall:     ███████░░░  74%
 
 | Aspect | Status | Details |
 |--------|--------|---------|
-| Matrix Login/Sync/Rooms | ✅ Production | `@bridge:5.183.11.149` connected |
+| Matrix Login/Sync/Rooms | ✅ Production | `@bridge:REDACTED-VPS-IP` connected |
 | Studio Lifecycle | ✅ 8 PASS | create→get→list→spawn→stop→delete |
 | Secretary Methods | ✅ 17+ methods | 139 RPC methods registered |
 | Artifact Protocol | ✅ **Deployed** | 4 `secretary.artifact_*` methods, 2 artifacts on VPS |

@@ -2,8 +2,8 @@
 
 **Date**: 2026-05-16
 **Bridge Version**: v1.1.0 binary (reports as v4.6.0 on `/health` endpoint)
-**Docker Image**: `mikegemut/armorclaw:latest` — `sha256:35a766c67a14` (built 2026-05-16 00:58 UTC)
-**VPS**: `5.183.11.149` — repo at `210bb4b`
+**Docker Image**: `REDACTED-REGISTRY/armorclaw:latest` — `REDACTED-DIGEST` (built 2026-05-16 00:58 UTC)
+**VPS**: `REDACTED-VPS-IP` — repo at `210bb4b`
 **Test Suite**: 58 scripts
 
 ---
@@ -26,11 +26,11 @@ These changes caused ~31 scripts to fail or exit non-zero, primarily because the
 
 | Component | State | Details |
 |-----------|-------|---------|
-| **VPS** | `5.183.11.149` | Repo at commit `210bb4b` |
+| **VPS** | `REDACTED-VPS-IP` | Repo at commit `210bb4b` |
 | **Bridge** | Docker `--network host` | HTTPS port **8443**, healthy, v4.6.0 |
 | **RPC** | Unix socket only | `/run/armorclaw/bridge.sock` — TCP RPC removed |
 | **EventBus** | Port 8444 | WebSocket on `wss://:8444/ws` |
-| **Matrix Conduit** | `localhost:6167` | `@bridge:5.183.11.149` — logged_in=true, connected=true |
+| **Matrix Conduit** | `localhost:6167` | `@bridge:REDACTED-VPS-IP` — logged_in=true, connected=true |
 | **CI** | GitHub Actions | `210bb4b` HEAD, all checks passing |
 | **Health** | `https://localhost:8443/health` | `{"status":"ok","version":"4.6.0","bridge_ready":true}` |
 
@@ -249,7 +249,7 @@ These scripts use `transport.sh` which now correctly detects port 8443 via `.env
 
 ## Deployment Actions Taken
 
-1. Pulled `mikegemut/armorclaw:latest` on VPS — new image `sha256:35a766c67a14`
+1. Pulled `REDACTED-REGISTRY/armorclaw:latest` on VPS — new image `REDACTED-DIGEST`
 2. Stopped old container, created new with same env vars + Docker socket mount
 3. Fixed config: added `[http] enabled=true` section, set Matrix credentials
 4. Updated `/etc/armorclaw/config.toml` inside container volume (quickstart overwrites it)

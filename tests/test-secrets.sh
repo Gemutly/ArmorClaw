@@ -31,10 +31,10 @@ echo "Starting container with test secret..."
 docker run -d --rm --name $CONTAINER_NAME \
     -e OPENAI_API_KEY="$TEST_SECRET" \
     -e ANTHROPIC_API_KEY="sk-ant-test-$(date +%s)" \
-    mikegemut/armorclaw:latest python -c "import time; time.sleep(999999)" >/dev/null 2>&1
+    REDACTED-REGISTRY/armorclaw:latest python -c "import time; time.sleep(999999)" >/dev/null 2>&1
 
 if [ $? -ne 0 ]; then
-    echo "⚠️  SKIP: Cannot start container (mikegemut/armorclaw:latest may not be available locally)"
+    echo "⚠️  SKIP: Cannot start container (REDACTED-REGISTRY/armorclaw:latest may not be available locally)"
     echo "Skipping remaining secrets tests — requires local Docker image"
     exit 0
 fi
@@ -190,7 +190,7 @@ sleep 1
 # Start new container with a DIFFERENT dummy key (container requires API key to start)
 docker run -d --rm --name $CONTAINER_NAME \
     -e OPENAI_API_KEY="sk-restart-dummy-key" \
-    mikegemut/armorclaw:latest python -c "import time; time.sleep(999999)" >/dev/null 2>&1
+    REDACTED-REGISTRY/armorclaw:latest python -c "import time; time.sleep(999999)" >/dev/null 2>&1
 sleep 2
 
 # Verify NO old secrets in the restarted container

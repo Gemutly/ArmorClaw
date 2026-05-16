@@ -1,6 +1,6 @@
 # Matrix Command Coverage Matrix
 
-> Generated: 2026-05-16 | Bridge: v4.6.0 | VPS: 5.183.11.149
+> Generated: 2026-05-16 | Bridge: v4.6.0 | VPS: REDACTED-VPS-IP
 
 ## Overview
 

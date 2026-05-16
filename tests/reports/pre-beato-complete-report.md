@@ -185,7 +185,7 @@ This is the strongest pillar. Matrix messaging is fully operational, Studio life
 
 | Aspect | Status | Evidence |
 |--------|--------|----------|
-| Matrix login/sync/rooms | ✅ | `@bridge:5.183.11.149` logged_in=true |
+| Matrix login/sync/rooms | ✅ | `@bridge:REDACTED-VPS-IP` logged_in=true |
 | Studio lifecycle | ✅ 8 PASS | create→get→list→spawn→stop→delete |
 | Secretary probe | ✅ 3 PASS | 7/17 methods, list_templates proven |
 | Control slice E2E | ✅ 8 PASS | bridge→matrix→studio→secretary |
@@ -301,9 +301,9 @@ All four verification reviews passed:
 
 | Component | State |
 |-----------|-------|
-| **VPS** | `5.183.11.149`, bridge v4.6.0 healthy |
+| **VPS** | `REDACTED-VPS-IP`, bridge v4.6.0 healthy |
 | **HTTPS** | Port 8443, auto-detect with HTTP fallback |
-| **Matrix** | `@bridge:5.183.11.149`, logged_in=true, v1.12 |
+| **Matrix** | `@bridge:REDACTED-VPS-IP`, logged_in=true, v1.12 |
 | **EventBus** | Port 8444, WebSocket `wss://:8444/ws` |
 | **Unix Socket** | `/run/armorclaw/bridge.sock` |
 | **Transport** | `mode=both` (socket + HTTP) |
@@ -387,7 +387,7 @@ All four verification reviews passed:
 ## Recommendations
 
 1. **Rebuild Docker image** — Include artifact protocol code, register `secretary.artifact_*` RPC methods
-2. **Deploy to VPS** — Push rebuilt image to `5.183.11.149`
+2. **Deploy to VPS** — Push rebuilt image to `REDACTED-VPS-IP`
 3. **User approval** — This is the final release gate
 4. **BEATO phase planning** — Prioritize B (Browser) and O (Office) as they have the most infrastructure gap
 5. **Voice explicitly deferred** — A-pillar stays at `none` until v1.4+; do not invest yet

@@ -2,9 +2,9 @@
 
 **Date**: 2026-05-15
 **HEAD**: `80767a8` on `main`
-**VPS**: `5.183.11.149` — converged to `80767a8`
+**VPS**: `REDACTED-VPS-IP` — converged to `80767a8`
 **Bridge**: Docker `--network host`, HTTPS port 8080, healthy
-**Matrix Conduit**: `localhost:6167`, `@bridge:5.183.11.149` — logged_in=true, connected=true
+**Matrix Conduit**: `localhost:6167`, `@bridge:REDACTED-VPS-IP` — logged_in=true, connected=true
 
 ---
 
@@ -29,7 +29,7 @@
 ### 4. `matrix.status` contract documented and stable
 - **Status**: ✅ PASS
 - **Evidence**: T7 (`tests/reports/matrix-status-contract.md`), commit `484463a`
-- **Current state**: `logged_in=true, connected=true, enabled=true, user_id=@bridge:5.183.11.149`
+- **Current state**: `logged_in=true, connected=true, enabled=true, user_id=@bridge:REDACTED-VPS-IP`
 
 ### 5. At least one Matrix-driven control slice passes end to end
 - **Status**: ✅ PASS

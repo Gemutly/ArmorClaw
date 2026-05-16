@@ -3,7 +3,7 @@
 **Date**: 2026-05-16
 **Bridge Version**: v4.6.0
 **Commit**: cdd8e13
-**VPS**: 5.183.11.149
+**VPS**: REDACTED-VPS-IP
 
 ## Wave 0 Exit Gate
 

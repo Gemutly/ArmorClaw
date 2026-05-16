@@ -2,8 +2,8 @@
 
 **Date**: 2026-05-15
 **Scope**: Phase 1 (Harness Stabilization) + Phase 2 (Pre-BEATO Stabilization)
-**VPS**: 5.183.11.149
-**Bridge Version**: v4.6.0 (mikegemut/armorclaw:latest)
+**VPS**: REDACTED-VPS-IP
+**Bridge Version**: v4.6.0 (REDACTED-REGISTRY/armorclaw:latest)
 **Commits**: `f422d99` → `06ff150` (4 commits on main)
 
 ---
@@ -82,7 +82,7 @@ Matrix connectivity, and validate the full 49-script test suite against the live
 
 | Task | What Was Done | Result |
 |------|---------------|--------|
-| T0.1 | Re-registered Matrix bridge user (`@bridge:5.183.11.149`) | `logged_in: true, connected: true` |
+| T0.1 | Re-registered Matrix bridge user (`@bridge:REDACTED-VPS-IP`) | `logged_in: true, connected: true` |
 | T0.2 | Generated ed25519 SSH key on VPS for localhost self-reference | `ssh root@localhost` works |
 | T0.3 | Installed jq 1.7, socat, websocat 1.13.0 on VPS | All tools available |
 | T0.4 | HTTPS auto-detection with HTTP fallback in shared libs | `BRIDGE_HTTPS_MODE` env var, auto-detect |
