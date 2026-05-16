@@ -10,8 +10,8 @@ import (
 // OutboxStoreReader defines the read interface for the email outbox store.
 type OutboxStoreReader interface {
 	GetQueueStats(ctx context.Context) (map[string]interface{}, error)
-	GetByID(ctx context.Context, id string) (map[string]interface{}, error)
-	ListByStatus(ctx context.Context, status string, limit, offset int) ([]map[string]interface{}, error)
+	GetByID(ctx context.Context, id string) (interface{}, error)
+	ListByStatus(ctx context.Context, status string, limit, offset int) (interface{}, error)
 	Retry(ctx context.Context, id string) error
 }
 
@@ -187,7 +187,6 @@ func (s *Server) handleEmailList(ctx context.Context, req *Request) (interface{}
 
 	return map[string]interface{}{
 		"emails": entries,
-		"count":  len(entries),
 	}, nil
 }
 
