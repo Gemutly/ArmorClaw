@@ -4,10 +4,10 @@ WORKDIR /build
 RUN pip install --no-cache-dir grpcio-tools
 COPY proto/sidecar.proto ./proto/
 RUN python -m grpc_tools.protoc \
-    -I./proto \
-    --python_out=./proto \
-    --grpc_python_out=./proto \
-    ./proto/sidecar.proto
+    -I. \
+    --python_out=. \
+    --grpc_python_out=. \
+    proto/sidecar.proto
 COPY proto/__init__.py ./proto/
 
 # ---- Stage 2: Runtime — minimal production image ----
