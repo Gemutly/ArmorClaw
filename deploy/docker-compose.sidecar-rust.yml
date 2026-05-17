@@ -34,6 +34,7 @@ services:
       - ALL
     security_opt:
       - no-new-privileges:true
+      - apparmor=armorclaw-office-worker
     environment:
       - ARMORCLAW_SIDECAR__SOCKET_PATH=/run/armorclaw/sidecar-rust.sock
       - ARMORCLAW_SIDECAR__SHARED_SECRET_FILE=/run/secrets/shared_secret

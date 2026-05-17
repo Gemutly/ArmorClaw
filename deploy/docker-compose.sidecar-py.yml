@@ -59,9 +59,7 @@ services:
       - ALL
     security_opt:
       - no-new-privileges:true
-      # AppArmor profile armorclaw-office-worker not available on host;
-      # disable until profile is created on the deployment target.
-      # - apparmor=armorclaw-office-worker
+      - apparmor=armorclaw-office-worker
     environment:
       - SIDECAR_SOCKET=/run/armorclaw/sidecar-office.sock
       - SIDECAR_SECRET_FILE=/run/secrets/shared_secret

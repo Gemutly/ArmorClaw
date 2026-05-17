@@ -34,6 +34,7 @@ services:
       - ALL
     security_opt:
       - no-new-privileges:true
+      - apparmor=armorclaw-office-worker
     environment:
       - JAVA_OPTS=-Xmx384m -XX:+UseG1GC
       - SIDECAR_JAVA_SOCKET_PATH=/run/armorclaw/sidecar-java.sock
