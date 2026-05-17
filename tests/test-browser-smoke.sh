@@ -256,10 +256,360 @@ else
 fi
 
 # ══════════════════════════════════════════════════════════════════════════════
+# B4: browser.fill — fill a form field
+# ══════════════════════════════════════════════════════════════════════════════
+echo ""
+echo "========================================="
+echo " B4: browser.fill"
+echo "========================================="
+
+B4_RESP=""
+B4_RESP=$(rpc_call "browser.fill" '{"selector":"#test","value":"test"}') || true
+
+log_info "browser.fill response: $(echo "$B4_RESP" | head -c 300)"
+save_evidence "b4-browser-fill" "$B4_RESP"
+
+if echo "$B4_RESP" | jq -e '.error.code == -32601' >/dev/null 2>&1; then
+  log_skip "browser.fill: method not found (-32601)"
+elif echo "$B4_RESP" | jq -e '.result' >/dev/null 2>&1; then
+  log_pass "browser.fill: bridge recognizes method"
+elif echo "$B4_RESP" | jq -e '.error' >/dev/null 2>&1; then
+  local_err_msg=$(echo "$B4_RESP" | jq -r '.error.message' 2>/dev/null || echo "")
+  if echo "$local_err_msg" | grep -qi "no active session\|no session\|not initialized"; then
+    log_pass "browser.fill: bridge recognizes method (no active session — expected)"
+  else
+    log_fail "browser.fill: unexpected error — $local_err_msg"
+  fi
+else
+  log_fail "browser.fill: malformed response"
+fi
+
+# ══════════════════════════════════════════════════════════════════════════════
+# B5: browser.click — click an element
+# ══════════════════════════════════════════════════════════════════════════════
+echo ""
+echo "========================================="
+echo " B5: browser.click"
+echo "========================================="
+
+B5_RESP=""
+B5_RESP=$(rpc_call "browser.click" '{"selector":"#test"}') || true
+
+log_info "browser.click response: $(echo "$B5_RESP" | head -c 300)"
+save_evidence "b5-browser-click" "$B5_RESP"
+
+if echo "$B5_RESP" | jq -e '.error.code == -32601' >/dev/null 2>&1; then
+  log_skip "browser.click: method not found (-32601)"
+elif echo "$B5_RESP" | jq -e '.result' >/dev/null 2>&1; then
+  log_pass "browser.click: bridge recognizes method"
+elif echo "$B5_RESP" | jq -e '.error' >/dev/null 2>&1; then
+  local_err_msg=$(echo "$B5_RESP" | jq -r '.error.message' 2>/dev/null || echo "")
+  if echo "$local_err_msg" | grep -qi "no active session\|no session\|not initialized"; then
+    log_pass "browser.click: bridge recognizes method (no active session — expected)"
+  else
+    log_fail "browser.click: unexpected error — $local_err_msg"
+  fi
+else
+  log_fail "browser.click: malformed response"
+fi
+
+# ══════════════════════════════════════════════════════════════════════════════
+# B6: browser.wait_for_element — wait for a DOM element
+# ══════════════════════════════════════════════════════════════════════════════
+echo ""
+echo "========================================="
+echo " B6: browser.wait_for_element"
+echo "========================================="
+
+B6_RESP=""
+B6_RESP=$(rpc_call "browser.wait_for_element" '{"selector":"#test","timeout_ms":1000}') || true
+
+log_info "browser.wait_for_element response: $(echo "$B6_RESP" | head -c 300)"
+save_evidence "b6-browser-wait-for-element" "$B6_RESP"
+
+if echo "$B6_RESP" | jq -e '.error.code == -32601' >/dev/null 2>&1; then
+  log_skip "browser.wait_for_element: method not found (-32601)"
+elif echo "$B6_RESP" | jq -e '.result' >/dev/null 2>&1; then
+  log_pass "browser.wait_for_element: bridge recognizes method"
+elif echo "$B6_RESP" | jq -e '.error' >/dev/null 2>&1; then
+  local_err_msg=$(echo "$B6_RESP" | jq -r '.error.message' 2>/dev/null || echo "")
+  if echo "$local_err_msg" | grep -qi "no active session\|no session\|not initialized"; then
+    log_pass "browser.wait_for_element: bridge recognizes method (no active session — expected)"
+  else
+    log_fail "browser.wait_for_element: unexpected error — $local_err_msg"
+  fi
+else
+  log_fail "browser.wait_for_element: malformed response"
+fi
+
+# ══════════════════════════════════════════════════════════════════════════════
+# B7: browser.wait_for_captcha — wait for CAPTCHA resolution
+# ══════════════════════════════════════════════════════════════════════════════
+echo ""
+echo "========================================="
+echo " B7: browser.wait_for_captcha"
+echo "========================================="
+
+B7_RESP=""
+B7_RESP=$(rpc_call "browser.wait_for_captcha" '{"timeout_ms":1000}') || true
+
+log_info "browser.wait_for_captcha response: $(echo "$B7_RESP" | head -c 300)"
+save_evidence "b7-browser-wait-for-captcha" "$B7_RESP"
+
+if echo "$B7_RESP" | jq -e '.error.code == -32601' >/dev/null 2>&1; then
+  log_skip "browser.wait_for_captcha: method not found (-32601)"
+elif echo "$B7_RESP" | jq -e '.result' >/dev/null 2>&1; then
+  log_pass "browser.wait_for_captcha: bridge recognizes method"
+elif echo "$B7_RESP" | jq -e '.error' >/dev/null 2>&1; then
+  local_err_msg=$(echo "$B7_RESP" | jq -r '.error.message' 2>/dev/null || echo "")
+  if echo "$local_err_msg" | grep -qi "no active session\|no session\|not initialized"; then
+    log_pass "browser.wait_for_captcha: bridge recognizes method (no active session — expected)"
+  else
+    log_fail "browser.wait_for_captcha: unexpected error — $local_err_msg"
+  fi
+else
+  log_fail "browser.wait_for_captcha: malformed response"
+fi
+
+# ══════════════════════════════════════════════════════════════════════════════
+# B8: browser.wait_for_2fa — wait for 2FA code entry
+# ══════════════════════════════════════════════════════════════════════════════
+echo ""
+echo "========================================="
+echo " B8: browser.wait_for_2fa"
+echo "========================================="
+
+B8_RESP=""
+B8_RESP=$(rpc_call "browser.wait_for_2fa" '{"timeout_ms":1000}') || true
+
+log_info "browser.wait_for_2fa response: $(echo "$B8_RESP" | head -c 300)"
+save_evidence "b8-browser-wait-for-2fa" "$B8_RESP"
+
+if echo "$B8_RESP" | jq -e '.error.code == -32601' >/dev/null 2>&1; then
+  log_skip "browser.wait_for_2fa: method not found (-32601)"
+elif echo "$B8_RESP" | jq -e '.result' >/dev/null 2>&1; then
+  log_pass "browser.wait_for_2fa: bridge recognizes method"
+elif echo "$B8_RESP" | jq -e '.error' >/dev/null 2>&1; then
+  local_err_msg=$(echo "$B8_RESP" | jq -r '.error.message' 2>/dev/null || echo "")
+  if echo "$local_err_msg" | grep -qi "no active session\|no session\|not initialized"; then
+    log_pass "browser.wait_for_2fa: bridge recognizes method (no active session — expected)"
+  else
+    log_fail "browser.wait_for_2fa: unexpected error — $local_err_msg"
+  fi
+else
+  log_fail "browser.wait_for_2fa: malformed response"
+fi
+
+# ══════════════════════════════════════════════════════════════════════════════
+# B9: browser.fail — mark session as failed
+# ══════════════════════════════════════════════════════════════════════════════
+echo ""
+echo "========================================="
+echo " B9: browser.fail"
+echo "========================================="
+
+B9_RESP=""
+B9_RESP=$(rpc_call "browser.fail" '{"reason":"smoke test"}') || true
+
+log_info "browser.fail response: $(echo "$B9_RESP" | head -c 300)"
+save_evidence "b9-browser-fail" "$B9_RESP"
+
+if echo "$B9_RESP" | jq -e '.error.code == -32601' >/dev/null 2>&1; then
+  log_skip "browser.fail: method not found (-32601)"
+elif echo "$B9_RESP" | jq -e '.result' >/dev/null 2>&1; then
+  log_pass "browser.fail: bridge recognizes method"
+elif echo "$B9_RESP" | jq -e '.error' >/dev/null 2>&1; then
+  local_err_msg=$(echo "$B9_RESP" | jq -r '.error.message' 2>/dev/null || echo "")
+  if echo "$local_err_msg" | grep -qi "no active session\|no session\|not initialized"; then
+    log_pass "browser.fail: bridge recognizes method (no active session — expected)"
+  else
+    log_fail "browser.fail: unexpected error — $local_err_msg"
+  fi
+else
+  log_fail "browser.fail: malformed response"
+fi
+
+# ══════════════════════════════════════════════════════════════════════════════
+# B10: browser.list — list browser sessions
+# ══════════════════════════════════════════════════════════════════════════════
+echo ""
+echo "========================================="
+echo " B10: browser.list"
+echo "========================================="
+
+B10_RESP=""
+B10_RESP=$(rpc_call "browser.list" '{}') || true
+
+log_info "browser.list response: $(echo "$B10_RESP" | head -c 300)"
+save_evidence "b10-browser-list" "$B10_RESP"
+
+if echo "$B10_RESP" | jq -e '.error.code == -32601' >/dev/null 2>&1; then
+  log_skip "browser.list: method not found (-32601)"
+elif echo "$B10_RESP" | jq -e '.result' >/dev/null 2>&1; then
+  log_pass "browser.list: bridge recognizes method"
+elif echo "$B10_RESP" | jq -e '.error' >/dev/null 2>&1; then
+  local_err_msg=$(echo "$B10_RESP" | jq -r '.error.message' 2>/dev/null || echo "")
+  if echo "$local_err_msg" | grep -qi "no active session\|no session\|not initialized"; then
+    log_pass "browser.list: bridge recognizes method (no active session — expected)"
+  else
+    log_fail "browser.list: unexpected error — $local_err_msg"
+  fi
+else
+  log_fail "browser.list: malformed response"
+fi
+
+# ══════════════════════════════════════════════════════════════════════════════
+# B11: browser.replay_diagnostics — replay diagnostics for a session
+# ══════════════════════════════════════════════════════════════════════════════
+echo ""
+echo "========================================="
+echo " B11: browser.replay_diagnostics"
+echo "========================================="
+
+B11_RESP=""
+B11_RESP=$(rpc_call "browser.replay_diagnostics" '{}') || true
+
+log_info "browser.replay_diagnostics response: $(echo "$B11_RESP" | head -c 300)"
+save_evidence "b11-browser-replay-diagnostics" "$B11_RESP"
+
+if echo "$B11_RESP" | jq -e '.error.code == -32601' >/dev/null 2>&1; then
+  log_skip "browser.replay_diagnostics: method not found (-32601)"
+elif echo "$B11_RESP" | jq -e '.result' >/dev/null 2>&1; then
+  log_pass "browser.replay_diagnostics: bridge recognizes method"
+elif echo "$B11_RESP" | jq -e '.error' >/dev/null 2>&1; then
+  local_err_msg=$(echo "$B11_RESP" | jq -r '.error.message' 2>/dev/null || echo "")
+  if echo "$local_err_msg" | grep -qi "no active session\|no session\|not initialized"; then
+    log_pass "browser.replay_diagnostics: bridge recognizes method (no active session — expected)"
+  else
+    log_fail "browser.replay_diagnostics: unexpected error — $local_err_msg"
+  fi
+else
+  log_fail "browser.replay_diagnostics: malformed response"
+fi
+
+# ══════════════════════════════════════════════════════════════════════════════
+# B12: browser.cancel — cancel active browser session
+# ══════════════════════════════════════════════════════════════════════════════
+echo ""
+echo "========================================="
+echo " B12: browser.cancel"
+echo "========================================="
+
+B12_RESP=""
+B12_RESP=$(rpc_call "browser.cancel" '{}') || true
+
+log_info "browser.cancel response: $(echo "$B12_RESP" | head -c 300)"
+save_evidence "b12-browser-cancel" "$B12_RESP"
+
+if echo "$B12_RESP" | jq -e '.error.code == -32601' >/dev/null 2>&1; then
+  log_skip "browser.cancel: method not found (-32601)"
+elif echo "$B12_RESP" | jq -e '.result' >/dev/null 2>&1; then
+  log_pass "browser.cancel: bridge recognizes method"
+elif echo "$B12_RESP" | jq -e '.error' >/dev/null 2>&1; then
+  local_err_msg=$(echo "$B12_RESP" | jq -r '.error.message' 2>/dev/null || echo "")
+  if echo "$local_err_msg" | grep -qi "no active session\|no session\|not initialized"; then
+    log_pass "browser.cancel: bridge recognizes method (no active session — expected)"
+  else
+    log_fail "browser.cancel: unexpected error — $local_err_msg"
+  fi
+else
+  log_fail "browser.cancel: malformed response"
+fi
+
+# ══════════════════════════════════════════════════════════════════════════════
+# B13: browser.screenshot — capture screenshot
+# ══════════════════════════════════════════════════════════════════════════════
+echo ""
+echo "========================================="
+echo " B13: browser.screenshot"
+echo "========================================="
+
+B13_RESP=""
+B13_RESP=$(rpc_call "browser.screenshot" '{"format":"png"}') || true
+
+log_info "browser.screenshot response: $(echo "$B13_RESP" | head -c 300)"
+save_evidence "b13-browser-screenshot" "$B13_RESP"
+
+if echo "$B13_RESP" | jq -e '.error.code == -32601' >/dev/null 2>&1; then
+  log_skip "browser.screenshot: method not found (-32601)"
+elif echo "$B13_RESP" | jq -e '.result' >/dev/null 2>&1; then
+  log_pass "browser.screenshot: bridge recognizes method"
+elif echo "$B13_RESP" | jq -e '.error' >/dev/null 2>&1; then
+  local_err_msg=$(echo "$B13_RESP" | jq -r '.error.message' 2>/dev/null || echo "")
+  if echo "$local_err_msg" | grep -qi "no active session\|no session\|not initialized"; then
+    log_pass "browser.screenshot: bridge recognizes method (no active session — expected)"
+  else
+    log_fail "browser.screenshot: unexpected error — $local_err_msg"
+  fi
+else
+  log_fail "browser.screenshot: malformed response"
+fi
+
+# ══════════════════════════════════════════════════════════════════════════════
+# B14: browser.close — close browser session
+# ══════════════════════════════════════════════════════════════════════════════
+echo ""
+echo "========================================="
+echo " B14: browser.close"
+echo "========================================="
+
+B14_RESP=""
+B14_RESP=$(rpc_call "browser.close" '{}') || true
+
+log_info "browser.close response: $(echo "$B14_RESP" | head -c 300)"
+save_evidence "b14-browser-close" "$B14_RESP"
+
+if echo "$B14_RESP" | jq -e '.error.code == -32601' >/dev/null 2>&1; then
+  log_skip "browser.close: method not found (-32601)"
+elif echo "$B14_RESP" | jq -e '.result' >/dev/null 2>&1; then
+  log_pass "browser.close: bridge recognizes method"
+elif echo "$B14_RESP" | jq -e '.error' >/dev/null 2>&1; then
+  local_err_msg=$(echo "$B14_RESP" | jq -r '.error.message' 2>/dev/null || echo "")
+  if echo "$local_err_msg" | grep -qi "no active session\|no session\|not initialized"; then
+    log_pass "browser.close: bridge recognizes method (no active session — expected)"
+  else
+    log_fail "browser.close: unexpected error — $local_err_msg"
+  fi
+else
+  log_fail "browser.close: malformed response"
+fi
+
+# ══════════════════════════════════════════════════════════════════════════════
+# AUTH: Auth enforcement check on browser methods
+# ══════════════════════════════════════════════════════════════════════════════
+echo ""
+echo "========================================="
+echo " AUTH: Auth enforcement on browser RPCs"
+echo "========================================="
+
+AUTH_METHODS=("browser.navigate" "browser.fill" "browser.click" "browser.status" "browser.complete" "browser.cancel" "browser.fail" "browser.list" "browser.wait_for_element" "browser.wait_for_captcha" "browser.wait_for_2fa" "browser.replay_diagnostics" "browser.screenshot" "browser.close")
+
+for method in "${AUTH_METHODS[@]}"; do
+  # Call without auth token — use raw transport without Authorization header
+  AUTH_RESP=""
+  if $HAS_SOCKET; then
+    AUTH_RESP=$(ssh_vps "echo '{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"${method}\",\"params\":{}}' | socat - UNIX-CONNECT:/run/armorclaw/bridge.sock" 2>/dev/null) || true
+  elif $HAS_HTTP; then
+    AUTH_RESP=$(ssh_vps "curl -kfsS -H 'Content-Type: application/json' -d '{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"${method}\",\"params\":{}}' https://localhost:${BRIDGE_PORT}/api" 2>/dev/null) || true
+  fi
+
+  if echo "$AUTH_RESP" | jq -e '.error.code == -32010 or .error.code == -32011' >/dev/null 2>&1; then
+    log_pass "${method}: auth enforced (unauthenticated request rejected)"
+  elif echo "$AUTH_RESP" | jq -e '.error.code == -32601' >/dev/null 2>&1; then
+    log_skip "${method}: method not registered — auth check N/A"
+  elif echo "$AUTH_RESP" | jq -e '.result' >/dev/null 2>&1; then
+    log_fail "${method}: SECURITY — unauthenticated request succeeded!"
+  else
+    log_info "${method}: unexpected auth response — $(echo "$AUTH_RESP" | head -c 200)"
+  fi
+done
+
+# ══════════════════════════════════════════════════════════════════════════════
 # Summary
 # ══════════════════════════════════════════════════════════════════════════════
 echo ""
 log_info "Evidence saved to $EVIDENCE_DIR/"
+echo "14 browser methods tested"
 TOTAL=$((FULL_SYSTEM_PASSED + FULL_SYSTEM_FAILED + FULL_SYSTEM_SKIPPED))
 echo -e "Browser Smoke: ${FULL_SYSTEM_PASSED}/${TOTAL} PASS (${FULL_SYSTEM_SKIPPED} SKIP)"
 harness_summary
