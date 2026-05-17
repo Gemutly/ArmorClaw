@@ -64,7 +64,7 @@ impl std::fmt::Display for Version {
     }
 }
 
-const METADATA_TOKEN_KEY: &str = "token";
+const METADATA_TOKEN_KEY: &str = "x-request-token";
 const METADATA_REQUEST_ID_KEY: &str = "request-id";
 const METADATA_TIMESTAMP_KEY: &str = "timestamp";
 const METADATA_OPERATION_KEY: &str = "operation";

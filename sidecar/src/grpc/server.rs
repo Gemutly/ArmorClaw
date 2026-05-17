@@ -2,6 +2,7 @@ use crate::config::SidecarConfig;
 use crate::connectors::{S3Connector, S3UploadRequest, S3DownloadRequest, S3ListRequest, S3DeleteRequest};
 use crate::document::{
     extract_text_from_pdf, extract_text_from_docx, extract_data_from_xlsx,
+    extract_text_from_pptx,
     extract_text_with_ocr,
     convert_docx_to_pdf, convert_xlsx_to_csv, convert_pptx_to_pdf,
     qdrant::QdrantClient,
@@ -387,6 +388,15 @@ impl SidecarServiceTrait for SidecarServiceImpl {
                     metadata: result.metadata,
                 }))
             }
+            "pptx" | "application/vnd.openxmlformats-officedocument.presentationml.presentation" => {
+                let result = extract_text_from_pptx(&req.document_content)
+                    .map_err(sidecar_error_to_status)?;
+                Ok(Response::new(ExtractTextResponse {
+                    text: result.text,
+                    page_count: result.page_count,
+                    metadata: result.metadata,
+                }))
+            }
             "image/png" | "image/jpeg" | "image/tiff" | "image/bmp" | "image/gif" => {
                 let lang = req.options.get("language").cloned();
                 let config = lang.map(|l| crate::document::OcrConfig {
@@ -408,7 +418,7 @@ impl SidecarServiceTrait for SidecarServiceImpl {
             }
             other => {
                 Err(Status::invalid_argument(format!(
-                    "Unsupported document format: '{}'. Supported: pdf, docx, xlsx, image/png, image/jpeg, image/tiff, image/bmp, image/gif",
+                    "Unsupported document format: '{}'. Supported: pdf, docx, xlsx, pptx, image/png, image/jpeg, image/tiff, image/bmp, image/gif",
                     other
                 )))
             }
