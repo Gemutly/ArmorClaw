@@ -33,7 +33,7 @@ Latest ArmorClaw is deployed. API_PROVIDER, API_KEY, VPS_IP, VPS_USER, SSH_KEY_P
 - SSH_KEY_PATH=~/.ssh/openclaw_win
 - BRIDGE_PORT=8080
 - MATRIX_PORT=6167
-- CF_API_TOKEN=cfat_Hj67EWmvUTlJiK99kJrPFbkhjIEDYj364mWyGJ8rf4ff54f2
+- CF_API_TOKEN=<REDACTED_cfat_...f2>
 
 ### Interview Summary
 **Key Discussions**:
