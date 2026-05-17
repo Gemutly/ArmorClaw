@@ -1138,7 +1138,7 @@ func (s *Server) handleBrowserClose(ctx context.Context, req *Request) (interfac
 
 	// Broker path
 	if s.browserBroker != nil {
-		err := s.browserBroker.Complete(ctx, browser.JobID(jobID))
+		_, err := s.browserBroker.Complete(ctx, browser.JobID(jobID))
 		if err != nil {
 			// Idempotent: treat "not found" as success
 			return map[string]interface{}{

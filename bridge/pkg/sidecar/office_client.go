@@ -2,6 +2,7 @@ package sidecar
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"os"
 	"strings"
@@ -82,14 +83,33 @@ func RouteExtractText(
 	isPdf := strings.Contains(f, "pdf") || strings.HasSuffix(f, ".pdf")
 
 	// Rust sidecar routes (OpenXML: DOCX, XLSX, PPTX)
+	// DOCX is Rust-only — no fallback.
 	if isZIP && isDocx {
 		return rustClient.ExtractText(ctx, req)
 	}
+	// XLSX and PPTX: try Rust first, fall back to Python sidecar if Rust socket
+	// is unavailable (degraded mode — Rust sidecar deferred to v1.3).
 	if isZIP && isXlsx {
-		return rustClient.ExtractText(ctx, req)
+		resp, err := rustClient.ExtractText(ctx, req)
+		if err == nil {
+			return resp, nil
+		}
+		if st, ok := status.FromError(err); ok && st.Code() == codes.Unavailable {
+			fmt.Printf("WARN Rust sidecar unavailable for %s, falling back to Python sidecar (degraded)\n", req.DocumentFormat)
+			return officeClient.ExtractText(ctx, req)
+		}
+		return nil, err
 	}
 	if isZIP && isPptx {
-		return rustClient.ExtractText(ctx, req)
+		resp, err := rustClient.ExtractText(ctx, req)
+		if err == nil {
+			return resp, nil
+		}
+		if st, ok := status.FromError(err); ok && st.Code() == codes.Unavailable {
+			fmt.Printf("WARN Rust sidecar unavailable for %s, falling back to Python sidecar (degraded)\n", req.DocumentFormat)
+			return officeClient.ExtractText(ctx, req)
+		}
+		return nil, err
 	}
 
 	// Python sidecar routes (legacy OLE formats only)
