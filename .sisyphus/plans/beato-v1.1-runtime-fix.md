@@ -1127,19 +1127,19 @@ Max Concurrent: 3 (Wave 2)
 
 > 4 review agents run in PARALLEL. ALL must APPROVE. Present consolidated results to user and get explicit "okay" before completing.
 
-- [ ] F1. **Security Audit** — `oracle`
+- [x] F1. **Security Audit** — `oracle`
   Read the plan end-to-end. Verify: auth enforced on all BEATO-sensitive handlers, `health.*` excluded from auth, tokens not logged, HMAC validation unchanged, sidecars not public, SQLCipher unchanged, AppArmor posture documented. Check evidence files exist in .sisyphus/evidence/. Compare deliverables against plan.
   Output: `Auth [N/N] | Exclusions [N/N] | No Token Logs [YES/NO] | VERDICT: APPROVE/REJECT`
 
-- [ ] F2. **Runtime QA** — `unspecified-high`
+- [x] F2. **Runtime QA** — `unspecified-high`
   Run `cd bridge && go test -v ./pkg/rpc/...` + all shell smoke tests. Review all changed files for: `as any`/type assertions, empty catches, console.log, commented-out code. Check AI slop patterns. Run browser smoke, email pipeline, sidecar docs tests.
   Output: `Build [PASS/FAIL] | Tests [N pass/N fail] | Smoke [N/N pass] | VERDICT`
 
-- [ ] F3. **Scope Compliance** — `oracle`
+- [x] F3. **Scope Compliance** — `oracle`
   Verify: no Postfix/DNS, no Audio implementation, no rubric changes, no proto changes, no Rust deployment, no Matrix reconnection code, no `rpc_safety.go` modifications. Detect unaccounted changes. Check guardrails.
   Output: `Guardrails [N/N clean] | Unaccounted [CLEAN/N files] | VERDICT`
 
-- [ ] F4. **Release Recommendation** — `writing`
+- [x] F4. **Release Recommendation** — `writing`
   Produce: APPROVE / CONDITIONAL APPROVE / REJECT. Final BEATO runtime score. Remaining gaps. Recommended next sprint.
   Output: `.sisyphus/evidence/final-release-recommendation.md`
 
