@@ -2633,8 +2633,14 @@ func runBridgeServer(cliCfg cliConfig) {
 		_ = setupEmailDispatcher(eventBus, taskScheduler, rolodexStore)
 	}
 
-	if err := os.MkdirAll("/run/armorclaw", 0755); err != nil {
+	if err := os.MkdirAll("/run/armorclaw", 0750); err != nil {
 		log.Printf("Warning: failed to create /run/armorclaw: %v", err)
+	}
+	// Set group ownership to GID 10001 for cross-service socket access
+	if os.Getuid() == 0 {
+		if err := os.Chown("/run/armorclaw", -1, 10001); err != nil {
+			log.Printf("Warning: failed to set group ownership on /run/armorclaw: %v", err)
+		}
 	}
 	if err := sidecar.ProvisionJavaSocketDir(); err != nil {
 		log.Printf("Warning: failed to provision Java socket dir: %v", err)

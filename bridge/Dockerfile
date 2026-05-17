@@ -62,12 +62,17 @@ COPY --from=builder /build/armorclaw-bridge /usr/local/bin/
 # Copy example config
 COPY config.example.toml /etc/armorclaw/config.toml.example
 
+# Create shared group for cross-service /run/armorclaw access
+RUN groupadd -g 10001 armorclaw-runtime || true
+
 # Create directories with correct permissions
 RUN mkdir -p /etc/armorclaw /run/armorclaw /var/lib/armorclaw && \
-    chown -R 10002:10002 /etc/armorclaw /run/armorclaw /var/lib/armorclaw
+    chown -R 10002:10002 /etc/armorclaw /var/lib/armorclaw && \
+    chown 10002:10001 /run/armorclaw && \
+    chmod 0750 /run/armorclaw
 
-# Set up non-root user
-USER 10002:10002
+# Set up non-root user with supplementary group
+USER 10002:10001
 
 # Environment variables
 ENV ARMORCLAW_CONFIG=/etc/armorclaw/config.toml
