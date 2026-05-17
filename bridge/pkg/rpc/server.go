@@ -1383,37 +1383,39 @@ func (s *Server) registerHandlers() {
 	s.handlers = h
 
 	// Wrap BEATO-sensitive handlers with SafetyMiddleware.
-	beatoHandlers := map[string]RPCGroup{
-		// Browser group
-		"browser.navigate":           BrowserRPCGroup,
-		"browser.fill":               BrowserRPCGroup,
-		"browser.click":              BrowserRPCGroup,
-		"browser.status":             BrowserRPCGroup,
-		"browser.wait_for_element":   BrowserRPCGroup,
-		"browser.wait_for_captcha":   BrowserRPCGroup,
-		"browser.wait_for_2fa":       BrowserRPCGroup,
-		"browser.complete":           BrowserRPCGroup,
-		"browser.fail":               BrowserRPCGroup,
-		"browser.list":               BrowserRPCGroup,
-		"browser.cancel":             BrowserRPCGroup,
-		"browser.replay_diagnostics": BrowserRPCGroup,
-		// Document group
-		"document.extract_text": DocumentRPCGroup,
-		"document.status":       DocumentRPCGroup,
-		"document.list_jobs":    DocumentRPCGroup,
-		// Email group
-		"email.queue_status":    EmailRPCGroup,
-		"email.get":             EmailRPCGroup,
-		"email.retry":           EmailRPCGroup,
-		"email.list":            EmailRPCGroup,
-		"approve_email":         EmailRPCGroup,
-		"deny_email":            EmailRPCGroup,
-		"email_approval_status": EmailRPCGroup,
-		"email.list_pending":    EmailRPCGroup,
-	}
-	for method, group := range beatoHandlers {
-		if handler, ok := h[method]; ok {
-			h[method] = s.safety.WrapForGroup(group, handler)
+	if s.safety != nil {
+		beatoHandlers := map[string]RPCGroup{
+			// Browser group
+			"browser.navigate":           BrowserRPCGroup,
+			"browser.fill":               BrowserRPCGroup,
+			"browser.click":              BrowserRPCGroup,
+			"browser.status":             BrowserRPCGroup,
+			"browser.wait_for_element":   BrowserRPCGroup,
+			"browser.wait_for_captcha":   BrowserRPCGroup,
+			"browser.wait_for_2fa":       BrowserRPCGroup,
+			"browser.complete":           BrowserRPCGroup,
+			"browser.fail":               BrowserRPCGroup,
+			"browser.list":               BrowserRPCGroup,
+			"browser.cancel":             BrowserRPCGroup,
+			"browser.replay_diagnostics": BrowserRPCGroup,
+			// Document group
+			"document.extract_text": DocumentRPCGroup,
+			"document.status":       DocumentRPCGroup,
+			"document.list_jobs":    DocumentRPCGroup,
+			// Email group
+			"email.queue_status":    EmailRPCGroup,
+			"email.get":             EmailRPCGroup,
+			"email.retry":           EmailRPCGroup,
+			"email.list":            EmailRPCGroup,
+			"approve_email":         EmailRPCGroup,
+			"deny_email":            EmailRPCGroup,
+			"email_approval_status": EmailRPCGroup,
+			"email.list_pending":    EmailRPCGroup,
+		}
+		for method, group := range beatoHandlers {
+			if handler, ok := h[method]; ok {
+				h[method] = s.safety.WrapForGroup(group, handler)
+			}
 		}
 	}
 }
