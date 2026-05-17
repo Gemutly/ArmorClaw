@@ -1,3 +1,14 @@
+> ⚠️ **ARCHIVED — This document is OUTDATED as of v1.2 (2026-05-17)**
+> 
+> This file claims the Rust sidecar has "75 compilation errors" and that extraction
+> modules are "stub only." Both claims are FALSE. As of the current codebase:
+> - Binary compiles cleanly (0 errors)
+> - 254 tests pass, 0 fail
+> - DOCX/PDF/XLSX/PPTX extraction all use real parsing libraries (docx-rs, lopdf, calamine, zip+quick-xml)
+> - gRPC server is fully functional (866 lines)
+> 
+> Do not trust any claims in this file. See `sidecar/README.md` for current state.
+
 # Rust Office Sidecar - Implementation State
 
 **Date:** 2026-04-04
