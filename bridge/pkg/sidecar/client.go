@@ -17,8 +17,10 @@ import (
 )
 
 const (
-	// DefaultSocketPath is the default Unix domain socket path for the sidecar
-	DefaultSocketPath = "/run/armorclaw/sidecar.sock"
+	// DefaultSocketPath is the default Unix domain socket path for the Rust sidecar.
+	// Matches the host-side mount in deploy/docker-compose.sidecar-rust.yml:
+	//   /run/armorclaw/sidecar-rust:/run/armorclaw  →  host sees sidecar-rust.sock
+	DefaultSocketPath = "/run/armorclaw/sidecar-rust/sidecar-rust.sock"
 
 	// DefaultTimeout is the default timeout for operations
 	DefaultTimeout = 30 * time.Second

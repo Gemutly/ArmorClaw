@@ -2789,14 +2789,22 @@ func runBridgeServer(cliCfg cliConfig) {
 	}
 
 	// Sidecar clients are lazy-connecting; missing sockets fail at extraction time, not startup.
-	officeTokenGen := sidecar.InitTokenGenerator(nil)
-	officeClient := sidecar.NewOfficeClient(nil, officeTokenGen)
-	rustClient := sidecar.NewClient(nil)
+	tokenGen := sidecar.InitTokenGenerator(nil)
+	officeClient := sidecar.NewOfficeClient(nil, tokenGen)
+	rustClient := sidecar.NewClient(&sidecar.Config{
+		SocketPath:     sidecar.DefaultSocketPath,
+		Timeout:        sidecar.DefaultTimeout,
+		MaxRetries:     sidecar.DefaultMaxRetries,
+		DialTimeout:    10 * time.Second,
+		IdleTimeout:    5 * time.Minute,
+		MaxMsgSize:     sidecar.DefaultMaxRecvMsgSize,
+		TokenGenerator: tokenGen,
+	})
 	javaClient := sidecar.NewJavaClient(nil)
 	server.SetSidecarClients(officeClient, rustClient, javaClient)
 	sidecar.ProbeExtractionMode()
 	hmacStatus := "disabled"
-	if officeTokenGen != nil {
+	if tokenGen != nil {
 		hmacStatus = "enabled"
 	}
 	log.Printf("Sidecar clients injected (office=%s, rust=%s, java=%s, hmac=%s)",
