@@ -164,19 +164,12 @@ class OfficeSidecarServicer(sidecar_pb2_grpc.SidecarServiceServicer):
 
 
 def serve():
-    skip_validation = os.environ.get("SKIP_TOKEN_VALIDATION", "").strip() == "1"
-
-    if skip_validation:
-        print("WARNING: Token validation disabled (SKIP_TOKEN_VALIDATION=1). Use only in development or when bridge token generation is not available.")
-        interceptors = []
-    else:
-        shared_secret = load_shared_secret()
-        interceptor = TokenInterceptor(shared_secret)
-        interceptors = [interceptor]
+    shared_secret = load_shared_secret()
+    interceptor = TokenInterceptor(shared_secret)
 
     server = grpc.server(
         futures.ThreadPoolExecutor(max_workers=4),
-        interceptors=interceptors,
+        interceptors=[interceptor],
         options=[
             ("grpc.max_receive_message_length", _MAX_MESSAGE_BYTES),
             ("grpc.max_send_message_length", _MAX_MESSAGE_BYTES),
