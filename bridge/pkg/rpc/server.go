@@ -210,6 +210,7 @@ type Server struct {
 	sidecarJava       *sidecar.Client
 	extractionJobs    map[string]*ExtractionJob
 	outboxStore       OutboxStoreReader
+	safety            *SafetyMiddleware
 }
 
 type Config struct {
@@ -252,6 +253,7 @@ type Config struct {
 	NavChartStore     *browser.MultiTabStore
 	MethodRateLimiter MethodRateLimiter
 	OutboxStore       OutboxStoreReader
+	AdminToken        string
 }
 
 func New(cfg Config) (*Server, error) {
@@ -306,6 +308,8 @@ func New(cfg Config) (*Server, error) {
 	s.piiRequestManager = keystore.NewPIIRequestManager(keystore.PIIRequestManagerConfig{
 		DefaultTTL: 5 * time.Minute,
 	})
+
+	s.safety = NewBEATOSafetyMiddleware(cfg.AdminToken)
 
 	s.registerHandlers()
 	return s, nil
@@ -1377,6 +1381,41 @@ func (s *Server) registerHandlers() {
 	}
 
 	s.handlers = h
+
+	// Wrap BEATO-sensitive handlers with SafetyMiddleware.
+	beatoHandlers := map[string]RPCGroup{
+		// Browser group
+		"browser.navigate":           BrowserRPCGroup,
+		"browser.fill":               BrowserRPCGroup,
+		"browser.click":              BrowserRPCGroup,
+		"browser.status":             BrowserRPCGroup,
+		"browser.wait_for_element":   BrowserRPCGroup,
+		"browser.wait_for_captcha":   BrowserRPCGroup,
+		"browser.wait_for_2fa":       BrowserRPCGroup,
+		"browser.complete":           BrowserRPCGroup,
+		"browser.fail":               BrowserRPCGroup,
+		"browser.list":               BrowserRPCGroup,
+		"browser.cancel":             BrowserRPCGroup,
+		"browser.replay_diagnostics": BrowserRPCGroup,
+		// Document group
+		"document.extract_text": DocumentRPCGroup,
+		"document.status":       DocumentRPCGroup,
+		"document.list_jobs":    DocumentRPCGroup,
+		// Email group
+		"email.queue_status":    EmailRPCGroup,
+		"email.get":             EmailRPCGroup,
+		"email.retry":           EmailRPCGroup,
+		"email.list":            EmailRPCGroup,
+		"approve_email":         EmailRPCGroup,
+		"deny_email":            EmailRPCGroup,
+		"email_approval_status": EmailRPCGroup,
+		"email.list_pending":    EmailRPCGroup,
+	}
+	for method, group := range beatoHandlers {
+		if handler, ok := h[method]; ok {
+			h[method] = s.safety.WrapForGroup(group, handler)
+		}
+	}
 }
 
 func (s *Server) handleHardeningStatus(ctx context.Context, req *Request) (interface{}, *ErrorObj) {
