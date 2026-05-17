@@ -122,6 +122,138 @@ else
 fi
 
 # ========================================
+# Sidecar Stack Checks (v1.3)
+# ========================================
+echo ""
+echo "--- Sidecar Stack (v1.3) ---"
+
+# Check Rust sidecar container
+if docker ps --format '{{.Names}}' | grep -q '^armorclaw-sidecar-rust$'; then
+    RUST_STATUS=$(docker inspect -f '{{.State.Health.Status}}' armorclaw-sidecar-rust 2>/dev/null || echo "unknown")
+    if [[ "$RUST_STATUS" == "healthy" ]]; then
+        check_pass "Rust sidecar container is running and healthy"
+    elif [[ "$RUST_STATUS" == "unknown" ]]; then
+        check_pass "Rust sidecar container is running (no health check)"
+    else
+        check_warn "Rust sidecar container is running but status: $RUST_STATUS"
+    fi
+else
+    check_warn "Rust sidecar container not found"
+fi
+
+# Check Python office sidecar container
+if docker ps --format '{{.Names}}' | grep -q '^armorclaw-sidecar-office$'; then
+    OFFICE_STATUS=$(docker inspect -f '{{.State.Health.Status}}' armorclaw-sidecar-office 2>/dev/null || echo "unknown")
+    if [[ "$OFFICE_STATUS" == "healthy" ]]; then
+        check_pass "Python office sidecar container is running and healthy"
+    elif [[ "$OFFICE_STATUS" == "unknown" ]]; then
+        check_pass "Python office sidecar container is running (no health check)"
+    else
+        check_warn "Python office sidecar container is running but status: $OFFICE_STATUS"
+    fi
+else
+    check_warn "Python office sidecar container not found"
+fi
+
+# Check sidecar sockets
+RUST_SOCK="/run/armorclaw/sidecar-rust/sidecar-rust.sock"
+OFFICE_SOCK="/run/armorclaw/sidecar-office/sidecar-office.sock"
+
+for sock_name in "$RUST_SOCK" "$OFFICE_SOCK"; do
+    if [[ -S "$sock_name" ]]; then
+        perms=$(stat -c '%a' "$sock_name" 2>/dev/null || echo "?")
+        owner=$(stat -c '%U:%G' "$sock_name" 2>/dev/null || echo "?")
+        if [[ "$perms" -le 600 ]] 2>/dev/null; then
+            check_pass "Sidecar socket $sock_name ($perms $owner)"
+        else
+            check_warn "Sidecar socket $sock_name has wide permissions ($perms)"
+        fi
+    else
+        check_fail "Sidecar socket missing: $sock_name"
+    fi
+done
+
+# Check scoped mount directories
+for dir in /run/armorclaw/sidecar-rust /run/armorclaw/sidecar-office; do
+    if [[ -d "$dir" ]]; then
+        perms=$(stat -c '%a' "$dir" 2>/dev/null || echo "?")
+        if [[ "$perms" -le 750 ]] 2>/dev/null; then
+            check_pass "Scoped mount $dir ($perms)"
+        else
+            check_warn "Scoped mount $dir has wide permissions ($perms, expected ≤750)"
+        fi
+    else
+        check_fail "Scoped mount directory missing: $dir"
+    fi
+done
+
+# Check HMAC status from bridge log
+BRIDGE_LOG="/var/log/armorclaw-bridge.log"
+if [[ -f "$BRIDGE_LOG" ]]; then
+    if grep -q "hmac=enabled" "$BRIDGE_LOG" 2>/dev/null; then
+        check_pass "HMAC token authentication is enabled"
+    elif grep -q "hmac=disabled" "$BRIDGE_LOG" 2>/dev/null; then
+        check_fail "HMAC token authentication is disabled"
+    else
+        check_warn "HMAC status unknown (not found in bridge log)"
+    fi
+else
+    # Try docker logs
+    if docker logs armorclaw 2>&1 | grep -q "hmac=enabled"; then
+        check_pass "HMAC token authentication is enabled"
+    else
+        check_warn "Could not determine HMAC status"
+    fi
+fi
+
+# Check HMAC secret file
+HMAC_SECRET="/run/armorclaw/secrets/office-hmac"
+if [[ -f "$HMAC_SECRET" ]]; then
+    perms=$(stat -c '%a' "$HMAC_SECRET" 2>/dev/null || echo "?")
+    owner=$(stat -c '%U:%G' "$HMAC_SECRET" 2>/dev/null || echo "?")
+    if [[ "$perms" -le 440 ]] 2>/dev/null; then
+        check_pass "HMAC secret file has restrictive permissions ($perms $owner)"
+    else
+        check_fail "HMAC secret file has wide permissions ($perms, expected ≤440)"
+    fi
+else
+    check_warn "HMAC secret file not found at $HMAC_SECRET"
+fi
+
+# Check AppArmor on sidecar containers
+for c in armorclaw-sidecar-rust armorclaw-sidecar-office; do
+    if docker ps --format '{{.Names}}' | grep -q "^${c}$"; then
+        sec_opts=$(docker inspect "$c" --format '{{.HostConfig.SecurityOpt}}' 2>/dev/null || echo "")
+        if echo "$sec_opts" | grep -q "apparmor="; then
+            aa_profile=$(echo "$sec_opts" | grep -o 'apparmor=[^] ]*' | cut -d= -f2)
+            check_pass "AppArmor attached to $c ($aa_profile)"
+        else
+            check_fail "No AppArmor profile on $c"
+        fi
+    fi
+done
+
+# Check container hardening (no network, no privileges, cap-drop ALL)
+for c in armorclaw-sidecar-rust armorclaw-sidecar-office; do
+    if docker ps --format '{{.Names}}' | grep -q "^${c}$"; then
+        net=$(docker inspect "$c" --format '{{.HostConfig.NetworkMode}}' 2>/dev/null)
+        priv=$(docker inspect "$c" --format '{{.HostConfig.Privileged}}' 2>/dev/null)
+        caps=$(docker inspect "$c" --format '{{.HostConfig.CapDrop}}' 2>/dev/null)
+        ro=$(docker inspect "$c" --format '{{.HostConfig.ReadonlyRootfs}}' 2>/dev/null)
+
+        hardened=true
+        [[ "$net" != "none" ]] && { check_warn "$c: network=$net (expected none)"; hardened=false; }
+        [[ "$priv" == "true" ]] && { check_fail "$c: privileged=true"; hardened=false; }
+        [[ "$caps" != "[ALL]" ]] && { check_warn "$c: CapDrop=$caps (expected [ALL])"; hardened=false; }
+        [[ "$ro" != "true" ]] && { check_warn "$c: ReadOnlyRootfs=$ro (expected true)"; hardened=false; }
+
+        if $hardened; then
+            check_pass "$c: fully hardened (none/priv=false/cap=ALL/ro=true)"
+        fi
+    fi
+done
+
+# ========================================
 # AI Stack Checks
 # ========================================
 echo ""
@@ -176,7 +308,7 @@ else
 fi
 
 # Check expected containers
-CONTAINERS=("armorclaw-conduit" "armorclaw-nginx" "armorclaw-coturn" "armorclaw-sygnal")
+CONTAINERS=("armorclaw-conduit" "armorclaw-nginx" "armorclaw-coturn" "armorclaw-sygnal" "armorclaw-sidecar-rust" "armorclaw-sidecar-office" "armorclaw-jetski")
 
 for container in "${CONTAINERS[@]}"; do
     if docker ps --format '{{.Names}}' | grep -q "^${container}$"; then
