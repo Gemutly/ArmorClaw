@@ -2789,13 +2789,18 @@ func runBridgeServer(cliCfg cliConfig) {
 	}
 
 	// Sidecar clients are lazy-connecting; missing sockets fail at extraction time, not startup.
-	officeClient := sidecar.NewOfficeClient(nil)
+	officeTokenGen := sidecar.InitTokenGenerator(nil)
+	officeClient := sidecar.NewOfficeClient(nil, officeTokenGen)
 	rustClient := sidecar.NewClient(nil)
 	javaClient := sidecar.NewJavaClient(nil)
 	server.SetSidecarClients(officeClient, rustClient, javaClient)
 	sidecar.ProbeExtractionMode()
-	log.Printf("Sidecar clients injected (office=%s, rust=%s, java=%s)",
-		sidecar.OfficeSocketPath, sidecar.DefaultSocketPath, sidecar.JavaSocketPath)
+	hmacStatus := "disabled"
+	if officeTokenGen != nil {
+		hmacStatus = "enabled"
+	}
+	log.Printf("Sidecar clients injected (office=%s, rust=%s, java=%s, hmac=%s)",
+		sidecar.OfficeSocketPath, sidecar.DefaultSocketPath, sidecar.JavaSocketPath, hmacStatus)
 
 	log.Printf("Starting ArmorClaw Bridge in %s mode with %s transport", cfg.Server.Mode, cfg.Server.RPCTransport)
 

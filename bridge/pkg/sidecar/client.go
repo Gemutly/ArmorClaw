@@ -42,6 +42,7 @@ type Config struct {
 	IdleTimeout    time.Duration         // Connection idle timeout
 	MaxMsgSize     int                   // Maximum message size
 	PIIInterceptor *PIIInterceptorConfig // PII interception configuration
+	TokenGenerator *TokenGenerator       // HMAC token generator for sidecar auth
 }
 
 // DefaultConfig returns a configuration with sensible defaults
@@ -167,8 +168,8 @@ func (c *Client) Connect(ctx context.Context) error {
 		grpc.WithContextDialer(dialer),
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
 		grpc.WithDefaultCallOptions(callOptions...),
-		grpc.WithChainUnaryInterceptor(ClientVersionInterceptor),
-		grpc.WithChainStreamInterceptor(StreamClientVersionInterceptor),
+		c.buildUnaryInterceptors(),
+		c.buildStreamInterceptors(),
 		grpc.WithConnectParams(grpc.ConnectParams{
 			Backoff:           backoffConfig,
 			MinConnectTimeout: 5 * time.Second,
@@ -190,6 +191,22 @@ func (c *Client) Connect(ctx context.Context) error {
 	c.logger.Info("connected to sidecar", "socket", c.config.SocketPath)
 
 	return nil
+}
+
+func (c *Client) buildUnaryInterceptors() grpc.DialOption {
+	interceptors := []grpc.UnaryClientInterceptor{ClientVersionInterceptor}
+	if c.config.TokenGenerator != nil {
+		interceptors = append(interceptors, HMACClientInterceptor(c.config.TokenGenerator))
+	}
+	return grpc.WithChainUnaryInterceptor(interceptors...)
+}
+
+func (c *Client) buildStreamInterceptors() grpc.DialOption {
+	interceptors := []grpc.StreamClientInterceptor{StreamClientVersionInterceptor}
+	if c.config.TokenGenerator != nil {
+		interceptors = append(interceptors, HMACStreamClientInterceptor(c.config.TokenGenerator))
+	}
+	return grpc.WithChainStreamInterceptor(interceptors...)
 }
 
 // Close closes the connection to the sidecar

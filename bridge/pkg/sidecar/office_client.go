@@ -21,7 +21,7 @@ const (
 )
 
 // NewOfficeClient creates a gRPC client pointing to the Python office sidecar socket.
-func NewOfficeClient(piiConfig *PIIInterceptorConfig) *Client {
+func NewOfficeClient(piiConfig *PIIInterceptorConfig, tokenGen *TokenGenerator) *Client {
 	config := &Config{
 		SocketPath:     OfficeSocketPath,
 		Timeout:        DefaultTimeout,
@@ -30,6 +30,7 @@ func NewOfficeClient(piiConfig *PIIInterceptorConfig) *Client {
 		IdleTimeout:    5 * time.Minute,
 		MaxMsgSize:     OfficeMaxMsgSize,
 		PIIInterceptor: piiConfig,
+		TokenGenerator: tokenGen,
 	}
 	return NewClient(config)
 }
