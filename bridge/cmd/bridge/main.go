@@ -2779,6 +2779,15 @@ func runBridgeServer(cliCfg cliConfig) {
 		log.Fatalf("Failed to create server: %v", err)
 	}
 
+	// Sidecar clients are lazy-connecting; missing sockets fail at extraction time, not startup.
+	officeClient := sidecar.NewOfficeClient(nil)
+	rustClient := sidecar.NewClient(nil)
+	javaClient := sidecar.NewJavaClient(nil)
+	server.SetSidecarClients(officeClient, rustClient, javaClient)
+	sidecar.ProbeExtractionMode()
+	log.Printf("Sidecar clients injected (office=%s, rust=%s, java=%s)",
+		sidecar.OfficeSocketPath, sidecar.DefaultSocketPath, sidecar.JavaSocketPath)
+
 	log.Printf("Starting ArmorClaw Bridge in %s mode with %s transport", cfg.Server.Mode, cfg.Server.RPCTransport)
 
 	// Start the RPC server in a goroutine so it doesn't block other services (e.g. mDNS)
