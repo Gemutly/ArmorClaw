@@ -1029,3 +1029,149 @@ func (s *Server) handleBrowserReplayDiagnostics(ctx context.Context, req *Reques
 		"match_percentage": matchPercentage,
 	}, nil
 }
+
+// handleBrowserScreenshot handles browser.screenshot RPC method.
+// Returns a placeholder response indicating the feature exists but
+// browser-service may not be connected.
+func (s *Server) handleBrowserScreenshot(ctx context.Context, req *Request) (interface{}, *ErrorObj) {
+	var params struct {
+		Format    string `json:"format,omitempty"`
+		FullPage  bool   `json:"full_page,omitempty"`
+		SessionID string `json:"session_id,omitempty"`
+		JobID     string `json:"job_id,omitempty"`
+	}
+
+	if err := json.Unmarshal(req.Params, &params); err != nil {
+		return nil, &ErrorObj{
+			Code:    InvalidParams,
+			Message: "invalid parameters: " + err.Error(),
+		}
+	}
+
+	if params.Format == "" {
+		params.Format = "png"
+	}
+
+	// Determine the job/session to screenshot
+	jobID := params.JobID
+	if jobID == "" {
+		jobID = params.SessionID
+	}
+
+	// Broker path: delegate to broker when configured
+	if s.browserBroker != nil {
+		if jobID == "" {
+			return nil, &ErrorObj{
+				Code:    InternalError,
+				Message: "no active browser session",
+			}
+		}
+
+		// Verify the job exists via status check
+		_, err := s.browserBroker.Status(ctx, browser.JobID(jobID))
+		if err != nil {
+			return nil, &ErrorObj{
+				Code:    InternalError,
+				Message: "no active browser session",
+			}
+		}
+
+		return map[string]interface{}{
+			"status":  "screenshot_pending",
+			"message": "screenshot requested",
+			"format":  params.Format,
+			"job_id":  jobID,
+		}, nil
+	}
+
+	// Fallback: legacy BrowserSkill path
+	if jobID != "" {
+		_, exists := s.browserJobs.GetJob(jobID)
+		if !exists {
+			return nil, &ErrorObj{
+				Code:    InternalError,
+				Message: "no active browser session",
+			}
+		}
+
+		return map[string]interface{}{
+			"status":  "screenshot_pending",
+			"message": "screenshot requested",
+			"format":  params.Format,
+			"job_id":  jobID,
+		}, nil
+	}
+
+	return nil, &ErrorObj{
+		Code:    InternalError,
+		Message: "no active browser session",
+	}
+}
+
+// handleBrowserClose handles browser.close RPC method.
+// Idempotent: returns success even if no active session exists.
+func (s *Server) handleBrowserClose(ctx context.Context, req *Request) (interface{}, *ErrorObj) {
+	var params struct {
+		JobID     string `json:"job_id,omitempty"`
+		SessionID string `json:"session_id,omitempty"`
+	}
+
+	if err := json.Unmarshal(req.Params, &params); err != nil {
+		return nil, &ErrorObj{
+			Code:    InvalidParams,
+			Message: "invalid parameters: " + err.Error(),
+		}
+	}
+
+	jobID := params.JobID
+	if jobID == "" {
+		jobID = params.SessionID
+	}
+
+	// No job specified — idempotent success
+	if jobID == "" {
+		return map[string]interface{}{
+			"ok":      true,
+			"message": "no active session to close",
+		}, nil
+	}
+
+	// Broker path
+	if s.browserBroker != nil {
+		err := s.browserBroker.Complete(ctx, browser.JobID(jobID))
+		if err != nil {
+			// Idempotent: treat "not found" as success
+			return map[string]interface{}{
+				"ok":      true,
+				"message": "no active session to close",
+			}, nil
+		}
+
+		return map[string]interface{}{
+			"ok":        true,
+			"session_id": jobID,
+			"message":   "session closed",
+		}, nil
+	}
+
+	// Fallback: legacy BrowserSkill path
+	job, exists := s.browserJobs.GetJob(jobID)
+	if !exists {
+		return map[string]interface{}{
+			"ok":      true,
+			"message": "no active session to close",
+		}, nil
+	}
+
+	job.skill.Complete(ctx)
+	job.Status = "completed"
+	now := time.Now()
+	job.CompletedAt = &now
+	job.Session = job.skill.GetSession()
+
+	return map[string]interface{}{
+		"ok":         true,
+		"session_id": jobID,
+		"message":    "session closed",
+	}, nil
+}

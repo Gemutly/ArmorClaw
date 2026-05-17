@@ -1244,6 +1244,8 @@ func (s *Server) registerHandlers() {
 		"browser.list":               s.handleBrowserList,
 		"browser.cancel":             s.handleBrowserCancel,
 		"browser.replay_diagnostics": s.handleBrowserReplayDiagnostics,
+		"browser.screenshot":         s.handleBrowserScreenshot,
+		"browser.close":              s.handleBrowserClose,
 		"bridge.start":               s.handleBridgeStart,
 		"bridge.stop":                s.handleBridgeStop,
 		"bridge.status":              s.handleBridgeStatus,
@@ -1398,6 +1400,8 @@ func (s *Server) registerHandlers() {
 			"browser.list":               BrowserRPCGroup,
 			"browser.cancel":             BrowserRPCGroup,
 			"browser.replay_diagnostics": BrowserRPCGroup,
+			"browser.screenshot":         BrowserRPCGroup,
+			"browser.close":              BrowserRPCGroup,
 			// Document group
 			"document.extract_text": DocumentRPCGroup,
 			"document.status":       DocumentRPCGroup,
