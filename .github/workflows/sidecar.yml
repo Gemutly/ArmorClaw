@@ -34,7 +34,7 @@ jobs:
           restore-keys: ${{ runner.os }}-cargo-
       - name: Install build deps
         if: steps.check_rust.outputs.exists == 'true'
-        run: sudo apt-get install -y cmake clang nasm
+        run: sudo apt-get install -y cmake clang nasm protobuf-compiler
       - name: Build (dev)
         if: steps.check_rust.outputs.exists == 'true'
         run: cd sidecar && cargo build --bin armorclaw-sidecar
