@@ -980,7 +980,7 @@ Max Concurrent: 3 (Wave 2)
   - Message: `docs(security): document AppArmor risk acceptance with compensating controls`
   - Files: `.sisyphus/evidence/task-10-apparmor-risk.md`
 
-- [ ] 11. Full BEATO Runtime Re-Score
+- [x] 11. Full BEATO Runtime Re-Score
 
   **What to do**:
   - Regenerate the runtime BEATO report from evidence gathered in T1-T10
@@ -1062,7 +1062,7 @@ Max Concurrent: 3 (Wave 2)
   - Message: `docs(beato): update runtime score after v1.1 remediation`
   - Files: `tests/reports/beato-runtime-report.md`
 
-- [ ] 12. Evidence Index
+- [x] 12. Evidence Index
 
   **What to do**:
   - Create `.sisyphus/evidence/beato-v1.1-index.md` — a single index of all evidence files
