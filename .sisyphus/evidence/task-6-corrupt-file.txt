@@ -1,0 +1,42 @@
+============================================================
+TASK 6: Office E2E Validation — Corrupt File Negative Test
+Date: 2026-05-16T20:32Z
+============================================================
+
+TEST: Random garbage data declared as XLSX
+RPC: document.extract_text
+FORMAT: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet
+FILENAME: corrupt.xlsx
+
+Test File: Random bytes "CORRUPTDATA!!!0000111100001111GARBAGE" (no valid magic bytes)
+Declared as: XLSX (application/vnd.openxmlformats-officedocument.spreadsheetml.sheet)
+
+REQUEST PARAMS:
+- token: <admin_token>
+- document_content: base64("CORRUPTDATA!!!0000111100001111GARBAGE")
+- document_format: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+- filename: "corrupt.xlsx"
+
+RESPONSE:
+{
+  "jsonrpc": "2.0",
+  "id": 3,
+  "error": {
+    "code": -32603,
+    "message": "document extraction failed: rpc error: code = InvalidArgument desc = unrecognized document format: \"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet\""
+  }
+}
+
+RESULT: PASSED — Returns appropriate error, no crash.
+
+ANALYSIS:
+- Same behavior as MIME mismatch test — corrupt data lacks any recognizable magic bytes
+- Content starts with 'C' (0x43) — not ZIP (0x50), OLE (0xD0), or PDF (0x25)
+- Falls through all Layer 1 and Layer 2 checks → "unrecognized document format"
+
+NOTE: Same observation as MIME mismatch — the error message could be more specific
+("corrupt or invalid file" vs "unrecognized format"). But functionally correct:
+NO CRASH, appropriate error returned, server remains stable.
+
+The Bridge handled corrupt data gracefully without panicking or crashing.
+============================================================

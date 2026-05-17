@@ -1,0 +1,30 @@
+=== T9-V: Healthcheck Verification ===
+
+Check 1: docker-compose-full.yml healthchecks
+  Count: 3
+    healthcheck:
+    healthcheck:
+    healthcheck:
+
+Check 2: docker-compose.yml healthchecks
+  Count: 3
+    healthcheck:
+    healthcheck:
+    healthcheck:
+
+Check 3: deploy/docker-compose.beato.yml healthchecks
+  Count: 1
+    healthcheck:
+
+Check 4: deploy/docker-compose.sidecar-py.yml healthcheck
+  Count: 0
+  0
+
+Check 5: health.check handler registered in server.go
+		"health.check":                         s.handleHealthCheck,
+  PASS: health.check registered
+
+Check 6: health.check is EXCLUDED from auth wrapping (critical after T1)
+  PASS: health handlers excluded from auth wrapping
+
+=== T9-V Complete ===

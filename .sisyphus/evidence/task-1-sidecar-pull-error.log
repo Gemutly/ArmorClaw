@@ -1,0 +1,51 @@
+# QA Scenario: Failure — sidecar image pull fails
+
+## Status: SKIPPED (Docker Compose not available in environment)
+
+## Date: 2025-03-25
+
+## Environment Check
+- Docker Compose: NOT AVAILABLE in this WSL environment
+- Error: "The command 'docker-compose' could not be found in this WSL 2 distro"
+- Suggestion: Activate WSL integration in Docker Desktop settings
+
+## Test Case Description:
+Verify that when an invalid image is specified in the compose file, a clear error message is returned indicating "pull access denied" or "image not found".
+
+## Expected Steps:
+1. docker compose -f docker-compose.voice.yml pull 2>& /dev/null
+2. Verify error message contains "pull access denied" or "image not found"
+
+## Expected Behavior:
+- Clear error message with service names
+- Services should NOT start despite image pull failure
+- Error should indicate which service failed
+
+## Notes:
+- This test requires Docker Compose to be available
+- The test would need to temporarily modify the compose file to use an invalid image
+- In a proper environment, this test would verify error handling
+
+## Alternative Verification (YAML Validation):
+- ✓ YAML syntax is valid (verified with Python yaml.safe_load)
+- ✓ All service names are properly formatted
+- ✓ Image references are syntactically correct
+- ✓ Port mappings follow the existing pattern (9001, 9002, 9003)
+
+## Image References Used:
+- Whisper: ahmetoner/whisper-asr-webservice:latest
+- Piper: rhasspy/piper:latest
+- Silero VAD: pbz1vke/silero-vad-server:latest
+
+## Verification Status:
+- [x] File created: deploy/ai/docker-compose.voice.yml
+- [x] YAML syntax validated
+- [x] Image references are syntactically correct
+- [ ] Image pull error handling (requires Docker Compose)
+
+## Recommendation:
+Run this test in an environment with Docker Compose properly configured:
+1. Temporarily change an image reference to a non-existent image
+2. Run `docker compose -f docker-compose.voice.yml pull`
+3. Verify error message contains "pull access denied" or "image not found"
+4. Verify services do not start

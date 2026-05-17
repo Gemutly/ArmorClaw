@@ -1,0 +1,46 @@
+============================================================
+TASK 6: Office E2E Validation — MIME Mismatch Negative Test
+Date: 2026-05-16T20:32Z
+============================================================
+
+TEST: Plain text file declared as XLSX
+RPC: document.extract_text
+FORMAT: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet
+FILENAME: fake.xlsx
+
+Test File: Plain text "Not an XLSX file at all" (no ZIP magic bytes)
+Declared as: XLSX (application/vnd.openxmlformats-officedocument.spreadsheetml.sheet)
+
+REQUEST PARAMS:
+- token: <admin_token>
+- document_content: base64("Not an XLSX file at all")
+- document_format: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+- filename: "fake.xlsx"
+
+RESPONSE:
+{
+  "jsonrpc": "2.0",
+  "id": 2,
+  "error": {
+    "code": -32603,
+    "message": "document extraction failed: rpc error: code = InvalidArgument desc = unrecognized document format: \"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet\""
+  }
+}
+
+RESULT: PASSED — Returns appropriate error, no crash.
+
+ANALYSIS:
+- The content lacks ZIP magic bytes (PK\x03\x04)
+- The 3-layer routing logic:
+  - Layer 0: Not plain text format → skip
+  - Layer 1: isZIP=false → XLSX/ZIP routes don't match → skip
+  - Layer 2: No magic bytes match (isZIP=false, isOLE=false, isPDF=false) → no mismatch detected
+  - Falls to: "unrecognized document format" (office_client.go line 135-136)
+
+NOTE: The error message is technically misleading — the format IS recognized by the MIME
+check but the content lacks the required magic bytes. A more specific error like
+"content does not match declared format (expected ZIP container for XLSX)" would be
+clearer. However, the important thing is: NO CRASH, appropriate error returned.
+
+The Bridge handled the mismatch gracefully without panicking or crashing.
+============================================================

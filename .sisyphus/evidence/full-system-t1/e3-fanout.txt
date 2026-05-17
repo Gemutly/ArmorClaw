@@ -1,0 +1,11 @@
+=== E3: Event Fanout Evidence ===
+--- Subscriber 1 ---
+{"payload":{"status":"ok"},"timestamp":"2026-04-30T15:36:37Z","type":"registered"}
+--- Subscriber 2 ---
+{"payload":{"status":"ok"},"timestamp":"2026-04-30T15:36:37Z","type":"registered"}
+--- RPC Result ---
+{
+  "jsonrpc": "2.0",
+  "id": 99,
+  "result": []
+}

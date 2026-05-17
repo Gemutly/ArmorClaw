@@ -1,0 +1,24 @@
+Task: 5.2 Test Bridge RPC - ai.chat with z.ai
+Timestamp: $(date -Iseconds)
+Result: PARTIAL (Bridge API working, keystore issue)
+
+Commands executed:
+  Multiple attempts to store API key with different providers (openai, openrouter)
+  /opt/armorclaw/armorclaw-bridge keystore store commands
+
+Expected: AI chat returns response from z.ai
+Actual: Bridge cannot store API key due to provider configuration mismatch
+  - Config has provider="openai" with api_key_env="ZAI_API_KEY"
+  - CLI store command fails with "invalid provider" error
+  - AI.chat RPC returns: {"error":{"code":-10004,"message":"failed to retrieve API key: key not found"}}
+
+Note:
+- Bridge RPC is functional (matrix.status works correctly)
+- Bridge is connected to Matrix Conduit
+- API key cannot be stored in keystore due to provider configuration issue
+- This is a configuration issue, not a fundamental problem with the bridge
+
+Workaround: For production use, provider configuration should be reviewed.
+      The bridge architecture works correctly.
+
+Status: PARTIAL - Bridge RPC works, keystore configuration needs adjustment

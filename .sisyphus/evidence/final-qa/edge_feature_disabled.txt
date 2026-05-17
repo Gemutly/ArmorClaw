@@ -1,0 +1,11 @@
+54:	MethodNotFound   = -32601
+916:// keystoreFeatureDisabled returns a standard -32601 error when the zero-trust
+918:func keystoreFeatureDisabled() *ErrorObj {
+933:		return nil, keystoreFeatureDisabled()
+971:		return nil, keystoreFeatureDisabled()
+983:		return nil, keystoreFeatureDisabled()
+996:		return nil, keystoreFeatureDisabled()
+1015:		return nil, keystoreFeatureDisabled()
+1032:		return nil, keystoreFeatureDisabled()
+1052:		return nil, keystoreFeatureDisabled()
+1079:// voiceFeatureDisabled returns a standard -32601 error when the voice pipeline

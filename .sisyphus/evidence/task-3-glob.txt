@@ -1,0 +1,4 @@
+---
+8
+5:#   If no case files given, runs all cases/case-*.sh files.
+55:    done < <(find "$SCRIPT_DIR/cases" -name 'test-*.sh' -type f 2>/dev/null | sort)

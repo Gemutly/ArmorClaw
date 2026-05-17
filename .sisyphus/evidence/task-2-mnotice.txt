@@ -1,0 +1,11 @@
+--- m.notice occurrences ---
+bridge/cmd/bridge/main.go:3652:	_, err := s.adapter.SendMessage(roomID, message, "m.notice")
+bridge/pkg/secretary/secretary_commands.go:27:	_, err := w.inner.SendMessageWithRetry(roomID, message, "m.notice")
+bridge/internal/adapter/commands_integration.go:87:		h.adapter.SendMessageWithRetry(roomID, response, "m.notice")
+--- build ---
+# github.com/hillu/go-yara/v4
+# [pkg-config --cflags  -- yara]
+Package yara was not found in the pkg-config search path.
+Perhaps you should add the directory containing `yara.pc'
+to the PKG_CONFIG_PATH environment variable
+Package 'yara', required by 'virtual:world', not found

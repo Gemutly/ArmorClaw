@@ -1,0 +1,16 @@
+=== TASK 2 QA: matrix plane test checks ===
+Date: 2026-04-25
+
+--- Scenario 2.1: grep -c 'mc.*--message' → should be ≤1 ---
+RESULT: PASS
+Count: 1 (only assistant category)
+
+--- Scenario 2.2: grep -c 'matrix_login\|/_matrix/client/v3/login' → ≥2 ---
+RESULT: PASS
+Count: 4
+
+--- Scenario 2.3: grep -c 'openssl rand -hex 8\|txn_id\|txnId' → ≥1 ---
+RESULT: PASS
+Count: 3
+
+Task 2 Score: 3/3 pass

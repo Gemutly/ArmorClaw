@@ -1,0 +1,88 @@
+BEATO Auth Gate Verification Evidence
+Date: 2026-05-16
+VPS: 5.183.11.149
+Bridge image: mikegemut/armorclaw:beato-fix
+
+=== Test 1: No params at all ===
+Request: {"jsonrpc":"2.0","id":1,"method":"document.status"}
+Response:
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "error": {
+    "code": -32602,
+    "message": "invalid parameters: unexpected end of JSON input"
+  }
+}
+Result: JSON parse error, NOT auth rejection
+
+=== Test 2: Empty params object (no token) ===
+Request: {"jsonrpc":"2.0","id":1,"method":"document.status","params":{}}
+Response:
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "error": {
+    "code": -32602,
+    "message": "job_id is required"
+  }
+}
+Result: Passes through to handler, NOT auth rejection
+
+=== Test 3: Wrong token ===
+Request: {"jsonrpc":"2.0","id":1,"method":"document.status","params":{"token":"WRONG_TOKEN"}}
+Response:
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "error": {
+    "code": -32602,
+    "message": "job_id is required"
+  }
+}
+Result: Passes through to handler, NOT auth rejection
+
+=== Test 4: No token on bridge.status ===
+Request: {"jsonrpc":"2.0","id":1,"method":"bridge.status","params":{}}
+Response:
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "result": {
+    "enabled": false,
+    "status": "not_configured",
+    "tls": {...}
+  }
+}
+Result: FULL DATA RETURNED without auth
+
+=== Test 5: Wrong token on bridge.status ===
+Request: {"jsonrpc":"2.0","id":1,"method":"bridge.status","params":{"token":"WRONG_TOKEN"}}
+Response: FULL DATA RETURNED without auth check
+
+=== Test 6: Wrong token on health.check ===
+Request: {"jsonrpc":"2.0","id":1,"method":"health.check","params":{"token":"WRONG_TOKEN"}}
+Response: FULL DATA RETURNED — health.check returns component status including keystore state
+
+=== SUMMARY ===
+Auth gate status: NOT ACTIVE
+
+SECURITY FINDING:
+The admin_token in config.toml is NOT being enforced by the RPC middleware.
+ALL methods are callable WITHOUT authentication or with WRONG authentication.
+The "token" param is accepted but never validated against admin_token.
+
+This means:
+- bridge.status exposes TLS fingerprint, cert details
+- health.check exposes keystore state, Matrix connection status
+- All 16 new RPCs are callable without auth
+- The Unix socket is the only protection layer (root-only access)
+
+RISK ASSESSMENT: LOW-MEDIUM
+- Socket is root-only (requires SSH root access to VPS)
+- No remote RPC exposure without additional config
+- However, any process running as root on VPS has full access
+- admin_token config exists but middleware does not enforce it
+
+RECOMMENDATION: Auth middleware needs to be connected to the RPC handler chain.
+The token parameter is consumed by handlers but never validated against admin_token.

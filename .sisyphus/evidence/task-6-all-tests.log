@@ -1,0 +1,119 @@
+=== RUN   TestBrowserNavigate
+    rpc_to_mcp_test.go:32: ✓ browser.navigate → browser_navigate with tools/call method
+--- PASS: TestBrowserNavigate (0.00s)
+=== RUN   TestContextPreservation
+    rpc_to_mcp_test.go:67: ✓ All context fields preserved: session_id=session-abc, user_id=user-xyz, tool_name=browser_tool, agent_id=agent-123
+--- PASS: TestContextPreservation (0.00s)
+=== RUN   TestAllMethods
+    rpc_to_mcp_test.go:97: ✓ All 62/62 methods translated successfully
+--- PASS: TestAllMethods (0.00s)
+=== RUN   TestUnknownMethod
+    rpc_to_mcp_test.go:121: ✓ Unknown method returns error without panic
+--- PASS: TestUnknownMethod (0.00s)
+=== RUN   TestInvalidJSONRPCVersion
+    rpc_to_mcp_test.go:138: ✓ Invalid JSON-RPC version rejected
+--- PASS: TestInvalidJSONRPCVersion (0.00s)
+=== RUN   TestEmptyJSONRPCVersion
+    rpc_to_mcp_test.go:154: ✓ Empty JSON-RPC version accepted (backward compatibility)
+--- PASS: TestEmptyJSONRPCVersion (0.00s)
+=== RUN   TestNilRequest
+    rpc_to_mcp_test.go:165: ✓ Nil request returns error
+--- PASS: TestNilRequest (0.00s)
+=== RUN   TestEmptyParams
+    rpc_to_mcp_test.go:184: ✓ Empty params handled correctly
+--- PASS: TestEmptyParams (0.00s)
+=== RUN   TestContextPreservationNoExistingParams
+    rpc_to_mcp_test.go:213: ✓ Context preserved even with no existing params
+--- PASS: TestContextPreservationNoExistingParams (0.00s)
+=== RUN   TestContextPreservationNilContext
+    rpc_to_mcp_test.go:238: ✓ Translate with nil context works
+--- PASS: TestContextPreservationNilContext (0.00s)
+=== RUN   TestExtractContext
+=== RUN   TestExtractContext/Full_context
+=== RUN   TestExtractContext/Partial_context
+=== RUN   TestExtractContext/No_context
+=== RUN   TestExtractContext/Empty_params
+=== NAME  TestExtractContext
+    rpc_to_mcp_test.go:287: ✓ ExtractContext handles all cases correctly
+--- PASS: TestExtractContext (0.00s)
+    --- PASS: TestExtractContext/Full_context (0.00s)
+    --- PASS: TestExtractContext/Partial_context (0.00s)
+    --- PASS: TestExtractContext/No_context (0.00s)
+    --- PASS: TestExtractContext/Empty_params (0.00s)
+=== RUN   TestTranslateResponse
+    rpc_to_mcp_test.go:311: ✓ MCP response translated to JSON-RPC format
+--- PASS: TestTranslateResponse (0.00s)
+=== RUN   TestTranslateResponseWithError
+    rpc_to_mcp_test.go:336: ✓ Error response translated correctly
+--- PASS: TestTranslateResponseWithError (0.00s)
+=== RUN   TestTranslateError
+=== RUN   TestTranslateError/Unknown_method
+=== RUN   TestTranslateError/Invalid_JSON-RPC_version
+=== RUN   TestTranslateError/Invalid_request
+=== RUN   TestTranslateError/Internal_error
+=== NAME  TestTranslateError
+    rpc_to_mcp_test.go:384: ✓ TranslateError creates proper error responses
+--- PASS: TestTranslateError (0.00s)
+    --- PASS: TestTranslateError/Unknown_method (0.00s)
+    --- PASS: TestTranslateError/Invalid_JSON-RPC_version (0.00s)
+    --- PASS: TestTranslateError/Invalid_request (0.00s)
+    --- PASS: TestTranslateError/Internal_error (0.00s)
+=== RUN   TestValidateProtocolVersion
+=== RUN   TestValidateProtocolVersion/Valid_2.0
+=== RUN   TestValidateProtocolVersion/Empty_string
+=== RUN   TestValidateProtocolVersion/Invalid_1.0
+=== RUN   TestValidateProtocolVersion/Invalid_3.0
+=== NAME  TestValidateProtocolVersion
+    rpc_to_mcp_test.go:408: ✓ Protocol version validation works
+--- PASS: TestValidateProtocolVersion (0.00s)
+    --- PASS: TestValidateProtocolVersion/Valid_2.0 (0.00s)
+    --- PASS: TestValidateProtocolVersion/Empty_string (0.00s)
+    --- PASS: TestValidateProtocolVersion/Invalid_1.0 (0.00s)
+    --- PASS: TestValidateProtocolVersion/Invalid_3.0 (0.00s)
+=== RUN   TestGetSupportedMethods
+    rpc_to_mcp_test.go:427: ✓ GetSupportedMethods returns all 62 methods
+--- PASS: TestGetSupportedMethods (0.00s)
+=== RUN   TestGetMCPTools
+    rpc_to_mcp_test.go:446: ✓ GetMCPTools returns all 62 tool names
+--- PASS: TestGetMCPTools (0.00s)
+=== RUN   TestGetMCPToolName
+=== RUN   TestGetMCPToolName/Browser_navigate
+=== RUN   TestGetMCPToolName/AI_chat
+=== RUN   TestGetMCPToolName/Skills_execute
+=== RUN   TestGetMCPToolName/Unknown_method
+=== NAME  TestGetMCPToolName
+    rpc_to_mcp_test.go:468: ✓ GetMCPToolName returns correct mappings
+--- PASS: TestGetMCPToolName (0.00s)
+    --- PASS: TestGetMCPToolName/Browser_navigate (0.00s)
+    --- PASS: TestGetMCPToolName/AI_chat (0.00s)
+    --- PASS: TestGetMCPToolName/Skills_execute (0.00s)
+    --- PASS: TestGetMCPToolName/Unknown_method (0.00s)
+=== RUN   TestIsValidMethod
+=== RUN   TestIsValidMethod/Valid_browser.navigate
+=== RUN   TestIsValidMethod/Valid_ai.chat
+=== RUN   TestIsValidMethod/Valid_skills.execute
+=== RUN   TestIsValidMethod/Invalid_method
+=== NAME  TestIsValidMethod
+    rpc_to_mcp_test.go:490: ✓ IsValidMethod works correctly
+--- PASS: TestIsValidMethod (0.00s)
+    --- PASS: TestIsValidMethod/Valid_browser.navigate (0.00s)
+    --- PASS: TestIsValidMethod/Valid_ai.chat (0.00s)
+    --- PASS: TestIsValidMethod/Valid_skills.execute (0.00s)
+    --- PASS: TestIsValidMethod/Invalid_method (0.00s)
+=== RUN   TestGetAllRPCMethods
+    rpc_to_mcp_test.go:502: ✓ GetAllRPCMethods returns all 62 methods
+--- PASS: TestGetAllRPCMethods (0.00s)
+=== RUN   TestGetAllMCPTools
+    rpc_to_mcp_test.go:514: ✓ GetAllMCPTools returns all 62 tool names
+--- PASS: TestGetAllMCPTools (0.00s)
+=== RUN   TestMethodMapCompleteness
+    rpc_to_mcp_test.go:547: ✓ MethodMap contains all expected 62 methods
+--- PASS: TestMethodMapCompleteness (0.00s)
+=== RUN   TestTranslationRoundTrip
+    rpc_to_mcp_test.go:578: ✓ Round trip translation preserves parameters
+--- PASS: TestTranslationRoundTrip (0.00s)
+=== RUN   TestComplexParameters
+    rpc_to_mcp_test.go:619: ✓ Complex parameters (nested, arrays, primitives) handled correctly
+--- PASS: TestComplexParameters (0.00s)
+PASS
+ok  	github.com/armorclaw/bridge/pkg/translator	0.016s

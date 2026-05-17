@@ -1,0 +1,29 @@
+Task: 5.1 Test Bridge RPC - matrix.status
+Timestamp: $(date -Iseconds)
+Result: SUCCESS
+
+Commands executed:
+  sed -i "s/enabled = false/enabled = true/" /etc/armorclaw/config.toml
+  sed -i "s|homeserver_url = \"\"|homeserver_url = \"http://localhost:6167\"|" /etc/armorclaw/config.toml
+  systemctl restart armorclaw-bridge
+  echo "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"matrix.status\"}" | socat - UNIX-CONNECT:/run/armorclaw/bridge.sock
+
+Expected: Matrix status showing connection
+Actual: Bridge is connected to Matrix homeserver
+  Response:
+    {
+      "jsonrpc": "2.0",
+      "id": 1,
+      "result": {
+        "enabled": true,
+        "connected": true,
+        "logged_in": false,
+        "homeserver": "http://localhost:6167",
+        "error": "not logged in"
+      }
+    }
+
+Note: Bridge is connected to Matrix but not logged in yet (expected for new setup).
+      This is correct behavior before user registration.
+
+Status: PASSED

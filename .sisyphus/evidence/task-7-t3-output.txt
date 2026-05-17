@@ -1,0 +1,73 @@
+[INFO] Transport: socket=true http=true mode=both
+
+=========================================
+Category A: Bridge Health
+=========================================
+  [PASS] [1/11] SSH connectivity
+  [PASS] Health endpoint returns ok (http)
+  [PASS] [3/11] Bridge container running
+
+=========================================
+Category B: Auth Enforcement
+=========================================
+  [FAIL] No auth returns JSON-RPC -32001 unauthorized (http)
+    Got: {"jsonrpc":"2.0","id":1,"result":[]}
+  [PASS] Valid auth returns result (http)
+  [FAIL] Invalid token returns -32001 (http)
+    Got: {"jsonrpc":"2.0","id":1,"result":[]}
+  [FAIL] No auth returns -32001 (socket)
+    Got: {
+  "jsonrpc": "2.0",
+  "id": 1,
+  "result": []
+}
+  [PASS] Valid auth returns result (socket)
+  [FAIL] Invalid token returns -32001 (socket)
+    Got: {
+  "jsonrpc": "2.0",
+  "id": 1,
+  "result": []
+}
+
+=========================================
+Category C: Governance Methods
+=========================================
+  [PASS] device.list returns result (http)
+  [PASS] invite.list returns result (http)
+  [PASS] invite.create returns invite with code (http)
+  [PASS] invite.revoke returns success (http)
+  [PASS] device.list returns result (socket)
+  [PASS] invite.list returns result (socket)
+  [PASS] invite.create returns invite with code (socket)
+  [PASS] invite.revoke returns success (socket)
+
+  [SKIP] Device approve/reject happy-path (PENDING_DEVICE_ID not set)
+
+=========================================
+Category D: Discovery Endpoint
+=========================================
+  [PASS] Discovery endpoint returns version (http)
+
+=========================================
+VPS SMOKE TEST SUMMARY
+=========================================
+Transport mode: both
+Transport tested: socket (7 tests), http (9 tests)
+Total: 18 | Passed: 14 | Failed: 4
+Groups: Health(3/3) Auth(2/6) Governance(8/8) Discovery(1/1)
+=========================================
+FAILURES:
+
+  - No auth -32001 (http): got '{"jsonrpc":"2.0","id":1,"result":[]}'
+  - Invalid token -32001 (http): got '{"jsonrpc":"2.0","id":1,"result":[]}'
+  - No auth -32001 (socket): got '{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "result": []
+}'
+  - Invalid token -32001 (socket): got '{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "result": []
+}'
+=========================================

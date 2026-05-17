@@ -1,0 +1,18 @@
+=== RUN   TestSessionManagerInitialization
+time=2026-04-07T19:48:40.454-06:00 level=INFO msg="SessionManager initialized" service=armorclaw component=bridge version=1.1.0 db_path=/tmp/test_sessions_TestSessionManagerInitialization.db check_interval=5s
+    session_manager_test.go:33: ✓ SessionManager initializes successfully
+time=2026-04-07T19:48:40.464-06:00 level=INFO msg="SessionManager closed" service=armorclaw component=bridge version=1.1.0
+--- PASS: TestSessionManagerInitialization (0.09s)
+=== RUN   TestSessionCreation
+time=2026-04-07T19:48:40.542-06:00 level=INFO msg="SessionManager initialized" service=armorclaw component=bridge version=1.1.0 db_path=/tmp/test_sessions_TestSessionCreation.db check_interval=5s
+time=2026-04-07T19:48:40.557-06:00 level=INFO msg="Session created" service=armorclaw component=bridge version=1.1.0 session_id=session-123 pid=12345
+    session_manager_test.go:72: ✓ Sessions can be created and tracked
+time=2026-04-07T19:48:40.573-06:00 level=INFO msg="SessionManager closed" service=armorclaw component=bridge version=1.1.0
+--- PASS: TestSessionCreation (0.11s)
+=== RUN   TestWALMode
+time=2026-04-07T19:48:40.665-06:00 level=INFO msg="SessionManager initialized" service=armorclaw component=bridge version=1.1.0 db_path=/tmp/test_sessions_TestWALMode.db check_interval=5s
+    session_manager_test.go:472: ✓ Database opened in WAL mode for concurrent access
+time=2026-04-07T19:48:40.678-06:00 level=INFO msg="SessionManager closed" service=armorclaw component=bridge version=1.1.0
+--- PASS: TestWALMode (0.11s)
+PASS
+ok  	github.com/armorclaw/bridge/pkg/translator	0.311s

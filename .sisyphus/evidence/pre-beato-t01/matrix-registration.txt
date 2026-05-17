@@ -1,0 +1,58 @@
+=== T0.1: Matrix Bridge User Re-Registration Evidence ===
+Date: 2026-05-15
+
+## Step 1: Check username availability
+- bridge user was already in DB from prior setup but password mismatch
+- Error: M_USER_IN_USE
+
+## Step 2: Clean approach
+- Registered temp admin user via Conduit API (allow_registration=true)
+- Stopped Conduit container (armorclaw-conduit)
+- Removed @bridge:5.183.11.149 from SQLite tables:
+  - userid_password
+  - userid_* tables
+  - userdeviceid_* tables
+- Started Conduit, verified username available: {"available":true}
+
+## Step 3: Register bridge user
+- POST /_matrix/client/v3/register with m.login.dummy auth
+- Result: SUCCESS
+  - user_id: @bridge:5.183.11.149
+  - device_id: 7GyRYDKI64
+
+## Step 4: Verify login
+- POST /_matrix/client/v3/login with m.login.password
+- Result: SUCCESS (200)
+  - user_id: @bridge:5.183.11.149
+  - access_token: ***REDACTED***
+  - home_server: 5.183.11.149
+  - device_id: sGwyOuzDle
+
+## Step 5: Config verification
+- /opt/armorclaw/.env already had correct values:
+  - MATRIX_BRIDGE_USER=bridge
+  - MATRIX_BRIDGE_PASSWORD=***REDACTED***
+- /opt/armorclaw/data/config.toml [matrix] section correct:
+  - username = "bridge"
+  - password = "***REDACTED***"
+  - homeserver_url = "http://localhost:6167"
+  - enabled = true
+
+## Step 6: Bridge restart and health
+- docker restart armorclaw
+- Health check: {"bridge_ready":true,"status":"ok","version":"4.6.0"}
+
+## Step 7: Matrix status via RPC
+- method: matrix.status
+- Result:
+  - enabled: true
+  - connected: true
+  - logged_in: true
+  - homeserver: http://localhost:6167
+  - user_id: @bridge:5.183.11.149
+
+## Cleanup
+- Temp admin user removed from Conduit DB
+- Conduit restarted
+
+## Outcome: ALL CHECKS PASSED

@@ -1,0 +1,4 @@
+# github.com/armorclaw/bridge/pkg/yara
+pkg/yara/scanner.go:13:22: undefined: yara.Rules
+pkg/yara/scanner.go:24:24: undefined: yara.NewCompiler
+pkg/yara/scanner.go:54:22: undefined: yara.MatchRules

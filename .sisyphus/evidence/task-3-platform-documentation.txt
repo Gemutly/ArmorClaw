@@ -1,0 +1,64 @@
+=========================================
+Task 3: Cross-Platform Utility Documentation
+=========================================
+
+Date: 2026-04-03
+
+File Created: .skills/PLATFORM.md
+
+Verification Results:
+-------------------
+Platform Coverage:
+- Linux: 17 mentions
+- Windows: 29 mentions
+- macOS: 13 mentions
+
+Windows Variants:
+- PowerShell: 18 mentions
+- Git Bash: 25 mentions
+- WSL: 21 mentions
+
+Sections Documented:
+-------------------
+✓ Platform Detection Logic
+  - Detection order and checks
+  - Quick platform check table
+
+✓ SSH Connection Examples
+  - Linux/macOS: Standard OpenSSH
+  - Windows (Git Bash): Standard OpenSSH
+  - WSL: Standard OpenSSH with path mapping
+  - Windows (PowerShell): OpenSSH with Git Bash alternative
+
+✓ Path Handling
+  - Linux/macOS: Unix paths (~, $HOME)
+  - Windows (Git Bash): Unix-style paths (/c/Users/...)
+  - WSL: Unix paths with /mnt/c/ mapping
+  - Windows (PowerShell): Windows paths ($env:USERPROFILE)
+
+✓ HTTP Requests
+  - curl examples (Linux/macOS/Git Bash/WSL)
+  - Invoke-WebRequest examples (PowerShell)
+  - Git Bash recommendation for consistency
+
+Additional Sections:
+-------------------
+✓ Platform-Specific Considerations
+  - Line endings
+  - Permissions
+  - Environment variables
+
+✓ Recommended Approach for Skills
+  - Platform support table
+  - Documentation pattern
+  - Best practices
+  - Platform detection code examples
+
+QA Status: PASSED
+- All platforms covered
+- All Windows variants documented
+- Git Bash alternatives provided for all PowerShell examples
+- No scripts created (documentation only)
+- No PowerShell-only examples
+- Complex logic avoided
+

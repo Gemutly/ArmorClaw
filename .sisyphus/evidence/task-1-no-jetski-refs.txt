@@ -1,0 +1,8 @@
+=== Grep: jetski/navchart in Go source ===
+(zero results)
+
+=== Grep: jetski in go.mod ===
+(not found)
+
+=== Subpackage check ===
+NO_SUBPACKAGE (correct)

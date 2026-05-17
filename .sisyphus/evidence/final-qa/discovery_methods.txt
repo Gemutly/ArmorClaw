@@ -1,0 +1,4 @@
+  "browser.replay_diagnostics"
+  "keystore.unseal" "keystore.sealed" "keystore.seal" "keystore.extend_session" "keystore.session_status" "keystore.list_keys" "keystore.delete_key"
+  "e2ee.create_backup" "e2ee.delete_backup" "e2ee.backup_exists"
+  "voice.start_session" "voice.stop_session" "voice.status"

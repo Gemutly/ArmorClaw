@@ -1,0 +1,22 @@
+=== RUN   TestDenyByDefault_S2
+--- PASS: TestDenyByDefault_S2 (0.00s)
+=== RUN   TestYAMLv3Parser_S3
+--- PASS: TestYAMLv3Parser_S3 (0.00s)
+=== RUN   TestIPv6Blocking_S6
+=== RUN   TestIPv6Blocking_S6/IPv6_loopback
+=== RUN   TestIPv6Blocking_S6/IPv6_unique-local
+=== RUN   TestIPv6Blocking_S6/IPv6_link-local
+=== RUN   TestIPv6Blocking_S6/IPv4-mapped_IPv6
+--- PASS: TestIPv6Blocking_S6 (0.00s)
+    --- PASS: TestIPv6Blocking_S6/IPv6_loopback (0.00s)
+    --- PASS: TestIPv6Blocking_S6/IPv6_unique-local (0.00s)
+    --- PASS: TestIPv6Blocking_S6/IPv6_link-local (0.00s)
+    --- PASS: TestIPv6Blocking_S6/IPv4-mapped_IPv6 (0.00s)
+=== RUN   TestExtractHostStripsUserinfo_S7
+--- PASS: TestExtractHostStripsUserinfo_S7 (0.00s)
+=== RUN   TestEmailSendPolicy_S8
+--- PASS: TestEmailSendPolicy_S8 (0.00s)
+=== RUN   TestDefaultGovernorInstalled_F1
+--- PASS: TestDefaultGovernorInstalled_F1 (0.00s)
+PASS
+ok  	github.com/armorclaw/bridge/internal/skills	0.004s

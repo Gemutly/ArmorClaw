@@ -1,0 +1,5 @@
+=== RUN   TestAllMethods
+    rpc_to_mcp_test.go:97: ✓ All 62/62 methods translated successfully
+--- PASS: TestAllMethods (0.00s)
+PASS
+ok  	github.com/armorclaw/bridge/pkg/translator	0.004s

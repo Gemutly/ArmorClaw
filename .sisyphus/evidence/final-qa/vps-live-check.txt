@@ -1,0 +1,13 @@
+=== LIVE VPS QUICK CHECK ===
+Date: 2026-04-25
+Host: 5.183.11.149
+
+Command: ssh -i ~/.ssh/openclaw_win -o StrictHostKeyChecking=no root@5.183.11.149 \
+  "systemctl is-active armorclaw-bridge && curl -kfsS https://localhost:8080/health && echo '' && test -S /run/armorclaw/bridge.sock && echo SOCKET_OK"
+
+RESULT: ALL PASS
+- systemctl is-active armorclaw-bridge → active ✓
+- curl https://localhost:8080/health → {"bridge_ready":true,"is_new_server":true,"provisioning_available":false,"server_name":"0.0.0.0","status":"ok","timestamp":"2026-04-25T01:47:02Z","version":"4.6.0"} ✓
+- test -S /run/armorclaw/bridge.sock → SOCKET_OK ✓
+
+VPS Score: 3/3 pass

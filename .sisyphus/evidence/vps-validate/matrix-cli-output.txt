@@ -1,0 +1,21 @@
+=========================================
+ MODE: smoke (safe for live deployment)
+=========================================
+
+--- test_ssh_connectivity ---
+PASS: ssh_connectivity
+--- test_service_health ---
+FAIL: service_health: matrix/conduit running but bridge not detected
+--- test_matrix_login ---
+SKIP: matrix_login (MATRIX_BASE_URL, MATRIX_USER, or MATRIX_PASSWORD not set)
+--- test_status_command ---
+SKIP: status_command (not logged in or MATRIX_ROOM_ID not set)
+--- test_help_command ---
+SKIP: help_command (not logged in or MATRIX_ROOM_ID not set)
+--- test_studio_command (!agent list) ---
+SKIP: studio_command (not logged in or MATRIX_ROOM_ID not set)
+--- test_secretary_command (!secretary status) ---
+SKIP: secretary_command (not logged in or MATRIX_ROOM_ID not set)
+
+Results: 1 PASS | 1 FAIL | 5 SKIP
+Evidence saved to: .sisyphus/evidence/task-4-*.json

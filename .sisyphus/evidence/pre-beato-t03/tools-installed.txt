@@ -1,0 +1,14 @@
+=== Tool Installation Evidence ===
+Date: 2026-05-15T21:25:27Z
+
+--- jq ---
+jq-1.7
+
+--- socat ---
+socat by Gerhard Rieger and contributors - see www.dest-unreach.org
+
+--- websocat ---
+websocat 1.13.0
+
+--- jq via SSH pipe test ---
+"ok"

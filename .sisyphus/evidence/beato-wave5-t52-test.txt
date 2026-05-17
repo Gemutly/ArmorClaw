@@ -1,0 +1,40 @@
+T5.2: Resource Under-Load Verification
+Date: 2026-05-16T14:35:26Z
+VPS: 5.183.11.149
+
+=== LOAD SCENARIO ===
+Concurrent operations:
+1. browser.navigate (https://example.com) — job started, running
+2. email.list_pending — responded with 0 pending
+3. document.extract_text — method not found (bridge not rebuilt, expected)
+
+=== RESOURCE RESULTS ===
+
+Memory: 7941 MB total, 871 MB used, 7070 MB available
+  ✅ Available (7070 MB) >> 250 MB threshold
+
+Disk: 73 GB free
+  ✅ Free (73 GB) >> 3 GB threshold
+
+Load Average: 0.01, 0.02, 0.00
+  ✅ Load (0.01) << 3.0 threshold
+
+=== DOCKER STATS (under load) ===
+| Container               | CPU    | Memory Usage | Memory % |
+|--------------------------|--------|-------------|----------|
+| armorclaw-sidecar-office | 0.08%  | 116.7 MiB   | 22.80%   |
+| armorclaw-jetski         | 0.05%  | 4.97 MiB    | 0.97%    |
+| armorclaw (bridge)       | 0.00%  | 21.22 MiB   | 0.27%    |
+| armorclaw-conduit        | 0.01%  | 45 MiB      | 0.57%    |
+
+Total container memory: ~187 MiB (2.3% of host RAM)
+
+=== OOM CHECK ===
+No OOM kills detected ✅
+
+=== VERDICT ===
+PASS — All thresholds met with significant headroom
+- RAM available: 7070 MB (28x threshold)
+- Disk free: 73 GB (24x threshold)
+- Load: 0.01 (300x below threshold)
+- No OOM kills

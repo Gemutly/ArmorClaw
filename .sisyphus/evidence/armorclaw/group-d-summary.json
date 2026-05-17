@@ -1,0 +1,7 @@
+{
+  "group": "D-Trust",
+  "overall": "skip-disabled",
+  "results": [],
+  "details": "Skipped: RPC probe classified as path-mismatch",
+  "duration_ms": 0
+}

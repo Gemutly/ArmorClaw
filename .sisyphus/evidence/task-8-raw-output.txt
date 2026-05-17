@@ -1,0 +1,80 @@
+=== VPS TEST SUITE RAW OUTPUT (RE-RUN) ===
+Date: 2026-05-15T00:20:43Z
+VPS: 5.183.11.149
+Target: armorclaw container + armorclaw-conduit container
+
+TEST1_START
+armorclaw Up 3 minutes (healthy)
+armorclaw-conduit Up 4 minutes
+TEST1_END
+
+TEST2_START
+tail
+root 216 /opt/armorclaw/armorclaw-bridge
+TEST2_END
+
+TEST3_START
+ALIVE
+TEST3_END
+
+TEST4_START
+{"versions":["r0.5.0","r0.6.0","v1.1","v1.2","v1.3","v1.4","v1.5","v1.6","v1.7","v1.8","v1.9","v1.10","v1.11","v1.12"],"unstable_features":{"org.matrix.e2e_cross_signing":true,"org.matrix.msc3916.stable":true,"org.matrix.simplified_msc3575":true}}
+TEST4_END
+
+TEST5_START
+{"api_url":"http://armorclaw:8080/api","matrix_homeserver":"http://host.docker.internal:6167","mode":"operational","port":8080,"provisioning_available":false,"push_gateway":"http://host.docker.internal:6167/_matrix/push/v1/notify","server_name":"armorclaw","service_name":"armorclaw","tls":false,"txt":{},"version":"0.2.0","ws_url":"wss://armorclaw:8080/ws"}
+TEST5_END
+
+TEST6_START
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "result": {
+    "enabled": false,
+    "status": "not_configured",
+    "tls": {
+      "cert_source": "",
+      "expires_at": 0,
+      "fingerprint_sha256": "",
+      "health": "ok",
+      "mode": "none",
+      "san_includes_public_ip": false,
+      "trust_type": ""
+    }
+  }
+}
+TEST6_END
+
+TEST7_START
+healthy
+TEST7_END
+
+TEST8_START
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "result": {
+    "enabled": true,
+    "connected": true,
+    "logged_in": true,
+    "homeserver": "http://host.docker.internal:6167",
+    "user_id": "@bridge:5.183.11.149"
+  }
+}
+TEST8_END
+
+TEST9_START
+0
+0
+TEST9_END
+
+TEST10_START
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "error": {
+    "code": -32601,
+    "message": "method not found"
+  }
+}
+TEST10_END

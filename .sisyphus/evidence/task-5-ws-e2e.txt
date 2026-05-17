@@ -1,0 +1,48 @@
+Task 5: Wire EventBus Through HTTP /ws Server
+Date: 2026-04-18
+Status: COMPLETE
+
+## Files Modified
+
+### 1. bridge/pkg/websocket/websocket.go
+- Replaced 74-line stub with 118-line real adapter
+- Added EventBroadcaster interface (implemented by HTTP server)
+- Server.Broadcast() now delegates to injected broadcaster
+- Server.Start() returns error if no broadcaster wired (preserves crash-only contract)
+- Added SetBroadcaster() for dependency injection
+- Removed "not yet implemented" stub
+
+### 2. bridge/pkg/eventbus/eventbus.go
+- Line 437: Replaced `_ = data` with actual broadcast via websocketServer.Broadcast(data)
+- sendToSubscriber() now forwards serialized events to WebSocket clients
+- Added EventBus.SetBroadcaster() method to wire HTTP server from external callers
+- Preserved crash-only log.Fatalf at line 146
+
+### 3. bridge/pkg/http/server.go
+- Added BroadcastEvent(eventType string, payload []byte) method
+- Follows same pattern as existing Broadcast* methods (RLock, iterate clients, non-blocking send)
+
+## Architecture
+
+EventBus → websocket.Server.Broadcast() → EventBroadcaster interface ← http.Server.BroadcastEvent()
+                (adapter)                    (implemented by HTTP server)
+
+The EventBus owns a websocket.Server. The HTTP server implements websocket.EventBroadcaster.
+Main.go wires them: eventBus.SetBroadcaster(httpsServer) before eventBus.Start().
+
+## Verification Results
+
+- `grep "not yet implemented" websocket.go` → empty (PASS)
+- `grep "_ = data" eventbus.go` → empty (PASS)
+- `grep "log.Fatalf" eventbus.go` → line 146 preserved (PASS)
+- `CGO_ENABLED=0 go build ./pkg/websocket/` → clean (PASS)
+- `CGO_ENABLED=0 go build ./pkg/eventbus/` → clean (PASS)
+- `CGO_ENABLED=0 go vet ./pkg/websocket/ ./pkg/eventbus/` → clean (PASS)
+- `go test ./pkg/eventbus/... -count=1` → PASS (all tests)
+- `go test ./pkg/vault/... -count=1` → PASS (8 tests, uses PublishBridgeEvent)
+
+## Wiring Required in main.go (outside this task's scope)
+After this change, main.go needs one additional line before eventBus.Start():
+    eventBus.SetBroadcaster(httpsServer)
+This is a non-breaking change — if not called, Start() returns an error
+which triggers the crash-only log.Fatalf as before.

@@ -1,0 +1,322 @@
+# Installer Validation: Service Health & Startup Order
+# Generated: 2026-03-13
+# Status: STATIC ANALYSIS
+
+## 1. Docker Compose Service Dependencies
+
+### File: docker-compose-full.yml
+
+```
+Service Dependency Graph:
+  matrix (no deps)
+    ↓
+  sygnal (depends: matrix)
+    ↓
+  caddy (depends: matrix, sygnal)
+    ↓
+  bridge (depends: matrix[healthy], sygnal)
+```
+
+**Healthcheck Configurations:**
+
+### matrix (Conduit)
+```yaml
+healthcheck:
+  test: ["CMD-SHELL", "wget -q --spider http://localhost:6167/_matrix/client/versions || exit 1"]
+  interval: 10s
+  timeout: 5s
+  retries: 30
+  start_period: 60s
+```
+- **Interval:** 10 seconds between checks
+- **Timeout:** 5 seconds per check
+- **Retries:** 30 (5 minutes max before unhealthy)
+- **Start Period:** 60 seconds grace period
+- **Evidence:** GOOD - Comprehensive healthcheck
+
+### sygnal
+```yaml
+healthcheck:
+  test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:5000/health"]
+  interval: 30s
+  timeout: 10s
+  retries: 3
+  start_period: 10s
+```
+- **Interval:** 30 seconds
+- **Timeout:** 10 seconds
+- **Retries:** 3 (90 seconds max)
+- **Evidence:** GOOD - Uses /health endpoint
+
+### bridge
+```yaml
+# No explicit healthcheck
+```
+- **Evidence:** GAP - Bridge lacks explicit healthcheck
+- **Mitigation:** Service has `restart: unless-stopped`
+- **Recommendation:** Add healthcheck for bridge
+
+---
+
+## 2. Script-Based Service Startup
+
+### installer-v5.sh - Docker Readiness (lines 247-257)
+```bash
+wait_for_docker() {
+  print_info "Waiting for Docker daemon..."
+  for ((i=1;i<=10;i++)); do
+    if docker info >/dev/null 2>&1 && docker ps >/dev/null 2>&1; then
+      print_done "Docker daemon ready"
+      return 0
+    fi
+    sleep 2
+  done
+  fail "Docker failed to start within 20 seconds"
+}
+```
+- **Check:** Both `docker info` AND `docker ps`
+- **Timeout:** 20 seconds (10 × 2s)
+- **Evidence:** EXCELLENT - Dual check ensures daemon is fully operational
+
+### quickstart-entrypoint.sh - Docker Readiness (lines 175-182)
+```bash
+for ((i=1;i<=10;i++)); do
+    if docker info >/dev/null 2>&1 && docker ps >/dev/null 2>&1; then
+        log "Docker daemon ready"
+        break
+    fi
+    sleep 2
+done
+```
+- **Evidence:** GOOD - Same dual-check pattern
+
+### quickstart-entrypoint.sh - Conduit Readiness (lines 291-307)
+```bash
+log "Waiting for Conduit to start..."
+MAX_WAIT=120
+WAITED=0
+while [ $WAITED -lt $MAX_WAIT ]; do
+    if curl -sf http://localhost:6167/_matrix/client/versions >/dev/null 2>&1; then
+        log_success "Conduit is ready"
+        break
+    fi
+    sleep 1
+    WAITED=$((WAITED + 1))
+done
+
+if [ $WAITED -eq $MAX_WAIT ]; then
+    log_error "Conduit failed to start within $MAX_WAIT seconds"
+    docker logs armorclaw-conduit 2>&1 | tail -20
+    exit 1
+fi
+```
+- **Timeout:** 120 seconds
+- **Check:** Matrix client versions endpoint
+- **Evidence:** EXCELLENT - Long timeout + logs on failure
+
+### setup-quick.sh - Bridge Socket Readiness (lines 1095-1108)
+```bash
+print_info "Waiting for bridge to be ready..."
+local wait_count=0
+while [[ ! -S "$SOCKET_PATH" ]] && [[ $wait_count -lt 30 ]]; do
+    sleep 0.5
+    ((wait_count++)) || true
+done
+
+if [[ -S "$SOCKET_PATH" ]]; then
+    print_done "Bridge socket ready: $SOCKET_PATH"
+else
+    print_warning "Bridge socket not ready after 15s"
+    print_info "Check logs: journalctl -u armorclaw-bridge -n 50"
+fi
+```
+- **Timeout:** 15 seconds
+- **Check:** Socket file existence
+- **Evidence:** GOOD - Socket-based readiness
+
+### setup-quick.sh - Health Verification (lines 1114-1141)
+```bash
+verify_health() {
+    # Check directories
+    [[ -d "$CONFIG_DIR" ]] && print_done "Config directory" || { print_error "Config directory missing"; all_ok=false; }
+    [[ -d "$DATA_DIR" ]] && print_done "Data directory" || { print_error "Data directory missing"; all_ok=false; }
+    [[ -d "$RUN_DIR" ]] && print_done "Run directory" || { print_error "Run directory missing"; all_ok=false; }
+
+    # Check binary
+    [[ -x "$INSTALL_DIR/armorclaw-bridge" ]] && print_done "Bridge binary" || { print_error "Bridge binary missing"; all_ok=false; }
+
+    # Check config
+    [[ -f "$CONFIG_DIR/config.toml" ]] && print_done "Configuration file" || { print_error "Configuration file missing"; all_ok=false; }
+
+    # Check service
+    systemctl is-active armorclaw-bridge &>/dev/null && print_done "Service running" || { print_warning "Service not running"; }
+
+    # Check socket
+    [[ -S "$SOCKET_PATH" ]] && print_done "Bridge socket" || { print_warning "Bridge socket not available"; }
+    ...
+}
+```
+- **Evidence:** EXCELLENT - Comprehensive post-install verification
+
+---
+
+## 3. Systemd Service Configuration
+
+### setup-quick.sh (lines 1031-1078)
+```ini
+[Unit]
+Description=ArmorClaw Bridge Service
+After=network-online.target docker.service
+Wants=network-online.target docker.service
+
+StartLimitIntervalSec=60
+StartLimitBurst=5
+
+[Service]
+Type=simple
+User=armorclaw
+Group=armorclaw
+
+ExecStart=$INSTALL_DIR/armorclaw-bridge -config $CONFIG_DIR/config.toml
+
+Restart=always
+RestartSec=5
+
+RuntimeDirectory=armorclaw
+RuntimeDirectoryMode=0755
+
+LimitNOFILE=65536
+ProtectKernelTunables=true
+ProtectControlGroups=true
+
+# Security
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=$DATA_DIR
+
+[Install]
+WantedBy=multi-user.target
+```
+
+**Service Ordering:**
+- `After=network-online.target` - Waits for network
+- `After=docker.service` - Waits for Docker
+- `Wants=` - Soft dependency on these targets
+
+**Restart Behavior:**
+- `Restart=always` - Restarts on any failure
+- `RestartSec=5` - 5 second delay between restarts
+- `StartLimitBurst=5` - Max 5 restarts in 60 seconds
+
+**Security Hardening:**
+- NoNewPrivileges - Cannot gain new capabilities
+- PrivateTmp - Isolated /tmp
+- ProtectSystem=strict - Read-only /usr, /boot, /efi
+- ProtectHome - Cannot access /home
+- ReadWritePaths - Only $DATA_DIR is writable
+
+**Evidence:** EXCELLENT - Production-grade systemd configuration
+
+---
+
+## 4. Container Startup (Conduit)
+
+### quickstart-entrypoint.sh (lines 272-288)
+```bash
+docker run -d \
+    --name armorclaw-conduit \
+    --restart unless-stopped \
+    --user 10000:10000 \
+    --network container:armorclaw \
+    --cap-add=NET_BIND_SERVICE \
+    -e CONDUIT_SERVER_NAME="$ARMORCLAW_SERVER_NAME" \
+    -e CONDUIT_DATABASE_BACKEND="rocksdb" \
+    -e CONDUIT_DATABASE_PATH="/var/lib/matrix-conduit" \
+    -e CONDUIT_ALLOW_REGISTRATION=true \
+    -e CONDUIT_CONFIG=/etc/conduit.toml \
+    -e CONDUIT_ADDRESS="0.0.0.0" \
+    -e CONDUIT_PORT=6167 \
+    -v /tmp/armorclaw-conduit.toml:/etc/conduit.toml:ro \
+    -v armorclaw-conduit-data:/var/lib/matrix-conduit \
+    matrixconduit/matrix-conduit:latest
+```
+
+**Container Flags:**
+- `--restart unless-stopped` - Auto-restart on failure
+- `--user 10000:10000` - Non-root user
+- `--network container:armorclaw` - Shares network with armorclaw container
+- `--cap-add=NET_BIND_SERVICE` - Allow binding to privileged ports
+
+**Evidence:** GOOD - Non-root, persistent storage, auto-restart
+
+---
+
+## 5. Service Status Reporting
+
+### setup-quick.sh - verify_services() (lines 1374-1445)
+```bash
+verify_services() {
+    # Bridge status
+    if systemctl is-active --quiet armorclaw-bridge 2>/dev/null; then
+        echo -e "  Bridge (ArmorClaw)    ${GREEN}● running${NC}      port 8443"
+        bridge_ok=true
+    else
+        echo -e "  Bridge (ArmorClaw)    ${RED}● stopped${NC}      check: journalctl -u armorclaw-bridge"
+    fi
+    
+    # Matrix status
+    if docker ps --format '{{.Names}}' 2>/dev/null | grep -q "^armorclaw-conduit$"; then
+        echo -e "  Matrix (Conduit)      ${GREEN}● running${NC}      port 6167"
+        matrix_ok=true
+    else
+        echo -e "  Matrix (Conduit)      ${RED}● stopped${NC}      docker start armorclaw-conduit"
+    fi
+    
+    # Tunnel status (ngrok or cloudflare)
+    ...
+}
+```
+
+**Evidence:** GOOD - Clear status reporting with remediation hints
+
+---
+
+## Summary: Service Validation
+
+| Component | Healthcheck | Startup Order | Evidence |
+|-----------|-------------|---------------|----------|
+| Docker daemon | wait_for_docker() | First | EXCELLENT |
+| Conduit | wget + curl | After Docker | EXCELLENT |
+| Bridge (systemd) | Socket check | After network+docker | EXCELLENT |
+| Bridge (compose) | MISSING | After matrix[healthy] | GAP |
+| Sygnal | wget /health | After matrix | GOOD |
+| Caddy | None | After matrix+sygnal | ACCEPTABLE |
+
+**VERDICT: PASS with minor gap**
+
+### Gaps Identified:
+
+1. **Bridge healthcheck missing in docker-compose-full.yml**
+   - **Severity:** MEDIUM
+   - **Impact:** Container may appear healthy when bridge process has crashed
+   - **Remediation:** Add healthcheck like:
+     ```yaml
+     healthcheck:
+       test: ["CMD-SHELL", "test -S /run/armorclaw/bridge.sock || exit 1"]
+       interval: 30s
+       timeout: 5s
+       retries: 3
+     ```
+
+2. **No service dependency in systemd for Conduit**
+   - **Severity:** LOW
+   - **Impact:** Bridge may start before Conduit is ready
+   - **Mitigation:** Bridge handles connection retries internally
+
+### Recommendations:
+
+1. Add healthcheck to bridge service in docker-compose-full.yml
+2. Consider adding `After=armorclaw-conduit.service` to bridge systemd unit
+3. Add integration test for service startup order

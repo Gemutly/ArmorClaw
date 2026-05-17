@@ -1,0 +1,322 @@
+# Installer Validation: Cloudflare Tunnel Path
+# Generated: 2026-03-14
+# Status: FULL VALIDATION
+
+## Overview
+
+Cloudflare Quick Tunnel provides instant HTTPS access to the Matrix server. Free, no account required.
+
+---
+
+## 1. User Selection Flow
+
+### setup-quick.sh (lines 465-500)
+
+```
+Options:
+  1) Cloudflare Quick Tunnel (Free, instant)
+  2) ngrok Tunnel (Free account needed at ngrok.com)
+  3) Skip (configure manually later)
+
+Select [1/2/3]:
+```
+
+**Behavior:**
+- Option 1 → Cloudflare tunnel
+- Option 2 → Delegates to `start_ngrok_tunnel()`
+- Option 3 or empty → Skip, return 0
+- Invalid → Error, return 1
+
+**Evidence:** PASS - Clear menu with validation
+
+---
+
+## 2. Container Start
+
+### setup-quick.sh (lines 514-519)
+
+```bash
+container_id=$(docker run -d \
+    --name armorclaw-tunnel \
+    --restart unless-stopped \
+    --add-host=host.docker.internal:host-gateway \
+    cloudflare/cloudflared:latest \
+    tunnel --url http://host.docker.internal:6167 2>&1)
+```
+
+**Configuration:**
+- `--restart unless-stopped`: Auto-restart on failure
+- `--add-host=host.docker.internal:host-gateway`: Allows container to reach host
+- Target: `http://host.docker.internal:6167` (Matrix port)
+
+**Error Handling (lines 521-526):**
+```bash
+if [[ $? -ne 0 ]]; then
+    print_error "Failed to start tunnel container"
+    print_error "$container_id"
+    print_info "Check Docker is running: docker info"
+    return 1
+fi
+```
+
+**Evidence:** PASS - Clear error message with diagnostic hint
+
+---
+
+## 3. Existing Container Handling
+
+### setup-quick.sh (lines 502-505)
+
+```bash
+if docker ps -a --format '{{.Names}}' | grep -q "^armorclaw-tunnel$"; then
+    print_info "Removing existing tunnel container..."
+    docker rm -f armorclaw-tunnel 2>/dev/null || true
+fi
+```
+
+**Evidence:** PASS - Idempotent replacement of existing container
+
+---
+
+## 4. URL Detection Loop
+
+### setup-quick.sh (lines 528-557)
+
+**Configuration:**
+- Max attempts: 15
+- Sleep between attempts: 2 seconds
+- Total timeout: ~30 seconds
+
+**Detection Pattern:**
+```bash
+tunnel_logs=$(docker logs armorclaw-tunnel 2>&1)
+if echo "$tunnel_logs" | grep -qE "https://[a-z0-9-]+\.trycloudflare\.com"; then
+    TUNNEL_URL=$(echo "$tunnel_logs" | grep -oE 'https://[a-z0-9-]+\.trycloudflare\.com' | tail -1)
+    break
+fi
+```
+
+**Regex Pattern:** `https://[a-z0-9-]+\.trycloudflare\.com`
+
+**Evidence:** PASS - Reliable URL extraction from logs
+
+---
+
+## 5. Error Detection Patterns
+
+### setup-quick.sh (lines 543-552)
+
+**Pattern 1: 500 Internal Server Error**
+```bash
+if echo "$tunnel_logs" | grep -qiE "500 Internal Server Error|failed to unmarshal"; then
+    print_warning "Cloudflare service error (500)"
+    docker rm -f armorclaw-tunnel 2>/dev/null || true
+    break  # Exit loop, trigger retry
+fi
+```
+
+**Pattern 2: General Errors**
+```bash
+if echo "$tunnel_logs" | grep -qiE "error|failed|unable"; then
+    print_warning "Tunnel error detected"
+    break  # Exit loop, trigger retry
+fi
+```
+
+**Evidence:** PASS - Detects common Cloudflare failures
+
+---
+
+## 6. Retry Logic
+
+### setup-quick.sh (lines 507-569)
+
+**Configuration:**
+- Max retries: 2 (total attempts)
+- Delay between retries: 5 seconds
+
+**Flow:**
+1. Start container
+2. Wait up to 30s for URL
+3. If URL not found and retries remaining: cleanup, wait 5s, retry
+4. If URL not found after all retries: show failure message
+
+**Evidence:** PASS - Resilient to transient failures
+
+---
+
+## 7. Failure Handling
+
+### setup-quick.sh (lines 571-582)
+
+```bash
+if [[ -z "$TUNNEL_URL" ]]; then
+    print_error "Cloudflare Tunnel failed after $max_retries attempts"
+    echo -e "${YELLOW}Cloudflare's free tunnel service may be rate-limiting or experiencing issues.${NC}"
+    echo ""
+    echo -e "${BOLD}Alternatives:${NC}"
+    echo "  1) Try ngrok (option 2) - requires free account at ngrok.com"
+    echo "  2) Wait 10-15 minutes and re-run setup"
+    echo "  3) Use local network only (HTTP) - Element Web works, mobile needs HTTPS"
+    echo ""
+    print_info "To retry later: docker rm -f armorclaw-tunnel 2>/dev/null; then re-run this script"
+    return 1
+fi
+```
+
+**User Guidance:**
+- Explains likely cause (rate limiting)
+- Provides 3 alternatives
+- Shows cleanup command
+
+**Evidence:** EXCELLENT - Actionable failure message
+
+---
+
+## 8. Server Name Update
+
+### setup-quick.sh (lines 585-593)
+
+```bash
+TUNNEL_DOMAIN=$(echo "$TUNNEL_URL" | sed 's|https://||')
+
+if [[ -f "$CONDUIT_CONFIG_FILE" ]]; then
+    print_info "Updating Matrix server_name to tunnel domain..."
+    $SUDO sed -i "s/^server_name = .*/server_name = \"$TUNNEL_DOMAIN\"/" "$CONDUIT_CONFIG_FILE"
+    print_info "Restarting Matrix to apply changes..."
+    docker restart armorclaw-conduit 2>/dev/null || true
+    sleep 3
+fi
+```
+
+**Evidence:** PASS - Updates Matrix config to match tunnel domain
+
+---
+
+## 9. Success Output
+
+### setup-quick.sh (lines 595-598)
+
+```bash
+print_success "Cloudflare Tunnel active!"
+echo ""
+echo -e "  ${BOLD}${GREEN}Tunnel URL:${NC} ${TUNNEL_URL}"
+echo ""
+```
+
+**Evidence:** PASS - Clear success indication
+
+---
+
+## 10. Status Monitoring
+
+### setup-quick.sh (lines 1415-1425)
+
+```bash
+if docker ps --format '{{.Names}}' 2>/dev/null | grep -q "^armorclaw-tunnel$"; then
+    tunnel_url=$(docker logs armorclaw-tunnel 2>&1 | grep -oE 'https://[a-z0-9-]+\.trycloudflare\.com' | tail -1)
+    if [[ -n "$tunnel_url" ]]; then
+        echo -e "  Tunnel (Cloudflare)   ${GREEN}● active${NC}       $tunnel_url"
+        tunnel_ok=true
+        tunnel_type="cloudflare"
+        TUNNEL_URL="${TUNNEL_URL:-$tunnel_url}"
+    else
+        echo -e "  Tunnel (Cloudflare)   ${YELLOW}● starting${NC}     waiting for URL..."
+    fi
+fi
+```
+
+**Evidence:** PASS - Runtime status monitoring
+
+---
+
+## Complete Flow Diagram
+
+```
+┌─────────────────────────────────────────┐
+│     User selects "1) Cloudflare"        │
+└─────────────────┬───────────────────────┘
+                  │
+                  ▼
+┌─────────────────────────────────────────┐
+│     Remove existing tunnel container    │
+│     (if armorclaw-tunnel exists)        │
+└─────────────────┬───────────────────────┘
+                  │
+                  ▼
+┌─────────────────────────────────────────┐
+│     RETRY LOOP (max_retries=2)          │
+│  ┌────────────────────────────────────┐ │
+│  │ docker run cloudflared:latest      │ │
+│  │ tunnel --url http://host:6167      │ │
+│  └────────────────┬───────────────────┘ │
+│                   │                      │
+│                   ▼                      │
+│  ┌────────────────────────────────────┐ │
+│  │ URL Detection (15 attempts x 2s)   │ │
+│  │ Extract from docker logs           │ │
+│  │ Pattern: *.trycloudflare.com       │ │
+│  └────────────────┬───────────────────┘ │
+│                   │                      │
+│        ┌──────────┴───────────┐         │
+│        │ URL found?           │         │
+│        ▼                      ▼         │
+│   [YES] Exit loop      [NO] Continue   │
+│                          │              │
+│                          ▼              │
+│               Check error patterns:     │
+│               - 500 error → retry      │
+│               - general error → retry  │
+│                          │              │
+│                          ▼              │
+│               If retries < max:         │
+│               - cleanup container       │
+│               - sleep 5s                │
+│               - retry                   │
+└─────────────────────────┬───────────────┘
+                          │
+            ┌─────────────┴─────────────┐
+            │ URL found?                │
+            ▼                           ▼
+┌──────────────────┐        ┌──────────────────────┐
+│ Update config:   │        │ Show error +         │
+│ - server_name    │        │ alternatives:        │
+│ - restart Matrix │        │ 1) Try ngrok         │
+│                  │        │ 2) Wait 10-15 min    │
+│ Show success     │        │ 3) Local only        │
+│ with URL         │        │ Return 1             │
+│ Return 0         │        └──────────────────────┘
+└──────────────────┘
+```
+
+---
+
+## Summary
+
+| Check | Status | Notes |
+|-------|--------|-------|
+| User Selection | PASS | Clear menu with validation |
+| Container Start | PASS | Proper networking config |
+| Existing Handling | PASS | Idempotent replacement |
+| URL Detection | PASS | Regex + 30s timeout |
+| Error Detection | PASS | 500 + general patterns |
+| Retry Logic | PASS | 2 retries with cleanup |
+| Failure Message | PASS | Actionable alternatives |
+| Config Update | PASS | server_name update |
+| Success Output | PASS | Clear URL display |
+| Status Monitoring | PASS | Runtime checks |
+
+**CLOUDFLARE TUNNEL VERDICT: PASS** ✅
+
+---
+
+## Identified Issues
+
+### Issue 1: Non-Interactive Mode Skips Tunnel (BY DESIGN)
+**Location:** setup-quick.sh lines 478-482
+**Behavior:** Skips tunnel setup in CI mode
+**Mitigation:** Shows manual command for later setup
+
+### Issue 2: No Tunnel Persistence Warning (LOW)
+**Impact:** Users may not know Cloudflare tunnels can disconnect
+**Recommendation:** Add note about tunnel stability in output

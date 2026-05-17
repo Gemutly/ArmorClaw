@@ -1,0 +1,29 @@
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "result": {
+    "agent_id": "trust-test-agent-001",
+    "approved_at": "2026-04-30T02:23:39Z",
+    "approved_by": "trust-test-user",
+    "approved_fields": [
+      "api_key"
+    ],
+    "created_at": "2026-04-30T02:23:38Z",
+    "expires_at": "2026-04-30T02:25:38Z",
+    "fulfilled_at": "2026-04-30T02:23:39Z",
+    "is_expired": false,
+    "profile_id": "trust-test-profile-001",
+    "request_id": "pii_6b867201a996bd424d281b3e",
+    "requested_fields": [
+      {
+        "key": "api_key",
+        "display_name": "API Key",
+        "required": true,
+        "sensitive": true
+      }
+    ],
+    "skill_id": "approval-test-skill",
+    "skill_name": "approval_flow_test",
+    "status": "fulfilled"
+  }
+}

@@ -1,0 +1,98 @@
+=== SSH Connectivity Network Diagnostics ===
+Timestamp: 2026-04-03T22:21:25Z
+VPS IP: 5.183.11.149
+VPS User: root
+
+--- Ping Test ---
+PING 5.183.11.149 (5.183.11.149) 56(84) bytes of data.
+64 bytes from 5.183.11.149: icmp_seq=1 ttl=51 time=52.4 ms
+64 bytes from 5.183.11.149: icmp_seq=2 ttl=51 time=53.3 ms
+64 bytes from 5.183.11.149: icmp_seq=3 ttl=51 time=54.2 ms
+
+--- 5.183.11.149 ping statistics ---
+3 packets transmitted, 3 received, 0% packet loss, time 2003ms
+rtt min/avg/max/mdev = 52.412/53.291/54.163/0.714 ms
+
+--- Traceroute Test ---
+ 1?: [LOCALHOST]                      pmtu 1280
+ 1:  172.26.16.1                                           0.181ms 
+ 1:  172.26.16.1                                           0.234ms 
+ 2:  192.168.1.1                                           7.817ms 
+ 3:  152.37.165.1                                         16.354ms 
+ 4:  10.224.91.2                                          32.245ms asymm  8 
+ 5:  dls-b7-link.ip.twelve99.net                          30.123ms asymm  8 
+ 6:  phx-b6-link.ip.twelve99.net                          50.006ms asymm  8 
+ 7:  ironmountain-ic-361332.ip.twelve99-cust.net          52.317ms asymm  8 
+ 8:  po301.cr01.ngspn.azp1.imdc.com                       55.631ms 
+ 9:  po491.ar23.ngspn.azp1.imdc.com                       55.588ms 
+10:  148.51.176.49                                        51.867ms 
+11:  153.92.2.194                                         50.281ms 
+12:  153.92.2.107                                         54.976ms 
+13:  Tracepath failed or timed out
+
+--- DNS Lookup ---
+149.11.183.5.in-addr.arpa	name = srv1313371.hstgr.cloud.
+
+Authoritative answers can be found from:
+
+
+--- SSH Connection Test ---
+OpenSSH_8.2p1 Ubuntu-4ubuntu0.13, OpenSSL 1.1.1f  31 Mar 2020
+debug1: Reading configuration data /etc/ssh/ssh_config
+debug1: /etc/ssh/ssh_config line 19: include /etc/ssh/ssh_config.d/*.conf matched no files
+debug1: /etc/ssh/ssh_config line 21: Applying options for *
+debug1: Connecting to 5.183.11.149 [5.183.11.149] port 22.
+debug1: fd 3 clearing O_NONBLOCK
+debug1: Connection established.
+debug1: identity file /home/mink/.ssh/openclaw_win type -1
+debug1: identity file /home/mink/.ssh/openclaw_win-cert type -1
+debug1: Local version string SSH-2.0-OpenSSH_8.2p1 Ubuntu-4ubuntu0.13
+debug1: Remote protocol version 2.0, remote software version OpenSSH_9.6p1 Ubuntu-3ubuntu13.15
+debug1: match: OpenSSH_9.6p1 Ubuntu-3ubuntu13.15 pat OpenSSH* compat 0x04000000
+debug1: Authenticating to 5.183.11.149:22 as 'root'
+debug1: SSH2_MSG_KEXINIT sent
+debug1: SSH2_MSG_KEXINIT received
+debug1: kex: algorithm: curve25519-sha256
+debug1: kex: host key algorithm: ecdsa-sha2-nistp256
+debug1: kex: server->client cipher: chacha20-poly1305@openssh.com MAC: <implicit> compression: none
+debug1: kex: client->server cipher: chacha20-poly1305@openssh.com MAC: <implicit> compression: none
+debug1: expecting SSH2_MSG_KEX_ECDH_REPLY
+debug1: Server host key: ecdsa-sha2-nistp256 SHA256:zMLATUznyghFsCtyTptF5HqEcI7Ph/VWCJPtEjqbME4
+debug1: Host '5.183.11.149' is known and matches the ECDSA host key.
+debug1: Found key in /home/mink/.ssh/known_hosts:7
+debug1: resetting send seqnr 3
+debug1: rekey out after 134217728 blocks
+debug1: SSH2_MSG_NEWKEYS sent
+debug1: expecting SSH2_MSG_NEWKEYS
+debug1: resetting read seqnr 3
+debug1: SSH2_MSG_NEWKEYS received
+debug1: rekey in after 134217728 blocks
+debug1: Will attempt key: /home/mink/.ssh/openclaw_win  explicit
+debug1: SSH2_MSG_EXT_INFO received
+debug1: kex_input_ext_info: server-sig-algs=<ssh-ed25519,ecdsa-sha2-nistp256,ecdsa-sha2-nistp384,ecdsa-sha2-nistp521,sk-ssh-ed25519@openssh.com,sk-ecdsa-sha2-nistp256@openssh.com,rsa-sha2-512,rsa-sha2-256>
+debug1: kex_input_ext_info: publickey-hostbound@openssh.com (unrecognised)
+debug1: kex_input_ext_info: ping@openssh.com (unrecognised)
+debug1: SSH2_MSG_SERVICE_ACCEPT received
+debug1: Authentications that can continue: publickey,password
+debug1: Next authentication method: publickey
+debug1: Trying private key: /home/mink/.ssh/openclaw_win
+debug1: Authentication succeeded (publickey).
+Authenticated to 5.183.11.149 ([5.183.11.149]:22).
+debug1: channel 0: new [client-session]
+debug1: Requesting no-more-sessions@openssh.com
+debug1: Entering interactive session.
+debug1: pledge: network
+debug1: client_input_global_request: rtype hostkeys-00@openssh.com want_reply 0
+debug1: Remote: /root/.ssh/authorized_keys:3: key options: agent-forwarding port-forwarding pty user-rc x11-forwarding
+debug1: Sending environment.
+debug1: Sending env LANG = C.UTF-8
+debug1: Sending command: echo 'SSH connection successful'
+debug1: client_input_channel_req: channel 0 rtype exit-status reply 0
+debug1: client_input_channel_req: channel 0 rtype eow@openssh.com reply 0
+SSH connection successful
+debug1: channel 0: free: client-session, nchannels 1
+debug1: fd 0 clearing O_NONBLOCK
+debug1: fd 2 clearing O_NONBLOCK
+Transferred: sent 2152, received 2704 bytes, in 0.2 seconds
+Bytes per second: sent 8730.6, received 10970.1
+debug1: Exit status 0

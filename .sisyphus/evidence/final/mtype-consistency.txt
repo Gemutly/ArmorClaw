@@ -1,0 +1,3 @@
+bridge/cmd/bridge/main.go:3668:	_, err := s.adapter.SendMessage(roomID, message, "m.notice")
+bridge/pkg/secretary/secretary_commands.go:27:	_, err := w.inner.SendMessageWithRetry(roomID, message, "m.notice")
+bridge/internal/adapter/commands_integration.go:87:		h.adapter.SendMessageWithRetry(roomID, response, "m.notice")

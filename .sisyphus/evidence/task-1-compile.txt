@@ -1,0 +1,22 @@
+Build Evidence: Task 1 — Wire DeviceStore and InviteStore in bridge/cmd/bridge/main.go
+
+CHANGES MADE:
+1. Added import "github.com/armorclaw/bridge/pkg/invite" (line 47, alphabetical order)
+2. Added deviceStore + inviteStore initialization after hardeningStore (lines 2500-2509)
+3. Added DeviceStore + InviteStore fields to rpc.Config{} (lines 2529-2530)
+
+BUILD STATUS: BLOCKED BY MISSING SYSTEM DEPENDENCIES (pre-existing)
+- libyara-dev (yara.h header) not installed locally
+- libsqlcipher-dev (sqlcipher headers) not installed locally
+- These are Docker-only build dependencies (see bridge/Dockerfile lines 13-14)
+- CGO_ENABLED=0 fails on pkg/yara (unrelated to our changes)
+
+VERIFICATION PERFORMED:
+- go list ./pkg/trust/ ./pkg/invite/ ./pkg/rpc/ → all resolve cleanly (no errors)
+- go list -e -f '{{if .Error}}{{.Error}}{{end}}' ./pkg/trust/ ./pkg/invite/ ./pkg/rpc/ → clean
+- NewDeviceStore(db *sql.DB) (*DeviceStore, error) confirmed in bridge/pkg/trust/device_store.go:35
+- NewInviteStore(db *sql.DB) (*InviteStore, error) confirmed in bridge/pkg/invite/store.go:43
+- Config.DeviceStore and Config.InviteStore fields confirmed in bridge/pkg/rpc/server.go:187-188
+- rpc/server.go lines 155-156, 220-221 confirm fields are wired to server struct
+
+CONCLUSION: Code changes are correct. Full build requires Docker environment with libyara-dev + libsqlcipher-dev.

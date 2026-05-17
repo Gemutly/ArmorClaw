@@ -1,0 +1,22 @@
+
+=== E2E Integration Test Status ===
+
+Prerequisites Check:
+- armorclaw-isolated network: MISSING (Docker not running)
+- Rust Vault binary: EXISTS
+- Go Bridge binary: MISSING (needs compilation)
+
+Blockers:
+1. Docker daemon not running
+2. Bridge binary needs compilation
+
+Integration Test Steps (BLOCKED):
+1. Create armorclaw-isolated network
+2. Start Rust Vault binary
+3. Start Go Bridge
+4. Send simulated OpenClaw native RPC call
+5. Verify flow
+6. Log round-trip latency
+
+Note: Docker daemon required for integration testing. Bridge needs compilation.
+

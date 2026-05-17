@@ -1,0 +1,8 @@
+=== RUN   TestDefaultTimeout_S12
+--- PASS: TestDefaultTimeout_S12 (0.00s)
+=== RUN   TestTimeoutDetection_S13
+--- PASS: TestTimeoutDetection_S13 (0.00s)
+=== RUN   TestParentCancellationNotMisreported_S13
+--- PASS: TestParentCancellationNotMisreported_S13 (0.00s)
+PASS
+ok  	github.com/armorclaw/bridge/internal/skills	0.004s

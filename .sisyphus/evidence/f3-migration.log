@@ -1,0 +1,510 @@
+# F3: Migration/Upgrade Test Verification Report
+
+**Date:** 2026-04-01
+**Task:** Test upgrading existing native install to sentinel mode
+**Method:** Static analysis of installer-v6.sh code
+**Status:** REJECTED ❌
+
+---
+
+## Executive Summary
+
+The migration from native mode to sentinel mode has a **CRITICAL FAILURE** that will cause complete data loss for existing installations.
+
+**Root Cause:** The installer generates NEW secrets during migration instead of preserving existing ones from the .env file.
+
+**Impact:** All existing data encrypted with old secrets (keystore.db, Matrix rooms, etc.) will become permanently inaccessible.
+
+**Verdict:** REJECT - Migration is unsafe for production use.
+
+---
+
+## Detailed Verification Results
+
+### 1. Installer Checks for Existing .env File ✅
+
+**Location:** `deploy/installer-v6.sh` line 246
+
+```bash
+if [[ -f "$env_file" ]]; then
+    print_warning "Backing up existing .env to $backup_file"
+    $SUDO cp "$env_file" "$backup_file"
+fi
+```
+
+**Status:** ✅ PASS
+- Installer correctly checks if `/etc/armorclaw/.env` exists
+- Backup is created with timestamp: `.env.backup.YYYYMMDD_HHMMSS`
+
+---
+
+### 2. Installer Backs Up Existing .env ✅
+
+**Location:** `deploy/installer-v6.sh` lines 247-248
+
+```bash
+print_warning "Backing up existing .env to $backup_file"
+$SUDO cp "$env_file" "$backup_file"
+```
+
+**Status:** ✅ PASS
+- Existing .env is backed up before overwriting
+- Backup file uses timestamp format: `.env.backup.20260401_123456`
+
+---
+
+### 3. Installer Preserves Existing Secrets ❌ CRITICAL FAILURE
+
+**Location:** `deploy/installer-v6.sh` lines 212-232, 234-290
+
+**Problem:**
+
+```bash
+# generate_secrets() function ALWAYS generates new secrets
+generate_secrets() {
+    ADMIN_TOKEN=""
+    KEYSTORE_SECRET=""
+    MATRIX_SECRET=""
+
+    ADMIN_TOKEN=$(generate_admin_token)      # ❌ NEW secret
+    KEYSTORE_SECRET=$(generate_keystore_secret)  # ❌ NEW secret
+    MATRIX_SECRET=$(generate_matrix_secret)      # ❌ NEW secret
+}
+```
+
+**Missing Logic:**
+
+The installer does NOT:
+1. Read existing secrets from the backed up .env file
+2. Parse existing .env to extract secret values
+3. Preserve old secrets for data continuity
+
+**Result:**
+
+When upgrading from native to sentinel mode:
+```
+Existing .env (native mode):
+  ARMORCLAW_ADMIN_TOKEN=old_token_xxx
+  ARMORCLAW_KEYSTORE_SECRET=old_secret_xxx
+  ARMORCLAW_MATRIX_SECRET=old_matrix_xxx
+
+New .env (sentinel mode):
+  ARMORCLAW_ADMIN_TOKEN=new_token_yyy        # ❌ CHANGED
+  ARMORCLAW_KEYSTORE_SECRET=new_secret_yyy   # ❌ CHANGED
+  ARMORCLAW_MATRIX_SECRET=new_matrix_yyy     # ❌ CHANGED
+```
+
+**Status:** ❌ FAIL
+- Existing secrets are lost during migration
+- Data encrypted with old secrets becomes inaccessible
+- **This is a complete migration failure**
+
+---
+
+### 4. Installer Adds Sentinel-Specific Variables ✅
+
+**Location:** `deploy/installer-v6.sh` lines 259-263
+
+```bash
+if [[ "$MODE" == "sentinel" ]]; then
+    env_content+="ARMORCLAW_RPC_TRANSPORT=tcp\n"
+    env_content+="ARMORCLAW_LISTEN_ADDR=0.0.0.0:8080\n"
+    env_content+="ARMORCLAW_PUBLIC_BASE_URL=https://${DOMAIN}\n"
+    env_content+="ARMORCLAW_EMAIL=${EMAIL}\n"
+else
+    env_content+="ARMORCLAW_RPC_TRANSPORT=unix\n"
+fi
+```
+
+**Status:** ✅ PASS
+- `ARMORCLAW_PUBLIC_BASE_URL` is added with domain
+- `ARMORCLAW_EMAIL` is added for Let's Encrypt
+- Variables are correctly scoped to sentinel mode
+
+---
+
+### 5. Installer Changes MODE from Native to Sentinel ✅
+
+**Location:** `deploy/installer-v6.sh` line 256, 601
+
+```bash
+# In detect_deployment_mode()
+if [[ -n "$DOMAIN" ]]; then
+    MODE="sentinel"
+else
+    MODE="native"
+fi
+
+# In generate_env_file()
+env_content+="ARMORCLAW_SERVER_MODE=${MODE}\n"
+```
+
+**Status:** ✅ PASS
+- MODE variable is correctly set based on domain presence
+- MODE is exported and used in .env generation
+- Migration from native→sentinel is supported via re-install
+
+---
+
+### 6. Installer Adds TCP Transport Variables ✅
+
+**Location:** `deploy/installer-v6.sh` lines 260-261
+
+```bash
+if [[ "$MODE" == "sentinel" ]]; then
+    env_content+="ARMORCLAW_RPC_TRANSPORT=tcp\n"
+    env_content+="ARMORCLAW_LISTEN_ADDR=0.0.0.0:8080\n"
+```
+
+**Status:** ✅ PASS
+- `ARMORCLAW_RPC_TRANSPORT` changes from `unix` to `tcp`
+- `ARMORCLAW_LISTEN_ADDR` is set to `0.0.0.0:8080`
+- Correctly scoped to sentinel mode
+
+---
+
+### 7. Docker Compose Command Includes --profile Sentinel ✅
+
+**Location:** `deploy/installer-v6.sh` lines 392-394
+
+```bash
+build_compose_cmd() {
+    COMPOSE_CMD="${DOCKER_COMPOSE}"
+
+    if [[ "${MODE:-native}" == "sentinel" ]]; then
+        COMPOSE_CMD="${COMPOSE_CMD} --profile sentinel"
+    fi
+```
+
+**Status:** ✅ PASS
+- When MODE=sentinel, `--profile sentinel` is added
+- Default fallback to `native` is safe
+- Command is exported for use by setup scripts
+
+---
+
+### 8. Installer Generates Caddyfile for Sentinel Mode ✅
+
+**Location:** `deploy/installer-v6.sh` lines 292-348
+
+```bash
+generate_caddyfile() {
+    if [[ "$MODE" != "sentinel" ]]; then
+        print_info "Skipping Caddyfile generation (native mode)"
+        return 0
+    fi
+    # ... generates Caddyfile with envsubst
+}
+```
+
+**Status:** ✅ PASS
+- Caddyfile is only generated for sentinel mode
+- Template uses envsubst for domain and email substitution
+- Syntax validation is performed if caddy command is available
+
+---
+
+## Verification Summary Table
+
+| Requirement | Status | Evidence | Impact |
+|-------------|--------|----------|--------|
+| Installer checks for existing .env | ✅ PASS | Line 246 | None |
+| Installer backs up existing .env | ✅ PASS | Lines 247-248 | None |
+| **Preserves existing secrets** | ❌ **FAIL** | Lines 212-232 | **Data loss** |
+| Adds sentinel-specific variables | ✅ PASS | Lines 259-263 | None |
+| Changes MODE from native to sentinel | ✅ PASS | Lines 165-166, 256 | None |
+| Adds TCP transport variables | ✅ PASS | Lines 260-261 | None |
+| Docker Compose includes --profile sentinel | ✅ PASS | Lines 392-394 | None |
+| Generates Caddyfile for sentinel mode | ✅ PASS | Lines 292-348 | None |
+| Data directories preserved | ⚠️ UNVERIFIED | N/A | Unknown |
+
+**Total:** 7 PASS, 1 CRITICAL FAIL, 1 UNVERIFIED
+
+---
+
+## Critical Failure Analysis
+
+### What Happens During Migration
+
+**Scenario:**
+1. User installs ArmorClaw in native mode (no domain)
+   - Secrets generated: `TOKEN_1`, `SECRET_1`, `MATRIX_1`
+   - Keystore encrypted with `SECRET_1`
+   - Matrix rooms established with `MATRIX_1`
+
+2. User re-runs installer with domain (sentinel mode)
+   - Existing .env backed up ✅
+   - NEW secrets generated: `TOKEN_2`, `SECRET_2`, `MATRIX_2` ❌
+   - New .env written with new secrets ❌
+
+3. Service starts with new secrets
+   - Keystore.db cannot be decrypted (wrong secret) ❌
+   - Matrix server rejects connections (wrong secret) ❌
+   - All existing data is lost ❌
+
+### Why This Is Unacceptable
+
+**Security Principle:** Migration should NEVER cause data loss.
+
+**User Expectation:** Upgrading to sentinel mode should:
+- Preserve all existing data
+- Preserve existing Matrix rooms
+- Preserve keystore entries
+- Add new sentinel features (domain, TLS, etc.)
+
+**Actual Behavior:**
+- Complete data loss
+- Keystore becomes unusable
+- Matrix integration breaks
+- User must start from scratch
+
+### Recovery Path
+
+If a user encounters this issue:
+1. Restore from `.env.backup.YYYYMMDD_HHMMSS`
+2. But this puts them back in native mode (no domain)
+3. No migration path exists
+
+**Result:** User is stuck - cannot upgrade to sentinel mode without data loss.
+
+---
+
+## Required Fix
+
+### Missing Logic in generate_secrets()
+
+The function needs to be updated to preserve existing secrets:
+
+```bash
+generate_secrets() {
+    print_step "Generating Secure Secrets"
+
+    if ! command_exists openssl; then
+        fail "openssl is required for secret generation"
+    fi
+
+    ADMIN_TOKEN=""
+    KEYSTORE_SECRET=""
+    MATRIX_SECRET=""
+
+    # ✅ NEW: Check for existing .env file
+    local env_file="/etc/armorclaw/.env"
+    if [[ -f "$env_file" ]]; then
+        print_info "Preserving existing secrets from $env_file"
+
+        # Extract existing secrets if they exist
+        ADMIN_TOKEN=$(grep "^ARMORCLAW_ADMIN_TOKEN=" "$env_file" 2>/dev/null | cut -d= -f2- | tr -d '"'"'"')
+        KEYSTORE_SECRET=$(grep "^ARMORCLAW_KEYSTORE_SECRET=" "$env_file" 2>/dev/null | cut -d= -f2- | tr -d '"'"'"')
+        MATRIX_SECRET=$(grep "^ARMORCLAW_MATRIX_SECRET=" "$env_file" 2>/dev/null | cut -d= -f2- | tr -d '"'"'"')
+    fi
+
+    # Generate only missing secrets
+    if [[ -z "$ADMIN_TOKEN" ]]; then
+        ADMIN_TOKEN=$(generate_admin_token)
+        print_info "Generated new ADMIN_TOKEN"
+    else
+        print_info "Preserved existing ADMIN_TOKEN"
+    fi
+
+    if [[ -z "$KEYSTORE_SECRET" ]]; then
+        KEYSTORE_SECRET=$(generate_keystore_secret)
+        print_info "Generated new KEYSTORE_SECRET"
+    else
+        print_info "Preserved existing KEYSTORE_SECRET"
+    fi
+
+    if [[ -z "$MATRIX_SECRET" ]]; then
+        MATRIX_SECRET=$(generate_matrix_secret)
+        print_info "Generated new MATRIX_SECRET"
+    else
+        print_info "Preserved existing MATRIX_SECRET"
+    fi
+
+    print_success "Secrets processed (only admin token will be displayed if new)"
+
+    export ADMIN_TOKEN
+    export KEYSTORE_SECRET
+    export MATRIX_SECRET
+}
+```
+
+### Changes Required
+
+1. **File:** `deploy/installer-v6.sh`
+2. **Function:** `generate_secrets()` (lines 212-232)
+3. **Action:** Add logic to read and preserve existing secrets from .env file
+
+---
+
+## Additional Concerns
+
+### Data Directory Preservation (UNVERIFIED)
+
+**Status:** ⚠️ UNVERIFIED
+
+The installer does not explicitly address data directory preservation during migration. Key concerns:
+
+1. **Keystore Location:** `/var/lib/armorclaw/keystore.db`
+   - Encrypted with KEYSTORE_SECRET
+   - If secret changes, keystore becomes unusable
+
+2. **Matrix Data:** `/var/lib/matrix-conduit/`
+   - Encrypted with MATRIX_SECRET
+   - If secret changes, Matrix homeserver cannot access data
+
+3. **Agent Data:** Docker volumes for agent containers
+   - May need to be preserved during migration
+
+**Recommendation:** Add explicit verification of data directory preservation logic.
+
+---
+
+## Test Scenarios Missing
+
+### What Should Be Tested
+
+1. **Fresh Install (Native Mode)**
+   - No .env exists
+   - Secrets generated correctly
+   - MODE=native
+
+2. **Upgrade Native → Sentinel (Main Test Case)**
+   - .env exists with native secrets
+   - Domain provided for sentinel mode
+   - Secrets PRESERVED from .env
+   - MODE changed to sentinel
+   - New variables added (PUBLIC_BASE_URL, EMAIL)
+   - Data directories intact
+
+3. **Re-run Installer in Sentinel Mode**
+   - .env exists with sentinel secrets
+   - Domain provided (same as before)
+   - Secrets PRESERVED from .env
+   - MODE remains sentinel
+   - No changes to existing configuration
+
+4. **Downgrade Sentinel → Native**
+   - .env exists with sentinel secrets
+   - No domain provided
+   - Secrets PRESERVED from .env
+   - MODE changed to native
+   - Sentinel-specific variables removed or commented
+
+**Current Test Coverage:** None of these scenarios are explicitly tested.
+
+---
+
+## Recommendations
+
+### Immediate Actions (BLOCKER)
+
+1. ❌ **DO NOT RELEASE** current migration logic
+2. ❌ **DO NOT DOCUMENT** migration as supported feature
+3. ✅ **FIX generate_secrets()** to preserve existing secrets
+4. ✅ **ADD MIGRATION TESTS** to test suite
+5. ✅ **DOCUMENT MIGRATION PATH** with clear warnings
+
+### Short-Term Improvements
+
+1. **Add Pre-Migration Validation**
+   ```bash
+   if [[ -f "$env_file" ]] && [[ "$MODE" == "sentinel" ]]; then
+       print_warning "Detected existing native installation"
+       print_warning "Upgrading to sentinel mode will:"
+       print_info "  - Preserve all existing data"
+       print_info "  - Preserve all existing secrets"
+       print_info "  - Add sentinel-specific configuration"
+       echo ""
+       read -p "Continue with migration? [y/N] " confirm
+       if [[ "$confirm" != "y" ]] && [[ "$confirm" != "Y" ]]; then
+           fail "Migration cancelled by user"
+       fi
+   fi
+   ```
+
+2. **Add Post-Migration Verification**
+   ```bash
+   verify_migration() {
+       if [[ -f "$backup_file" ]]; then
+           print_info "Verifying secret preservation..."
+
+           local old_token=$(grep "^ARMORCLAW_ADMIN_TOKEN=" "$backup_file" | cut -d= -f2-)
+           local new_token=$(grep "^ARMORCLAW_ADMIN_TOKEN=" "$env_file" | cut -d= -f2-)
+
+           if [[ "$old_token" != "$new_token" ]]; then
+               print_error "ADMIN_TOKEN changed during migration!"
+               print_error "This will cause data loss!"
+               fail "Migration verification failed"
+           fi
+       fi
+   }
+   ```
+
+3. **Document Rollback Procedure**
+   ```bash
+   # If migration fails, rollback to previous state:
+   sudo cp /etc/armorclaw/.env.backup.YYYYMMDD_HHMMSS /etc/armorclaw/.env
+   docker compose down
+   docker compose up -d
+   ```
+
+### Long-Term Improvements
+
+1. **Add Migration Script**
+   - Separate migration logic from installer
+   - Dry-run mode to preview changes
+   - Rollback support
+   - Migration logs
+
+2. **Add Data Directory Backup**
+   - Before migration: tar keystore.db and matrix data
+   - Store with timestamp
+   - Automated cleanup after successful migration
+
+3. **Add Health Checks**
+   - Verify keystore can be opened after migration
+   - Verify Matrix homeserver can start
+   - Verify bridge can connect to Matrix
+
+---
+
+## Evidence Files
+
+- **Installer Script:** `deploy/installer-v6.sh`
+- **Bootstrap Script:** `deploy/install.sh`
+- **Environment Example:** `configs/.env.example`
+- **Verification Log:** `.sisyphus/evidence/f3-migration.log`
+- **Learnings:** `.sisyphus/notepads/sentinel-unified-deployment/learnings.md`
+
+---
+
+## Conclusion
+
+**F3: Migration/Upgrade Test** - REJECTED ❌
+
+**Reason:**
+The installer does NOT preserve existing secrets during migration from native to sentinel mode. This causes complete data loss for existing installations.
+
+**Impact:**
+- All existing keystore data becomes inaccessible
+- Matrix integration breaks
+- Users must start from scratch
+- No recovery path exists
+
+**Required Actions:**
+1. Fix `generate_secrets()` to preserve existing secrets
+2. Add migration test coverage
+3. Document migration procedure
+4. Add pre-migration validation
+5. Add post-migration verification
+
+**Until Fixed:**
+- Migration from native to sentinel mode is NOT supported
+- Do not document migration as a feature
+- Clearly warn users about data loss risk
+
+---
+
+**Verdict:** REJECT ❌
+**Reason:** Critical failure to preserve secrets during migration causes data loss
+**Severity:** BLOCKER - Must fix before any migration is possible

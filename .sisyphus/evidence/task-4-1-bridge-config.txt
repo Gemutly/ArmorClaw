@@ -1,0 +1,21 @@
+Task: 4.1 Create Bridge config with z.ai provider
+Timestamp: $(date -Iseconds)
+Result: SUCCESS
+
+Commands executed:
+  mkdir -p /etc/armorclaw /var/lib/armorclaw /run/armorclaw
+  cat > /etc/armorclaw/config.toml << EOF...EOF
+  grep "cff2e899" /etc/armorclaw/config.toml
+
+Expected: Config file created WITHOUT API key
+Actual: Config file created at /etc/armorclaw/config.toml
+  - API key passed via environment variable (ZAI_API_KEY)
+  - Config verification: No API key hardcoded
+
+Config content:
+  - Server socket: /run/armorclaw/bridge.sock
+  - Matrix homeserver: http://localhost:6167
+  - Provider: openai (z.ai compatible)
+  - API key source: Environment variable ZAI_API_KEY
+
+Status: PASSED - API key NOT saved to config file

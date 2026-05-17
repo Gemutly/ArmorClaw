@@ -1,0 +1,35 @@
+
+=========================================
+Category A: Login & Sync
+=========================================
+  [1/N] Logging in via Matrix API...
+  [PASS] Login succeeds (user: @armorclaw-bridge:5.183.11.149)
+  [2/N] Syncing...
+  [PASS] Sync succeeds
+
+=========================================
+Category B: Messaging (Direct API)
+=========================================
+  [3/N] Logging in via Matrix API...
+  [PASS] Login via curl (user: @armorclaw-bridge:5.183.11.149)
+  [4/N] Sending message with token: ARMORCLAW-56147059
+  [PASS] Send message (event_id: $JuYYWUgB2meuz1uovd4MAr473MoNdOmhLmZcVQ4YlLM)
+  [5/N] Verifying message landed...
+  [PASS] Message verified in room
+  [6/N] Round-trip test with token: ARMORCLAW-RT-6e799e8b
+  [PASS] Round-trip verified
+
+=========================================
+Category C: File Upload (Direct API)
+=========================================
+  [7/N] Uploading file via Matrix media API...
+  [PASS] File upload succeeds (mxc: mxc://5.183.11.149/xbuiALglQZzODZ9PobugLI3EcGhj5jIv)
+
+  [SKIP] Assistant round-trip (ASSISTANT_ROOM_ID not set)
+
+=========================================
+MATRIX PLANE TEST SUMMARY
+=========================================
+Total: 7 | Passed: 7 | Failed: 0
+Groups: LoginSync(2/2) Messaging(4/4) FileUpload(1/1) Assistant(0/0)
+=========================================

@@ -1,0 +1,5 @@
+=== RUN   TestSynthesize_Success
+2026/03/25 16:10:45 INFO synthesis completed latency=786.1µs audio_duration=1.5s text_length=11 audio_size=28 text_preview="Hello world"
+--- PASS: TestSynthesize_Success (0.01s)
+PASS
+ok  	command-line-arguments	0.017s

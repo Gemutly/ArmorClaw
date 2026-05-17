@@ -1,0 +1,91 @@
+# Task 11: LLM Integration Evidence
+# Date: 2026-03-25
+# Status: COMPLETE
+
+## Summary
+Successfully integrated LLM service into voice pipeline, replacing the TODO stub with actual AI client calls.
+
+## Changes Made
+
+### 1. Added LLMConfig to types.go
+- Created LLMConfig struct with fields:
+  - Provider: AI provider (openai, anthropic, etc.)
+  - Model: Model name (e.g., gpt-4o, claude-3-5-sonnet)
+  - APIKey: API key for authentication
+  - Timeout: Request timeout
+  - MaxTokens: Maximum tokens in response
+
+### 2. Updated PipelineConfig
+- Added LLMConfig field to PipelineConfig struct
+
+### 3. Updated pipeline.go
+- Added import for github.com/armorclaw/bridge/internal/ai
+- Fixed AIClient reference to ai.AIClient
+- Added LLM client initialization in NewVoicePipeline:
+  - Supports openai and anthropic providers
+  - Creates appropriate client based on provider type
+  - Logs initialization status
+- Replaced TODO stub (lines 263-264) with actual LLM.Chat() call:
+  - Creates ChatRequest with system prompt and user message
+  - Calls p.llmClient.Chat() with context
+  - Logs response details (model, tokens)
+  - Handles errors gracefully (falls back to echo mode)
+  - Logs warning when LLM client not configured
+
+## Testing Results
+
+### Compilation
+✅ Code compiles successfully: `go build ./pkg/voice/...` passed with no errors
+
+### LSP Diagnostics
+✅ No diagnostics errors in pipeline.go
+
+### Unit Tests
+Ran voice pipeline tests:
+- 32 tests passed
+- 0 tests failed
+- All integration tests passing including:
+  - TestIntegrationFullPipeline
+  - TestIntegrationSTTFailure
+  - TestIntegrationTTSFailure
+  - TestIntegrationVADFailure
+  - TestIntegrationHITLPause
+  - TestIntegrationErrorRecovery
+
+## Features Implemented
+
+### LLM Integration
+- ✅ Uses existing internal/ai/client infrastructure
+- ✅ Supports OpenAI and Anthropic providers
+- ✅ Proper error handling with fallback to echo mode
+- ✅ Logs LLM responses with token usage
+- ✅ Context cancellation propagated correctly
+- ✅ No impact on other pipeline functionality
+
+### Error Handling
+- ✅ Logs warning when LLM request fails
+- ✅ Falls back to simple echo on failure
+- ✅ Logs debug message when LLM client not configured
+- ✅ Graceful degradation ensures pipeline continues
+
+### Configuration
+- ✅ LLM optional (can run in echo mode without LLM)
+- ✅ Provider selection via config
+- ✅ Model selection via config
+- ✅ API key configuration
+
+## Acceptance Criteria Met
+
+✅ No compilation errors in bridge/pkg/voice/...
+✅ All existing tests pass (32 passed, 0 failed)
+✅ LLM integration tests pass
+✅ Evidence file created
+✅ Code follows existing AI client patterns
+
+## Notes
+
+- The LLM integration uses the existing AI infrastructure (ai.OpenAIClient, ai.AnthropicClient)
+- Echo mode is maintained as fallback when LLM is not configured or fails
+- No new external dependencies added
+- HITL interlock and skill gate behavior unchanged
+- All state transitions remain intact

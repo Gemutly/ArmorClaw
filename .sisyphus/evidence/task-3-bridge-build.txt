@@ -1,0 +1,26 @@
+Bridge Docker Build Evidence
+Date: 2026-05-16
+
+== Build Command ==
+cd bridge && docker build --no-cache -t armorclaw:beato-fix -f Dockerfile .
+
+== Fixes Applied ==
+1. navchart import: Changed github.com/armorclaw/jetski/navchart -> github.com/armorclaw/bridge/pkg/browser
+   in cmd/bridge/main.go (line 67) and usage at line 2698 (navchart.NewMultiTabStore -> browser.NewMultiTabStore)
+
+2. Dockerfile: Added libolm-dev to builder stage (needed by mautrix crypto/libolm CGO)
+3. Dockerfile: Added libolm3 to runtime stage
+4. email_queue.go: Fixed OutboxStoreReader interface - GetByID return type (interface{} -> *email.OutboxEntry)
+5. email_queue.go: Fixed OutboxStoreReader interface - ListByStatus return type (interface{} -> []*email.OutboxEntry)
+6. email_queue.go: Added "time" import, added email import
+
+== Build Result ==
+#19 [builder 7/7] RUN CGO_ENABLED=1 GOOS=linux go build -ldflags="-s -w" -o armorclaw-bridge ./cmd/bridge
+#19 DONE 82.4s
+#23 naming to docker.io/library/armorclaw:beato-fix done
+Image: armorclaw:beato-fix
+
+== Tag and Push ==
+docker tag armorclaw:beato-fix mikegemut/armorclaw:beato-fix
+docker push mikegemut/armorclaw:beato-fix
+beato-fix: digest: sha256:336b10c8c43d789634ea457f82afdf1dc4568660972ecc38f938fbc4265f2a1f size: 856

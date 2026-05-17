@@ -1,0 +1,9 @@
+  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+  0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0curl: (56) Received HTTP code 403 from proxy after CONNECT
+HTTP/1.1 403 Forbidden
+Content-Type: text/plain; charset=utf-8
+X-Content-Type-Options: nosniff
+Date: Wed, 08 Apr 2026 00:45:36 GMT
+Content-Length: 30
+

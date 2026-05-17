@@ -1,0 +1,166 @@
+=== Task 17: Unit Tests for All Components ===
+Date: Wed Mar 25 20:26:27 MDT 2026
+Test Command: go test ./bridge/pkg/voice/... -v -count=1
+Test Summary:
+- Total tests: 89
+- Status: PASS
+- Duration: 32.855s
+- Coverage: 41.1%
+
+Test Results by Component:
+=== RUN   TestNewBudgetTracker
+--- PASS: TestNewBudgetTracker (0.00s)
+=== RUN   TestStartSession
+--- PASS: TestStartSession (0.00s)
+=== RUN   TestRecordTokenUsage
+--- PASS: TestRecordTokenUsage (0.00s)
+=== RUN   TestTokenLimitWarning
+--- PASS: TestTokenLimitWarning (0.00s)
+=== RUN   TestTokenLimitExceeded
+--- PASS: TestTokenLimitExceeded (0.10s)
+=== RUN   TestDurationLimit
+--- PASS: TestDurationLimit (0.15s)
+=== RUN   TestEndSession
+--- PASS: TestEndSession (0.00s)
+=== RUN   TestGetAllSessions
+--- PASS: TestGetAllSessions (0.00s)
+=== RUN   TestVoiceBudgetGetStats
+--- PASS: TestVoiceBudgetGetStats (0.00s)
+=== RUN   TestEnforceLimits
+--- PASS: TestEnforceLimits (0.10s)
+=== RUN   TestSessionStateString
+=== RUN   TestSessionStateString/unknown
+=== RUN   TestSessionStateString/active
+=== RUN   TestSessionStateString/ended
+--- PASS: TestSessionStateString (0.00s)
+=== RUN   TestStop
+--- PASS: TestStop (0.00s)
+=== RUN   TestHITLInterlockPauseResume
+--- PASS: TestHITLInterlockPauseResume (0.00s)
+=== RUN   TestHITLInterlockTimeout
+--- PASS: TestHITLInterlockTimeout (0.10s)
+=== RUN   TestHITLInterlockApproval
+--- PASS: TestHITLInterlockApproval (0.05s)
+=== RUN   TestHITLInterlockRejection
+--- PASS: TestHITLInterlockRejection (0.05s)
+=== RUN   TestHITLInterlockSetNotifyCallback
+--- PASS: TestHITLInterlockSetNotifyCallback (0.00s)
+=== RUN   TestHITLInterlockDoublePause
+--- PASS: TestHITLInterlockDoublePause (0.00s)
+=== RUN   TestHITLInterlockRequestWhileWaiting
+--- PASS: TestHITLInterlockRequestWhileWaiting (0.00s)
+=== RUN   TestHITLInterlockHandleWrongRequest
+--- PASS: TestHITLInterlockHandleWrongRequest (0.00s)
+=== RUN   TestHITLInterlockHandleNoCurrentRequest
+--- PASS: TestHITLInterlockHandleNoCurrentRequest (0.00s)
+=== RUN   TestApprovalRequestIsExpired
+--- PASS: TestApprovalRequestIsExpired (0.00s)
+=== RUN   TestInterlockStateString
+--- PASS: TestInterlockStateString (0.00s)
+=== RUN   TestHITLInterlockDefaultTimeout
+--- PASS: TestHITLInterlockDefaultTimeout (0.00s)
+=== RUN   TestHITLInterlockSensitiveAction
+--- PASS: TestHITLInterlockSensitiveAction (0.05s)
+=== RUN   TestHITLInterlockMatrixReaction
+--- PASS: TestHITLInterlockMatrixReaction (0.05s)
+=== RUN   TestPipelineFullFlow
+--- PASS: TestPipelineFullFlow (0.50s)
+=== RUN   TestPipelineStateTransitions
+--- PASS: TestPipelineStateTransitions (0.55s)
+=== RUN   TestPipelineSTTFailure
+--- PASS: TestPipelineSTTFailure (0.20s)
+=== RUN   TestPipelineTurnTaking
+--- PASS: TestPipelineTurnTaking (0.60s)
+=== RUN   TestPipelineStop
+--- PASS: TestPipelineStop (0.00s)
+=== RUN   TestPipelinePausedState
+--- PASS: TestPipelinePausedState (0.50s)
+=== RUN   TestSkillGateMCPBlocked
+--- PASS: TestSkillGateMCPBlocked (0.00s)
+=== RUN   TestSkillGateNonSensitiveAllowed
+--- PASS: TestSkillGateNonSensitiveAllowed (0.00s)
+=== RUN   TestSkillGateDisabledAfterCall
+--- PASS: TestSkillGateDisabledAfterCall (0.00s)
+=== RUN   TestSkillGateErrorMessage
+=== RUN   TestSkillGateErrorMessage/mcp
+=== RUN   TestSkillGateErrorMessage/blindfill
+=== RUN   TestSkillGateErrorMessage/pii_injection
+=== RUN   TestSkillGateErrorMessage/browser_fill_with_pii
+--- PASS: TestSkillGateErrorMessage (0.00s)
+=== RUN   TestSkillGateMultipleCalls
+--- PASS: TestSkillGateMultipleCalls (0.00s)
+=== RUN   TestSkillGateDisableInactiveCall
+--- PASS: TestSkillGateDisableInactiveCall (0.00s)
+=== RUN   TestSkillGateBlocksMCP
+--- PASS: TestSkillGateBlocksMCP (0.00s)
+=== RUN   TestSkillGateAllowsWhenNoCall
+--- PASS: TestSkillGateAllowsWhenNoCall (0.00s)
+=== RUN   TestSkillGateEnableDisable
+--- PASS: TestSkillGateEnableDisable (0.00s)
+=== RUN   TestSkillGateBlockUnblock
+--- PASS: TestSkillGateBlockUnblock (0.00s)
+=== RUN   TestSkillGateGetBlockedSkills
+--- PASS: TestSkillGateGetBlockedSkills (0.00s)
+=== RUN   TestTranscribe_Success
+--- PASS: TestTranscribe_Success (0.01s)
+=== RUN   TestTranscribe_ServiceUnavailable
+--- PASS: TestTranscribe_ServiceUnavailable (7.22s)
+=== RUN   TestTranscribe_EmptyAudioData
+--- PASS: TestTranscribe_EmptyAudioData (0.00s)
+=== RUN   TestTranscribe_RetryLogic
+--- PASS: TestTranscribe_RetryLogic (3.21s)
+=== RUN   TestTranscribe_BufferZeroing
+--- PASS: TestTranscribe_BufferZeroing (0.00s)
+=== RUN   TestSynthesize_Success
+--- PASS: TestSynthesize_Success (0.00s)
+=== RUN   TestSynthesize_ServiceUnavailable
+--- PASS: TestSynthesize_ServiceUnavailable (7.41s)
+=== RUN   TestSynthesize_EmptyText
+--- PASS: TestSynthesize_EmptyText (0.00s)
+=== RUN   TestNormalizeText
+=== RUN   TestNormalizeText/plain_text
+=== RUN   TestNormalizeText/SSML_speak_tags
+=== RUN   TestNormalizeText/SSML_break_tags
+=== RUN   TestNormalizeText/SSML_prosody_tags
+=== RUN   TestNormalizeText/multiple_SSML_tags
+=== RUN   TestNormalizeText/whitespace_normalization
+=== RUN   TestNormalizeText/SSML_injection_attempt
+=== RUN   TestNormalizeText/SSML_emphasis_tags
+=== RUN   TestNormalizeText/SSML_voice_tags
+--- PASS: TestNormalizeText (0.00s)
+=== RUN   TestSynthesize_RetryLogic
+--- PASS: TestSynthesize_RetryLogic (3.21s)
+=== RUN   TestSynthesize_TextTooLong
+--- PASS: TestSynthesize_TextTooLong (0.00s)
+=== RUN   TestSynthesize_EmptyAudioData
+--- PASS: TestSynthesize_EmptyAudioData (0.00s)
+=== RUN   TestSynthesize_InvalidBase64
+--- PASS: TestSynthesize_InvalidBase64 (0.00s)
+=== RUN   TestSynthesize_MaxTextSizeUnlimited
+--- PASS: TestSynthesize_MaxTextSizeUnlimited (0.00s)
+=== RUN   TestSynthesize_ContextCancellation
+--- PASS: TestSynthesize_ContextCancellation (2.00s)
+=== RUN   TestPipelineState_String
+=== RUN   TestPipelineState_String/idle
+=== RUN   TestPipelineState_String/listening
+=== RUN   TestPipelineState_String/processing
+=== RUN   TestPipelineState_String/speaking
+=== RUN   TestPipelineState_String/paused
+=== RUN   TestPipelineState_String/unknown
+--- PASS: TestPipelineState_String (0.00s)
+=== RUN   TestPipelineStateValues
+--- PASS: TestPipelineStateValues (0.00s)
+=== RUN   TestDetectSpeech_Success
+--- PASS: TestDetectSpeech_Success (0.00s)
+=== RUN   TestDetectSpeech_ServiceUnavailable
+--- PASS: TestDetectSpeech_ServiceUnavailable (3.13s)
+=== RUN   TestDetectSpeech_EmptyAudioData
+--- PASS: TestDetectSpeech_EmptyAudioData (0.00s)
+=== RUN   TestDetectSpeech_RetryLogic
+--- PASS: TestDetectSpeech_RetryLogic (3.20s)
+=== RUN   TestDetectSpeech_ThresholdLowConfidence
+--- PASS: TestDetectSpeech_ThresholdLowConfidence (0.00s)
+=== RUN   TestDetectSpeech_ContextCancellation
+--- PASS: TestDetectSpeech_ContextCancellation (0.20s)
+=== RUN   TestDetectSpeech_NoSpeechDetected
+--- PASS: TestDetectSpeech_NoSpeechDetected (0.00s)

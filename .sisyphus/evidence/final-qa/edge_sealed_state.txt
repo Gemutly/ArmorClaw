@@ -1,0 +1,22 @@
+1:// Package keystore provides sealed keystore functionality for Mobile Secretary.
+2:// The sealed keystore wraps the base keystore with an additional security layer
+29:	ErrKeystoreSealed     = errors.New("keystore is sealed - unseal required")
+37:	ErrAlreadyUnsealed = &PasswordUnsealError{Code: -32003, Message: "keystore already unsealed"}
+38:	ErrPasswordSealed  = &PasswordUnsealError{Code: -32005, Message: "keystore is sealed"}
+41:// UnsealPolicy defines how the keystore can be unsealed
+92:// SealedKeystore wraps a Keystore with sealed/unsealed state management
+123:// SealedKeystoreConfig holds configuration for the sealed keystore
+130:// SealedStoreConfig holds configuration for password-gated sealed keystore.
+144:// NewSealedKeystore creates a new sealed keystore wrapper
+168:// IsSealed returns true if the keystore is sealed for the given agent
+191:// GetStatus returns the current sealed status for an agent
+526:// RetrieveProfile retrieves a profile if the keystore is unsealed for the agent
+540:// GetDefaultProfile retrieves the default profile if unsealed
+560:// Retrieve retrieves a credential if unsealed.
+592:// Store stores a credential if unsealed.
+594:// the password-gated sealed state. Store is a non-activity operation —
+774:func (sk *SealedKeystore) IsPasswordUnsealed() bool {
+852:// SealPassword zeros the in-memory vault key and marks the keystore sealed.
+917:// Returns an error if the keystore is sealed.
+977:		"type":         "com.armorclaw.sealed_keystore.unseal_request",
+991:		"type":        "com.armorclaw.sealed_keystore.session",

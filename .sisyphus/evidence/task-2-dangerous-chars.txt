@@ -1,0 +1,51 @@
+Task 2 Evidence: containsDangerousChars Analysis
+==================================================
+File: bridge/internal/skills/executor.go
+Lines: 266-274
+
+Function signature:
+  func containsDangerousChars(str string) bool
+
+Characters blocked (11 total):
+  | (pipe)
+  & (ampersand)
+  ; (semicolon)
+  ` (backtick)
+  $ (dollar sign)
+  ( (left paren)
+  ) (right paren)
+  { (left brace)
+  } (right brace)
+  < (left angle)
+  > (right angle)
+
+Where it's called:
+  executor.go:257 — checkDangerousPatterns() iterates all string params
+
+Impact — legitimate inputs that are REJECTED:
+  1. URLs with query params: "https://api.example.com/search?q=test&page=1"
+     BLOCKED: contains & and = (not blocked, but & alone triggers)
+  2. JSON strings in params: '{"filter": "price > 100"}'
+     BLOCKED: contains > and { }
+  3. Shell-style values: "COST=$5.99"
+     BLOCKED: contains $ and >
+  4. Mathematical expressions: "(a + b) * c"
+     BLOCKED: contains ( ) and *
+  5. HTML content: "<p>Hello</p>"
+     BLOCKED: contains < and >
+  6. Email addresses with < > format: "John <john@example.com>"
+     BLOCKED: contains < and >
+  7. Regex patterns: "^(foo|bar)$"
+     BLOCKED: contains | ( ) { } $
+  8. CSS selectors: "div > p.class"
+     BLOCKED: contains > and .
+
+Additional concern:
+  The custom contains() function (lines 277-293) is an unnecessary reimplementation
+  of strings.Contains(). It uses a hand-rolled substring search that is likely
+  slower and less correct than the standard library version.
+
+Remediation:
+  - Replace with allowlist-based validation for each parameter type
+  - Use context-aware sanitization (e.g., URL-safe chars for URLs, JSON-safe for JSON)
+  - Replace custom contains() with strings.Contains()

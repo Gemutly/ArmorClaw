@@ -1,0 +1,9 @@
+=========================================
+SSH Command Execution Tests
+=========================================
+VPS IP: 5.183.11.149
+VPS User: root
+SSH Key: /home/mink/.ssh/openclaw_win
+=========================================
+
+tests/ssh/test_command_execution.sh: line 100: $1: unbound variable

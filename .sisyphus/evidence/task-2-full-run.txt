@@ -1,0 +1,19 @@
+Starting bridge...
+Waiting for socket...
+Socket ready at /tmp/bridge-gov-test-3110016.sock
+
+=========================================
+ GROUP 1: Method Registration (8 tests)
+=========================================
+  [PASS] device.list returns result
+  [PASS] device.get empty returns error
+  [PASS] device.approve empty returns error
+  [PASS] device.reject empty returns error
+  [PASS] invite.list returns result
+  [PASS] invite.create valid returns result
+  [PASS] invite.revoke empty returns error
+  [PASS] invite.validate empty returns error
+
+=========================================
+ GROUP 2: Invite Happy Path (5 tests)
+=========================================

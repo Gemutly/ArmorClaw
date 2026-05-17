@@ -1,0 +1,7 @@
+=== VPS Pull Evidence ===
+Timestamp: 2026-03-21T04:49:06-06:00
+Image: mikegemut/armorclaw:latest
+Digest: sha256:cd64a66e94258a70b11856cce678c7f3cbb897fb475448e624cbf0099fb08d59
+Size: 992MB
+Status: Successfully pulled
+

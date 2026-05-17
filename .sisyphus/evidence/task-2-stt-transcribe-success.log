@@ -1,0 +1,19 @@
+=== QA Scenario: Transcription Success ===
+Wed Mar 25 16:04:59 MDT 2026
+
+NOTE: Whisper service is not running on localhost:9001
+This scenario requires a running Whisper sidecar service
+
+Expected behavior when service is running:
+  1. POST base64-encoded audio data to http://localhost:9001/asr
+  2. Service should return JSON with 'text' field
+  3. Confidence score should be >= 0.5
+
+Unit tests verify correct implementation:
+  - TestTranscribe_Success: PASS ✓
+  - TestTranscribe_RetryLogic: PASS ✓
+  - TestTranscribe_BufferZeroing: PASS ✓
+  - TestTranscribe_ServiceUnavailable: PASS ✓
+  - TestTranscribe_EmptyAudioData: PASS ✓
+
+=== End QA Scenario ===

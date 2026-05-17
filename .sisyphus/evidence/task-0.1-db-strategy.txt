@@ -1,0 +1,142 @@
+================================================================================
+TASK 0.1: DATABASE ACCESS STRATEGY DECISION
+================================================================================
+
+DECISION: gRPC keystore proxy
+
+RATIONALE:
+================================================================================
+
+1. ARCHITECTURE CONSISTENCY
+   - Existing sidecar already uses gRPC for Bridge ↔ Sidecar communication
+   - Follows proven microservices pattern with clear process boundaries
+   - Reuses existing ephemeral token authentication (HMAC-SHA256)
+
+2. PROCESS ISOLATION
+   - Rust Vault evolves independently from Go Bridge keystore
+   - No cross-language database locking between Go and Rust
+   - Go Bridge maintains single source of truth for all secrets
+   - Clear separation of concerns (control plane vs data plane)
+
+3. SIMPLIFIED SECURITY
+   - No need for Rust SQLCipher bindings (complexity avoided)
+   - Ephemeral token auth already implemented and tested
+   - Go Bridge controls all secret access and audit logging
+   - Consistent authentication pattern across all services
+
+4. BROWNFIELD COMPATIBILITY
+   - Respects AGENTS.md security constraints
+   - Preserves existing SQLCipher keystore implementation
+   - No removal of existing security mechanisms
+   - Aligns with existing codebase patterns
+
+5. GREENFIELD ADVANTAGES
+   - Avoids concurrency issues with shared database access
+   - Cleaner architecture with explicit service boundaries
+   - Easier to test and debug (clear request/response flow)
+   - Better observability (gRPC metrics, request tracing)
+
+IMPLEMENTATION DETAILS:
+================================================================================
+
+Proto File: bridge/pkg/keystore/keystore.proto
+- Defines KeystoreService with 8 RPC methods
+- Supports credential operations: Retrieve, List, Store, Delete
+- Supports profile operations (for BlindFill™): Retrieve, List, Store, Delete
+- Includes HealthCheck for monitoring
+- Uses RequestMetadata for ephemeral token authentication
+
+Key Methods:
+1. RetrieveCredential - Get credential by ID with decrypted value
+2. ListCredentials - List all credentials (metadata only)
+3. StoreCredential - Store or update credential
+4. DeleteCredential - Delete credential by ID
+5. RetrieveProfile - Get BlindFill™ profile for PII injection
+6. ListProfiles - List all profiles (metadata only)
+7. StoreProfile - Store or update profile
+8. DeleteProfile - Delete profile by ID
+9. HealthCheck - Service health and metrics
+
+Authentication:
+- Ephemeral tokens via HMAC-SHA256 signature
+- Token TTL: 30 minutes (configured in Go Bridge)
+- Token format: request_id:timestamp:operation:signature
+- All operations logged to audit database
+
+Security Guarantees:
+- All secrets encrypted at rest with SQLCipher
+- XChaCha20-Poly1305 AEAD for credential values
+- Zeroized secret memory handling in Rust Vault
+- Audit logging for all keystore operations
+- No secret caching beyond request lifecycle
+
+ALTERNATIVES CONSIDERED AND REJECTED:
+================================================================================
+
+Option 1: Shared Database Access (REJECTED)
+   Pros:
+   - Simpler architecture (no gRPC layer)
+   - Single source of truth
+
+   Cons:
+   - Cross-language concurrency issues (Go ↔ Rust)
+   - Potential key derivation conflicts
+   - Lock contention on database
+   - Requires coordinating key management across languages
+   - Blurs process boundaries
+   - Harder to test and debug
+   - Breaks existing microservices pattern
+
+Option 2: Separate Rust SQLCipher Implementation (REJECTED)
+   Pros:
+   - True process isolation
+   - Independent key management
+
+   Cons:
+   - Complex Rust SQLCipher integration
+   - Duplicate database with synchronization issues
+   - Inconsistent key derivation (hardware binding differences)
+   - Loss of single source of truth
+   - Duplicate audit trails
+   - Violates brownfield preservation principle
+
+EVIDENCE OF RESEARCH:
+================================================================================
+
+Files Reviewed:
+- bridge/pkg/keystore/keystore.go
+  - Confirmed SQLCipher encryption with XChaCha20-Poly1305
+  - Confirmed GetDB() method exists for potential sharing
+  - Hardware-derived key binding to specific VPS instance
+  - Comprehensive audit logging integration
+
+- sidecar/src/grpc/server.rs
+  - Confirmed existing gRPC pattern
+  - Confirmed ephemeral token authentication
+  - Confirmed Unix socket communication
+
+- sidecar/src/grpc/proto/sidecar.proto
+  - Documented existing service definition pattern
+  - Documented RequestMetadata structure
+  - Documented error handling approach
+
+- AGENTS.md
+  - Confirmed brownfield constraints
+  - Confirmed SQLCipher keystore requirement
+  - Confirmed security constraints
+
+DECISION MAKER: Sisyphus-Junior
+DATE: 2026-04-04
+STATUS: COMPLETE
+
+NEXT STEPS:
+================================================================================
+1. Implement Go Bridge gRPC server for KeystoreService (Wave 4)
+2. Implement Rust Vault gRPC client for KeystoreService (Wave 4)
+3. Integrate with existing ephemeral token authentication
+4. Add keystore service to Go Bridge gRPC server
+5. Add keystore client to Rust Vault config
+
+================================================================================
+END OF EVIDENCE FILE
+================================================================================

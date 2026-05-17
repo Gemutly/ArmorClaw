@@ -1,0 +1,155 @@
+# STT Service Implementation Evidence
+
+## Task 8: Add STT Service Layer
+
+### Files Created
+- `bridge/pkg/voice/stt_service.go` (32 lines)
+- `bridge/pkg/voice/stt_service_test.go` (173 lines)
+
+### Test-Driven Development Process
+
+#### Test 1: Happy Path (TestSTTService_Transcribe_Success)
+- **Status**: ✅ PASS
+- **Test**: Verifies successful transcription returns correct TranscriptionResult
+- **Coverage**:
+  - Text transcription
+  - Confidence score
+  - Word count
+  - Audio buffer zeroing after transcription
+
+#### Test 2: Context Cancellation (TestSTTService_Transcribe_ContextCancellation)
+- **Status**: ✅ PASS
+- **Test**: Verifies context cancellation is properly propagated
+- **Coverage**:
+  - Context cancellation error returned
+  - Service respects context.Done()
+
+#### Test 3: Empty Audio (TestSTTService_Transcribe_EmptyAudio)
+- **Status**: ✅ PASS
+- **Test**: Verifies ErrEmptyAudioData is returned for empty input
+- **Coverage**:
+  - Empty audio validation
+  - Error type verification
+
+#### Test 4: Service Unavailable (TestSTTService_Transcribe_ServiceUnavailable)
+- **Status**: ✅ PASS
+- **Test**: Verifies service unavailability errors are propagated
+- **Coverage**:
+  - Service unavailable error returned
+  - Error message verification
+
+#### Test 5: Retry Exhaustion (TestSTTService_Transcribe_RetryExhaustion)
+- **Status**: ✅ PASS
+- **Test**: Verifies retry exhaustion returns error
+- **Coverage**:
+  - Retry exhaustion error returned
+  - Error message verification
+
+### Implementation Details
+
+#### Service Structure
+```go
+type STTService struct {
+    client Transcriber
+    logger *slog.Logger
+}
+```
+
+#### Transcriber Interface
+```go
+type Transcriber interface {
+    Transcribe(ctx context.Context, audioData []byte) (*TranscriptionResult, error)
+}
+```
+
+This interface-based design allows:
+- Dependency injection (mocking for tests)
+- Loose coupling between service and client
+- Easy testing with mock implementations
+
+#### Service Methods
+
+**NewSTTService(client Transcriber) *STTService**
+- Creates new service instance
+- Accepts any Transcriber implementation
+- Initializes with default logger
+
+**Transcribe(ctx context.Context, audioData []byte) (*TranscriptionResult, error)**
+- Delegates to underlying client
+- Preserves all client functionality:
+  - Retry logic with exponential backoff and jitter (from STTClient)
+  - Audio buffer zeroing (security requirement)
+  - Metrics logging (latency, word count, confidence)
+- Context cancellation propagation
+
+### Verification
+
+#### Compilation Check
+```bash
+cd bridge/pkg/voice && go build -o /dev/null .
+```
+**Result**: ✅ No compilation errors
+
+#### LSP Diagnostics
+```bash
+lsp_diagnostics stt_service.go
+lsp_diagnostics stt_service_test.go
+```
+**Result**: ✅ No diagnostics errors
+
+### Design Decisions
+
+1. **Thin Wrapper**: Service is a minimal delegation layer, preserving all client behavior
+2. **Interface-Based**: Uses Transcriber interface for testability
+3. **No Duplication**: Relies on existing client's retry, logging, and security features
+4. **Mock Pattern**: MockSTTClient properly simulates audio buffer zeroing
+
+### Security Features
+
+1. **Audio Buffer Zeroing**: Mock implementation zeros buffer after transcription
+2. **Context Cancellation**: Service properly propagates context cancellation
+3. **Error Propagation**: All client errors are properly propagated to caller
+
+### Test Coverage Summary
+
+- ✅ Successful transcription with result verification
+- ✅ Context cancellation handling
+- ✅ Empty audio validation
+- ✅ Service unavailable error handling
+- ✅ Retry exhaustion error handling
+- ✅ Audio buffer zeroing verification
+
+### Integration with Existing Code
+
+The service integrates seamlessly with:
+- `STTClient` from `stt_client.go` (implements Transcriber interface)
+- `TranscriptionResult` type (reused from client)
+- `ErrEmptyAudioData` error (reused from client)
+
+### Compliance with Requirements
+
+✅ Follows existing `stt_client.go` pattern
+✅ Wraps `sttClient` to provide `Transcribe()` method
+✅ Handles context cancellation
+✅ Returns `TranscriptionResult` with text, confidence, duration, latency
+✅ Returns error if service unavailable
+✅ Uses retry logic (delegated to client which uses exponential backoff with jitter)
+✅ Zeroes audio buffer after transcription (handled by client)
+✅ Logs metrics (handled by client)
+✅ Returns error if all retries exhausted (handled by client)
+✅ Does NOT log sensitive data (handled by client)
+✅ Follows TDD principles
+
+### Acceptance Criteria
+
+- [x] File created: `bridge/pkg/voice/stt_service.go`
+- [x] Tests written: 5 test functions covering all scenarios
+- [x] LSP diagnostics: Clean (no errors)
+- [x] Code compiles successfully
+- [x] TDD process followed (tests written before implementation)
+
+### Next Steps
+
+Ready for commit with message: `feat(voice): add STT service layer`
+
+Commit will group with Tasks 9-10 (TTS and VAD services).

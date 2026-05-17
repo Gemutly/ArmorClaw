@@ -1,0 +1,44 @@
+Task 6: Deploy Bridge Binary with HTTP Mode
+=============================================
+Date: 2026-04-25
+
+## Steps Completed
+
+1. Git pull on VPS (941cd7c..ca900de, then ca900de..29eddc2)
+2. Build bridge binary on VPS (CGO_ENABLED=1, ~2 min)
+3. Stopped bridge (SIGKILL due to slow Matrix sync shutdown)
+4. Added [http] section to /etc/armorclaw/config.toml:
+   enabled = true, port = 8080, hostname = "0.0.0.0"
+5. Started bridge service
+
+## Bug Fix Applied
+TLS CipherSuites was missing HTTP/2-required ciphers:
+- Added TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256
+- Added TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256
+Commit: 29eddc2 "fix: add missing HTTP/2-required AES_128_GCM ciphers to TLS config"
+
+## Verification Results
+
+=== SERVICE STATUS ===
+active
+
+=== HTTPS HEALTH ===
+{"bridge_ready":true,"is_new_server":true,"provisioning_available":false,"server_name":"0.0.0.0","status":"ok","timestamp":"2026-04-25T01:14:02Z","version":"4.6.0"}
+
+=== UNIX SOCKET ===
+SOCKET_OK
+
+=== SOCKET RPC (device.list) ===
+{"jsonrpc":"2.0","id":1,"result":[]}
+
+=== SETBROADCASTER in binary ===
+SetBroadcaster found in strings output
+
+## Checklist
+- [x] Bridge binary rebuilt on VPS with latest code
+- [x] HTTP mode enabled in /etc/armorclaw/config.toml
+- [x] Bridge service restarted and active
+- [x] Both Unix socket and HTTPS server running on port 8080
+- [x] systemctl is-active armorclaw-bridge = active
+- [x] curl -kfsS https://localhost:8080/health = ok (status:ok)
+- [x] test -S /run/armorclaw/bridge.sock = true (SOCKET_OK)

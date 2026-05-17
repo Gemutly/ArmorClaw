@@ -1,0 +1,20 @@
+Task: Replace hand-rolled YAML parser with yaml.v3
+Date: 2026-04-18
+Status: COMPLETE
+
+Changes made:
+1. bridge/internal/skills/registry.go:
+   - Added "gopkg.in/yaml.v3" import
+   - Replaced parseYAMLFrontmatter body (was 44-line hand-rolled parser) with single yaml.Unmarshal call
+   - Changed type assertion at line 143 from map[interface{}]interface{} to map[string]interface{}
+   - Updated convertInterfaceMap to accept interface{} and handle both map[string]interface{} and map[interface{}]interface{}
+
+2. bridge/go.mod:
+   - gopkg.in/yaml.v3 promoted from indirect to direct dependency (line 32)
+
+Verification:
+- go build ./internal/skills/... — exit 0
+- go vet ./internal/skills/... — exit 0
+- go.mod confirmed yaml.v3 as direct dependency without // indirect comment
+
+Note: go build ./... fails due to pre-existing missing yara system library (go-yara/v4), unrelated to this change.

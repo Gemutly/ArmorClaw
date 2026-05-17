@@ -1,0 +1,37 @@
+Task 9 - ToolSidecar Provisioner
+Scenario: ToolSidecar respects resource limits
+
+Test: TestSpawnToolSidecar (resource limits verification)
+Status: PASS
+Description: Verifies that ToolSidecar containers respect resource limits
+
+Expected Behavior:
+- Memory limit: 256MB
+- Memory swap: 512MB (2x memory)
+- PIDs limit: 100
+- CPU shares: 1024 (ProfileLight - ~10% CPU)
+- Block IO weight: 200
+
+Verification:
+✓ Memory limit set to 256MB (268435456 bytes)
+✓ Memory swap limit set to 512MB (2x memory)
+✓ PIDs limit set to 100
+✓ ResourceGovernor applies limits via ApplyToHostConfig
+✓ Limits prevent runaway containers from exhausting host resources
+✓ Timeout enforced (30s default) via context.WithTimeout
+
+Resource Profile Used: ProfileLight
+  CPU Shares: 1024
+  Memory: 256MB
+  Memory Swap: 512MB
+  PIDs Limit: 100
+  Block IO Weight: 200
+
+ResourceGovernor Features:
+  ApplyToHostConfig() → Applies limits to container config
+  GetContainerUsage() → Monitors resource usage
+  CheckViolations() → Detects limit violations
+  StartMonitoring() → Periodic monitoring loop
+  AlertThresholds → Warn/Critical thresholds (CPU: 80/95, Memory: 80/95)
+
+Result: PASSED - Resource limits properly configured and enforced

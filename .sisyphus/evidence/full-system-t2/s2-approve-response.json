@@ -1,0 +1,14 @@
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "result": {
+    "approved_at": "2026-04-30T02:23:39Z",
+    "approved_by": "trust-test-user",
+    "approved_fields": [
+      "api_key"
+    ],
+    "message": "PII request approved. Agent resumed with approved variables.",
+    "request_id": "pii_6b867201a996bd424d281b3e",
+    "status": "approved"
+  }
+}

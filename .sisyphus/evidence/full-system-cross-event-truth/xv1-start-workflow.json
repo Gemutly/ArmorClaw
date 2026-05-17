@@ -1,0 +1,1 @@
+{"jsonrpc":"2.0","id":1,"result":{"status":"started","workflow":{"id":"wf_1777563443773","template_id":"tpl_1777563443505","name":"x4-1777563439-1058520-xv1-stream","description":"XV1 event stream trigger","status":"running","variables":null,"current_step":"xv1_s1","agent_ids":[],"created_by":"rpc","room_id":"","started_at":1777563444346},"workflow_id":"wf_1777563443773"}}

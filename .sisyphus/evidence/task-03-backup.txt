@@ -1,0 +1,48 @@
+bind [127.0.0.1]:4096: Address already in use
+channel_setup_fwd_listener_tcpip: cannot listen to port: 4096
+Could not request local forwarding.
+--- Existing ArmorClaw Volumes ---
+local     armorclaw-conduit-data
+local     armorclaw-config
+local     armorclaw-data
+local     armorclaw-keystore
+local     armorclaw-logs
+
+--- Creating Backup Directory ---
+Backup directory: /root/armorclaw-backup-20260328-231650
+
+--- Listing All Docker Volumes ---
+DRIVER    VOLUME NAME
+local     armorclaw-conduit-data
+local     armorclaw-config
+local     armorclaw-data
+local     armorclaw-keystore
+local     armorclaw-logs
+
+Backup directory created at: /root/armorclaw-backup-20260328-231650
+total 8
+drwxr-xr-x  2 root root 4096 Mar 28 23:16 .
+drwx------ 13 root root 4096 Mar 28 23:16 ..
+=== Backing Up Critical Volumes ===
+Using backup directory: /root/armorclaw-backup-20260328-231650
+
+--- Backing up conduit_data ---
+Unable to find image 'alpine:latest' locally
+latest: Pulling from library/alpine
+589002ba0eae: Pulling fs layer
+9e595aac14e0: Download complete
+caa817ad3aea: Download complete
+589002ba0eae: Download complete
+589002ba0eae: Pull complete
+Digest: sha256:25109184c71bdad752c8312a8623239686a9a2071e8825f20acb8f2198c3f659
+Status: Downloaded newer image for alpine:latest
+
+--- Backing up keystore ---
+
+--- Backing up config ---
+
+--- Backup Contents ---
+total 516K
+-rw-r--r-- 1 root root 441K Mar 28 23:17 conduit_data.tar.gz
+-rw-r--r-- 1 root root 3.1K Mar 28 23:17 config.tar.gz
+-rw-r--r-- 1 root root  66K Mar 28 23:17 keystore.tar.gz

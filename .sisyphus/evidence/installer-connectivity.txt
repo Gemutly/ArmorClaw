@@ -1,0 +1,315 @@
+# Installer Validation: QR Code & Connectivity
+# Generated: 2026-03-13
+# Status: STATIC ANALYSIS
+
+## 1. QR Code Generation
+
+### setup-quick.sh - generate_qr_code() (lines 1248-1338)
+
+**QR Code Generation Flow:**
+
+1. **Matrix Check** (lines 1252-1261):
+   ```bash
+   if [[ "$MATRIX_ENABLED" == "false" ]] && ! is_matrix_running; then
+       print_warning "Matrix server not installed or running."
+       echo "QR connection requires a Matrix server (Conduit)."
+       return 0
+   fi
+   ```
+   - Skips QR generation if Matrix not available
+   - Clear explanation to user
+
+2. **Configuration JSON** (lines 1276-1301):
+   ```bash
+   local config_json=$(cat <<EOF
+   {"matrix_homeserver":"${matrix_url}","rpc_url":"${rpc_url}","ws_url":"${ws_url}","push_gateway":"${push_url}","server_name":"${hostname}","setup_token":"${setup_token}","expires_at":${expiry}}
+   EOF
+   )
+   ```
+   
+   **Required Fields:**
+   - `matrix_homeserver`: http://${ip}:8448
+   - `rpc_url`: http://${ip}:8443/api
+   - `ws_url`: ws://${ip}:8443/ws
+   - `push_gateway`: http://${ip}:5000
+   - `server_name`: hostname
+   - `setup_token`: Generated via provisioning RPC
+   - `expires_at`: Unix timestamp (5 minutes)
+
+3. **URL Encoding** (lines 1303-1305):
+   ```bash
+   local config_b64=$(echo -n "$config_json" | base64 -w0 2>/dev/null || echo -n "$config_json" | base64 | tr -d '\n')
+   config_b64=$(echo -n "$config_b64" | tr '+/' '-_' | tr -d '=')
+   local provision_url="armorclaw://config?d=${config_b64}"
+   ```
+   
+   **Encoding Steps:**
+   - Base64 encode JSON
+   - URL-safe encoding: `+` → `-`, `/` → `_`
+   - Remove padding (`=`)
+   - Create deep link: `armorclaw://config?d=...`
+
+4. **QR Display** (lines 1317-1330):
+   ```bash
+   if command -v qrencode &>/dev/null; then
+       qrencode -t UTF8 "$provision_url" 2>/dev/null || \
+       qrencode -t ASCII "$provision_url" 2>/dev/null
+   else
+       # ASCII fallback - show URL
+       echo -e "  ${BOLD}Manual connection:${NC}"
+       echo -e "  ${CYAN}$provision_url${NC}"
+   fi
+   ```
+   
+   **Fallback:** If qrencode not available, shows URL for manual entry
+
+**Evidence Quality: EXCELLENT**
+- Graceful degradation (URL fallback)
+- Clear expiry indication (5 minutes)
+- Standard QR encoding (UTF8/ASCII)
+
+---
+
+## 2. Provisioning Token Integration
+
+### setup-quick.sh (lines 1285-1296)
+```bash
+local setup_token=""
+if [[ -S "$SOCKET_PATH" ]]; then
+    local rpc_cmd='{"jsonrpc":"2.0","method":"provisioning.start","params":{"expiry_seconds":300},"id":1}'
+    local rpc_result
+    rpc_result=$(echo "$rpc_cmd" | socat - UNIX-CONNECT:"$SOCKET_PATH" 2>/dev/null) || true
+    if [[ -n "$rpc_result" ]]; then
+        setup_token=$(echo "$rpc_result" | grep -oP '"setup_token":\s*"\K[^"]+' 2>/dev/null || true)
+    fi
+fi
+if [[ -z "$setup_token" ]]; then
+    setup_token="stp_$(openssl rand -hex 24)"
+    print_warning "Bridge not reachable — token may not be recognized"
+fi
+```
+
+**Token Generation Flow:**
+1. **Primary:** Request token from running bridge via RPC
+2. **Fallback:** Generate local token with warning
+3. **Format:** `stp_` prefix + 24 hex chars (96 bits)
+
+**Evidence Quality: GOOD**
+- RPC integration when bridge is running
+- Warning when using fallback token
+
+---
+
+## 3. Local Access Patterns
+
+### Default Ports:
+
+| Service | Port | Protocol | Purpose |
+|---------|------|----------|---------|
+| Matrix (Conduit) | 6167 | HTTP | Matrix Client API |
+| Matrix Federation | 8448 | HTTP | Matrix Federation |
+| Bridge RPC | 8443 | HTTP | ArmorClaw API |
+| Bridge WebSocket | 8443 | WS | Real-time events |
+| Sygnal Push | 5000 | HTTP | Push notifications |
+| Caddy HTTP | 80 | HTTP | Reverse proxy |
+| Caddy HTTPS | 443 | HTTPS | Reverse proxy (SSL) |
+
+### URL Patterns:
+
+**Matrix Client API:**
+```
+http://${SERVER_IP}:6167/_matrix/client/versions
+```
+
+**Bridge RPC:**
+```
+http://${SERVER_IP}:8443/api
+```
+
+**WebSocket:**
+```
+ws://${SERVER_IP}:8443/ws
+```
+
+**Health Check:**
+```
+http://localhost:6167/_matrix/client/versions  # Conduit
+http://localhost:5000/health                    # Sygnal
+```
+
+**Evidence Quality: GOOD**
+- Consistent port assignments
+- Health check endpoints available
+
+---
+
+## 4. Remote Access (Tunnel)
+
+### setup-quick.sh - start_cloudflare_tunnel() (lines 465-599)
+
+**Tunnel Options:**
+1. **Cloudflare Quick Tunnel** - Free, instant
+2. **ngrok** - Free account required
+3. **Skip** - Manual configuration
+
+**Cloudflare Tunnel Flow:**
+
+1. **Container Start** (lines 514-519):
+   ```bash
+   container_id=$(docker run -d \
+       --name armorclaw-tunnel \
+       --restart unless-stopped \
+       --add-host=host.docker.internal:host-gateway \
+       cloudflare/cloudflared:latest \
+       tunnel --url http://host.docker.internal:6167 2>&1)
+   ```
+
+2. **URL Detection** (lines 534-556):
+   ```bash
+   tunnel_logs=$(docker logs armorclaw-tunnel 2>&1)
+   if echo "$tunnel_logs" | grep -qE "https://[a-z0-9-]+\.trycloudflare\.com"; then
+       TUNNEL_URL=$(echo "$tunnel_logs" | grep -oE 'https://[a-z0-9-]+\.trycloudflare\.com' | tail -1)
+   fi
+   ```
+
+3. **Server Name Update** (lines 587-593):
+   ```bash
+   $SUDO sed -i "s/^server_name = .*/server_name = \"$TUNNEL_DOMAIN\"/" "$CONDUIT_CONFIG_FILE"
+   docker restart armorclaw-conduit 2>/dev/null || true
+   ```
+
+**ngrok Tunnel Flow:**
+
+1. **Installation** (lines 605-609):
+   ```bash
+   curl -s https://ngrok-agent.s3.amazonaws.com/ngrok.asc | sudo tee /etc/apt/trusted.gpg.d/ngrok.asc >/dev/null
+   echo "deb https://ngrok-agent.s3.amazonaws.com buster main" | sudo tee /etc/apt/sources.list.d/ngrok.list
+   sudo apt-get update -qq && sudo apt-get install -y ngrok
+   ```
+
+2. **Configuration Check** (lines 611-622):
+   ```bash
+   if ! ngrok config check &>/dev/null; then
+       echo "ngrok requires a free account."
+       echo "1) Go to https://ngrok.com and sign up"
+       echo "2) Get authtoken: https://dashboard.ngrok.com/get-started/your-authtoken"
+       echo "3) Run: ngrok config add-authtoken YOUR_TOKEN"
+       return 1
+   fi
+   ```
+
+3. **URL Detection** (lines 649-657):
+   ```bash
+   ngrok_url=$(curl -s http://localhost:4040/api/tunnels 2>/dev/null | grep -oE 'https://[a-zA-Z0-9.-]+\.(ngrok\.io|ngrok-free\.app|ngrok\.app)' | head -1)
+   ```
+
+**Evidence Quality: EXCELLENT**
+- Multiple tunnel options
+- Clear setup instructions
+- Automatic URL detection
+
+---
+
+## 5. Service Discovery
+
+### setup-quick.sh - verify_services() (lines 1374-1445)
+
+**Status Detection:**
+
+```bash
+# Bridge status
+if systemctl is-active --quiet armorclaw-bridge 2>/dev/null; then
+    echo -e "  Bridge (ArmorClaw)    ${GREEN}● running${NC}      port 8443"
+fi
+
+# Matrix status
+if docker ps --format '{{.Names}}' 2>/dev/null | grep -q "^armorclaw-conduit$"; then
+    echo -e "  Matrix (Conduit)      ${GREEN}● running${NC}      port 6167"
+fi
+
+# Tunnel status
+if pgrep -f "ngrok http" &>/dev/null; then
+    tunnel_url=$(curl -s http://localhost:4040/api/tunnels ...)
+    echo -e "  Tunnel (ngrok)        ${GREEN}● active${NC}       $tunnel_url"
+elif docker ps --format '{{.Names}}' 2>/dev/null | grep -q "^armorclaw-tunnel$"; then
+    echo -e "  Tunnel (Cloudflare)   ${GREEN}● active${NC}       $tunnel_url"
+fi
+```
+
+**Return Codes:**
+- 0: All core services running
+- 1: Bridge OK, Matrix not running
+- 2: Bridge not running
+
+**Evidence Quality: EXCELLENT**
+- Multi-service status check
+- Clear visual indicators (● running, ● stopped)
+- Actionable return codes
+
+---
+
+## 6. Element X Connection Info
+
+### setup-quick.sh - generate_element_connection_info() (lines 1340-1368)
+
+```bash
+local element_web_login="https://app.element.io/#/login?hs_url=${tunnel_url}"
+
+echo -e "${BOLD}Element Web Quick Login:${NC}"
+echo -e "  ${CYAN}$element_web_login${NC}"
+
+if command -v qrencode &>/dev/null; then
+    echo -e "${BOLD}QR for Element Web:${NC}"
+    qrencode -t UTF8 "$element_web_login"
+fi
+
+echo -e "${BOLD}Element X Mobile:${NC}"
+echo -e "  Homeserver: ${GREEN}${tunnel_url}${NC}"
+echo -e "  Username:   ${MATRIX_ADMIN_USER}"
+echo -e "${YELLOW}  (Element X requires manual entry — no QR login)${NC}"
+```
+
+**Evidence Quality: EXCELLENT**
+- Pre-built Element Web login URL
+- QR code for quick Element Web access
+- Manual entry instructions for Element X mobile
+
+---
+
+## Summary: Connectivity Validation
+
+| Component | Status | Notes |
+|-----------|--------|-------|
+| QR Code Generation | PASS | UTF8/ASCII with URL fallback |
+| Provisioning Token | PASS | RPC integration with fallback |
+| Local Access Ports | PASS | Consistent assignments |
+| Cloudflare Tunnel | PASS | Auto URL detection |
+| ngrok Tunnel | PASS | Setup instructions + detection |
+| Service Discovery | PASS | Multi-service status |
+| Element X Connection | PASS | Web + mobile instructions |
+
+**VERDICT: PASS - Comprehensive connectivity handling**
+
+---
+
+## Identified Recommendations
+
+### Recommendation 1: Token Expiry Warning
+**Severity:** LOW
+**Location:** setup-quick.sh (line 1333)
+
+Current message: "Note: QR code expires in 5 minutes"
+**Enhancement:** Show exact expiry time:
+```bash
+echo -e "  ${YELLOW}Expires at: $(date -d '+5 minutes' '+%H:%M:%S')${NC}"
+```
+
+### Recommendation 2: IPv6 Support
+**Severity:** LOW
+**Location:** Multiple files
+
+Current IP detection uses `hostname -I | awk '{print $1}'` which may return IPv6 on some systems.
+**Recommendation:** Explicitly prefer IPv4:
+```bash
+ip_address=$(hostname -I | awk '{for(i=1;i<=NF;i++) if($i ~ /^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$/) {print $i; exit}}')
+```

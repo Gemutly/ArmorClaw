@@ -1,0 +1,16 @@
+=== RUN   TestParseSkillFile_AllFields
+--- PASS: TestParseSkillFile_AllFields (0.00s)
+=== RUN   TestParseSkillFile_TimeoutExtraction
+=== RUN   TestParseSkillFile_TimeoutExtraction/int_timeout
+=== RUN   TestParseSkillFile_TimeoutExtraction/string_timeout
+=== RUN   TestParseSkillFile_TimeoutExtraction/missing_timeout
+--- PASS: TestParseSkillFile_TimeoutExtraction (0.00s)
+    --- PASS: TestParseSkillFile_TimeoutExtraction/int_timeout (0.00s)
+    --- PASS: TestParseSkillFile_TimeoutExtraction/string_timeout (0.00s)
+    --- PASS: TestParseSkillFile_TimeoutExtraction/missing_timeout (0.00s)
+=== RUN   TestParseSkillFile_EnabledFalse
+--- PASS: TestParseSkillFile_EnabledFalse (0.00s)
+=== RUN   TestParseSkillFile_MissingOptionalFields
+--- PASS: TestParseSkillFile_MissingOptionalFields (0.00s)
+PASS
+ok  	github.com/armorclaw/bridge/internal/skills	0.006s

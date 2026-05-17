@@ -1,0 +1,17 @@
+=== Task 10: Running Health Check ===
+--- Health Check Script Not Found - Running Manual Checks ---
+--- Docker Status ---
+NAMES               STATUS
+armorclaw-conduit   Up 37 seconds
+
+--- Matrix API ---
+{"versions":["r0.5.0","r0.6.0","v1.1","v1.2","v1.3","v1.4","v1.5","v1.6","v1.7","v1.8","v1.9","v1.10","v1.11","v1.12"],"unstable_features":{"org.matrix.e2e_cross_signing":true,"org.matrix.msc3916.stable":true,"org.matrix.simplified_msc3575":true}}
+--- Bridge Status ---
+active
+Bridge: ACTIVE
+
+--- Bridge Socket ---
+srw-rw---- 1 armorclaw armorclaw 0 Mar 28 23:28 /run/armorclaw/bridge.sock
+
+--- Network Connectivity ---
+bc0c72462528   armorclaw-bridge   bridge    local

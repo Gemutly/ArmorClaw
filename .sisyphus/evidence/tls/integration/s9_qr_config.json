@@ -1,0 +1,16 @@
+{
+  "config": {
+    "version": 1,
+    "matrix_homeserver": "http://localhost:6167",
+    "rpc_url": "https://0.0.0.0:8080/api",
+    "ws_url": "wss://0.0.0.0:8080/ws",
+    "push_gateway": "https://0.0.0.0:8080/_matrix/push/v1/notify",
+    "server_name": "0.0.0.0",
+    "expires_at": 1777599543,
+    "signature": "7db3686a2691709502517def026e9e7ff7a183c466b2efaa003458ba61c423cb"
+  },
+  "deep_link": "armorclaw://config?d=eyJ2ZXJzaW9uIjoxLCJtYXRyaXhfaG9tZXNlcnZlciI6Imh0dHA6Ly9sb2NhbGhvc3Q6NjE2NyIsInJwY191cmwiOiJodHRwczovLzAuMC4wLjA6ODA4MC9hcGkiLCJ3c191cmwiOiJ3c3M6Ly8wLjAuMC4wOjgwODAvd3MiLCJwdXNoX2dhdGV3YXkiOiJodHRwczovLzAuMC4wLjA6ODA4MC9fbWF0cml4L3B1c2gvdjEvbm90aWZ5Iiwic2VydmVyX25hbWUiOiIwLjAuMC4wIiwiZXhwaXJlc19hdCI6MTc3NzU5OTU0Mywic2lnbmF0dXJlIjoiN2RiMzY4NmEyNjkxNzA5NTAyNTE3ZGVmMDI2ZTllN2ZmN2ExODNjNDY2YjJlZmFhMDAzNDU4YmE2MWM0MjNjYiJ9",
+  "expires_at": "2026-05-01T01:39:03Z",
+  "png_url": "/qr/image?format=png",
+  "url": "https://armorclaw.app/config?d=eyJ2ZXJzaW9uIjoxLCJtYXRyaXhfaG9tZXNlcnZlciI6Imh0dHA6Ly9sb2NhbGhvc3Q6NjE2NyIsInJwY191cmwiOiJodHRwczovLzAuMC4wLjA6ODA4MC9hcGkiLCJ3c191cmwiOiJ3c3M6Ly8wLjAuMC4wOjgwODAvd3MiLCJwdXNoX2dhdGV3YXkiOiJodHRwczovLzAuMC4wLjA6ODA4MC9fbWF0cml4L3B1c2gvdjEvbm90aWZ5Iiwic2VydmVyX25hbWUiOiIwLjAuMC4wIiwiZXhwaXJlc19hdCI6MTc3NzU5OTU0Mywic2lnbmF0dXJlIjoiN2RiMzY4NmEyNjkxNzA5NTAyNTE3ZGVmMDI2ZTllN2ZmN2ExODNjNDY2YjJlZmFhMDAzNDU4YmE2MWM0MjNjYiJ9"
+}

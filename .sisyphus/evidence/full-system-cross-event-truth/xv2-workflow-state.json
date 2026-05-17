@@ -1,0 +1,1 @@
+{"jsonrpc":"2.0","id":1,"result":{"id":"wf_1777563463824","template_id":"tpl_1777563463534","name":"x4-1777563439-1058520-xv2-causal","description":"XV2 causal ordering test","status":"running","variables":null,"current_step":"xv2_s1","agent_ids":[],"created_by":"rpc","room_id":"","started_at":1777563464110}}

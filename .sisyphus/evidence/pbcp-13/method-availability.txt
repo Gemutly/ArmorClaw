@@ -1,0 +1,24 @@
+# Secretary/Task Method Availability — Fri May 15 05:42:11 PM MDT 2026
+
+## Secretary Methods
+  secretary.list_templates → AVAILABLE (returns object)
+  secretary.get_template → NEEDS_PARAMS (-32602)
+  secretary.create_template → ERROR (-32002)
+  secretary.delete_template → NEEDS_PARAMS (-32602)
+  secretary.start_workflow → NEEDS_PARAMS (-32602)
+  secretary.get_workflow → NEEDS_PARAMS (-32602)
+  secretary.list_workflows → NOT_REGISTERED (-32601)
+  secretary.cancel_workflow → NEEDS_PARAMS (-32602)
+  secretary.pause_workflow → NOT_REGISTERED (-32601)
+  secretary.resume_workflow → NOT_REGISTERED (-32601)
+  secretary.get_workflow_status → NOT_REGISTERED (-32601)
+  secretary.get_workflow_history → NOT_REGISTERED (-32601)
+  secretary.delete_workflow → NOT_REGISTERED (-32601)
+
+## Task Methods
+  task.create → ERROR (-32002)
+  task.list → AVAILABLE (returns object)
+  task.get → ERROR (-32002)
+  task.cancel → ERROR (-32002)
+
+Summary: 7 available, 10 unavailable

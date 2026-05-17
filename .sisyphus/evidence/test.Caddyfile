@@ -1,0 +1,52 @@
+# Caddy Reverse Proxy Configuration
+# ArmorClaw Communication Stack
+#
+# Environment Variables (substituted during deployment):
+#   DOMAIN_NAME  - Public domain name (e.g., armorclaw.example.com)
+#   ADMIN_EMAIL  - Email for Let's Encrypt SSL certificates
+#
+# This template is processed by the installer and placed at /etc/armorclaw/Caddyfile
+# Caddy automatically handles HTTPS certificate provisioning via Let's Encrypt
+
+test.example.com {
+    # Email for Let's Encrypt ACME registration
+    email admin@example.com
+
+    # Matrix homeserver routes
+    handle /_matrix/* {
+        reverse_proxy matrix:6167
+    }
+
+    # Matrix well-known endpoints for client and server discovery
+    handle /.well-known/matrix/client {
+        header Content-Type application/json
+        header Access-Control-Allow-Origin *
+        respond `{"m.homeserver":{"base_url":"https://test.example.com"}}` 200
+    }
+
+    handle /.well-known/matrix/server {
+        header Content-Type application/json
+        header Access-Control-Allow-Origin *
+        respond `{"m.server":"test.example.com:443"}` 200
+    }
+
+    # ArmorClaw Bridge API
+    handle /api* {
+        reverse_proxy bridge:8443
+    }
+
+    # Health check endpoint
+    handle /health {
+        respond "OK\n" 200
+    }
+
+    # Discovery endpoint
+    handle /discover {
+        reverse_proxy bridge:8443
+    }
+
+    # Default fallback to bridge
+    handle {
+        reverse_proxy bridge:8443
+    }
+}

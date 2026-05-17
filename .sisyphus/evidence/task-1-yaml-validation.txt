@@ -1,0 +1,29 @@
+=== YAML Syntax Validation ===
+Date: 2026-04-17
+
+--- .skills/deploy.yaml ---
+  Result: VALID
+  python3 yaml.safe_load: OK
+  name: armorclaw_deploy | version: 2.0.0
+
+--- .skills/status.yaml ---
+  Result: VALID
+  python3 yaml.safe_load: OK
+  name: armorclaw_status | version: 1.0.0
+
+--- .skills/cloudflare.yaml ---
+  Result: VALID
+  python3 yaml.safe_load: OK
+  name: cloudflare | version: 1.0.0
+
+--- .skills/provision.yaml ---
+  Result: VALID
+  python3 yaml.safe_load: OK
+  name: provision | version: 1.0.0
+
+--- .skills/TEMPLATE.yaml ---
+  Result: VALID
+  python3 yaml.safe_load: OK
+  name: skill-name | version: 1.0.0
+
+SUMMARY: All 5 YAML files parse successfully. No syntax errors.

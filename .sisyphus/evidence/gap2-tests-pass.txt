@@ -1,0 +1,26 @@
+=== RUN   TestSchedulerConfig_Timezone
+--- PASS: TestSchedulerConfig_Timezone (0.00s)
+=== RUN   TestScheduler_TimezoneAndLocationFields
+--- PASS: TestScheduler_TimezoneAndLocationFields (0.00s)
+=== RUN   TestScheduler_TimezoneUTC
+--- PASS: TestScheduler_TimezoneUTC (0.00s)
+=== RUN   TestScheduler_TimezoneMultipleZones
+=== RUN   TestScheduler_TimezoneMultipleZones/UTC
+=== RUN   TestScheduler_TimezoneMultipleZones/America/New_York
+=== RUN   TestScheduler_TimezoneMultipleZones/America/Los_Angeles
+=== RUN   TestScheduler_TimezoneMultipleZones/Europe/London
+=== RUN   TestScheduler_TimezoneMultipleZones/Asia/Tokyo
+=== RUN   TestScheduler_TimezoneMultipleZones/Australia/Sydney
+--- PASS: TestScheduler_TimezoneMultipleZones (0.00s)
+    --- PASS: TestScheduler_TimezoneMultipleZones/UTC (0.00s)
+    --- PASS: TestScheduler_TimezoneMultipleZones/America/New_York (0.00s)
+    --- PASS: TestScheduler_TimezoneMultipleZones/America/Los_Angeles (0.00s)
+    --- PASS: TestScheduler_TimezoneMultipleZones/Europe/London (0.00s)
+    --- PASS: TestScheduler_TimezoneMultipleZones/Asia/Tokyo (0.00s)
+    --- PASS: TestScheduler_TimezoneMultipleZones/Australia/Sydney (0.00s)
+=== RUN   TestScheduler_TimezoneFieldExists
+--- PASS: TestScheduler_TimezoneFieldExists (0.00s)
+=== RUN   TestSchedulerConfig_TimezoneField
+--- PASS: TestSchedulerConfig_TimezoneField (0.00s)
+PASS
+ok  	github.com/armorclaw/bridge/pkg/secretary	(cached)

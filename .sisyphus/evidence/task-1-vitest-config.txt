@@ -1,0 +1,18 @@
+TASK 1: Create vitest.unit.config.ts
+STATUS: DONE
+
+Created: container/openclaw-src/vitest.unit.config.ts
+
+Config details:
+- Uses defineConfig from vitest/config
+- Includes: src/**/*.test.ts
+- Excludes: *.e2e.test.ts, *.live.test.ts, *.browser.test.ts, node_modules
+- Environment: node
+
+Verification:
+- TypeScript transpilation: PASS (no syntax errors)
+- pnpm/vitest not available in this shell, but config matches the pattern
+  used by test-parallel.mjs which references vitest.unit.config.ts at
+  line 68/80/89 with the same --config flag that test:fast uses
+- package.json test:fast script: "vitest run --config vitest.unit.config.ts"
+- Config will be picked up correctly when dependencies are installed

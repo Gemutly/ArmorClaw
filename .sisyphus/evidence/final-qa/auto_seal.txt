@@ -1,0 +1,26 @@
+114:	autoSealTimer    *time.Timer
+117:	autoSealDuration time.Duration // configurable, default 4 hours
+562:// the password-gated sealed state and resets the auto-seal timer on success
+595:// it does NOT reset the auto-seal timer.
+621:// resetActivityTimer resets the auto-seal timer. Safe to call only when
+627:		sk.resetTimerLocked()
+655:// ResetTimerFunc returns a closure that resets the auto-seal timer.
+812:		autoSealDuration: 4 * time.Hour,
+848:	sk.resetTimerLocked()
+857:	if sk.autoSealTimer != nil {
+858:		sk.autoSealTimer.Stop()
+859:		sk.autoSealTimer = nil
+881:// resetTimerLocked resets the auto-seal timer. Caller must hold passwordMu.
+882:func (sk *SealedKeystore) resetTimerLocked() {
+883:	if sk.autoSealTimer != nil {
+884:		sk.autoSealTimer.Stop()
+887:	sk.sessionExpiresAt = sk.lastActivityAt.Add(sk.autoSealDuration)
+888:	sk.autoSealTimer = time.AfterFunc(sk.autoSealDuration, sk.sealCallback)
+891:// sealCallback is invoked by the auto-seal timer.
+916:// ExtendPasswordSession explicitly extends the auto-seal timer.
+926:	sk.resetTimerLocked()
+930:// SetAutoSealDuration configures the auto-seal timeout. For testing only.
+931:func (sk *SealedKeystore) SetAutoSealDuration(d time.Duration) {
+934:	sk.autoSealDuration = d
+939:// This is a non-activity operation — it does NOT reset the auto-seal timer.
+962:// This is a non-activity operation — it does NOT reset the auto-seal timer.

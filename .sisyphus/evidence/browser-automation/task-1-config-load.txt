@@ -1,0 +1,29 @@
+Task 1: Unify Bridge Browser URL Configuration
+Date: 2026-04-25
+
+=== Changes Made ===
+
+1. bridge/pkg/config/config.go - BrowserConfig struct:
+   - Added CDPUrl (env: ARMORCLAW_BROWSER_CDP_URL, default: ws://localhost:9222)
+   - Added RPCUrl (env: ARMORCLAW_BROWSER_RPC_URL, default: http://localhost:9223)
+   - Added LegacyURL (env: ARMORCLAW_BROWSER_LEGACY_URL, default: http://localhost:3002)
+   - Added Backend (env: ARMORCLAW_BROWSER_BACKEND, default: jetski)
+   - Added Fallback (env: ARMORCLAW_BROWSER_FALLBACK, default: true)
+   - Updated ServiceURL default from localhost:3000 to localhost:3002
+   - Added GetLegacyURL() helper (LegacyURL > ServiceURL fallback)
+
+2. bridge/cmd/bridge/setup_secretary.go:
+   - Added config import
+   - Added cfg *config.Config parameter to setupWorkflowEngine()
+   - Replaced hardcoded "http://localhost:3002" with cfg.GetLegacyURL()
+
+3. bridge/cmd/bridge/main.go:
+   - Updated setupWorkflowEngine() call to pass cfg
+
+4. bridge/pkg/browser/processor.go:
+   - Aligned DefaultServiceProcessorConfig() default from localhost:3000 to localhost:3002
+
+=== Verification ===
+$ go vet ./pkg/config/... ./pkg/browser/... ./cmd/bridge/...  → CLEAN
+$ go test ./pkg/browser/...  → ok (5.074s)
+$ go build ./cmd/bridge/...  → Go compilation clean (linker fails on pre-existing YARA/OpenSSL deps, unrelated)

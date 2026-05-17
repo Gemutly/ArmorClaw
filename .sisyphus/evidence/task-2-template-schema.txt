@@ -1,0 +1,43 @@
+=========================================
+Task 2: Design Skill Schema Template
+=========================================
+
+[TEST] Template has required schema fields
+
+Step 1: grep "name:" .skills/TEMPLATE.yaml
+name: "skill-name"
+  - name: "example_param"
+  - name: "example_step"
+
+Step 2: grep "parameters:" .skills/TEMPLATE.yaml
+parameters:
+
+Step 3: grep "steps:" .skills/TEMPLATE.yaml
+steps:
+
+Step 4: grep "automation:" .skills/TEMPLATE.yaml
+    automation: "auto"
+
+Expected Result: All fields present in output ✓
+Failure Indicators: Empty grep output (not found)
+
+[CHECK] Template line count
+Lines: 36 (< 100) ✓
+
+[CHECK] Schema fields present
+- name: ✓
+- version: ✓
+- description: ✓
+- parameters: ✓
+- steps: ✓
+- platforms: ✓
+- examples: ✓
+
+[CHECK] Automation flag documentation
+- auto: ✓
+- confirm: ✓
+- guide: ✓
+
+=========================================
+VERDICT: APPROVE
+=========================================

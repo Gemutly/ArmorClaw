@@ -1,0 +1,31 @@
+SKILL.md Inventory Count — Task 3
+====================================
+Date: 2026-04-17
+
+Location                          | Count | Type
+----------------------------------+-------+------------
+container/openclaw-src/skills/    |   52  | Bundled
+container/openclaw-src/extensions/|    6  | Extension (4x feishu, 1x lobster, 1x open-prose)
+bridge/internal/skills/browser/   |    1  | Bridge browser
+bridge/internal/skills/webdav/    |    1  | Bridge webdav
+----------------------------------+-------+------------
+TOTAL                             |   60  |
+
+Bundled Skills (52):
+  1password, apple-notes, apple-reminders, bear-notes, blogwatcher,
+  bluebubbles, blucli, camsnap, canvas, clawhub, coding-agent,
+  discord, eightctl, food-order, gh-issues, gemini, gifgrep, gog,
+  goplaces, github, healthcheck, himalaya, imsg, mcporter,
+  model-usage, nano-banana-pro, nano-pdf, notion, obsidian,
+  openai-image-gen, openai-whisper, openai-whisper-api, openhue,
+  oracle, ordercli, peekaboo, sag, session-logs, sherpa-onnx-tts,
+  skill-creator, slack, songsee, sonoscli, spotify-player,
+  summarize, things-mac, tmux, trello, video-frames, voice-call,
+  wacli, weather
+
+Extension Skills (6):
+  open-prose/prose, lobster, feishu/feishu-drive, feishu/feishu-wiki,
+  feishu/feishu-doc, feishu/feishu-perm
+
+Bridge Skills (2):
+  browser, webdav

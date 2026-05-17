@@ -1,0 +1,39 @@
+Task 2 Evidence: Test Gap Analysis
+====================================
+Generated: Bridge Go Skills System
+
+bridge/internal/skills/ — 15 Go files, 6,370 lines, ZERO _test.go files
+bridge/pkg/skills/ — 4 Go files, 973 lines, 2 _test.go files (692 lines tests)
+
+File-by-file breakdown:
+
+bridge/internal/skills/allowlist.go       143 lines  NO TESTS
+bridge/internal/skills/calendar.go        589 lines  NO TESTS
+bridge/internal/skills/data_analyze.go    958 lines  NO TESTS
+bridge/internal/skills/email_send.go      480 lines  NO TESTS
+bridge/internal/skills/executor.go        579 lines  NO TESTS
+bridge/internal/skills/file_read.go       420 lines  NO TESTS
+bridge/internal/skills/policy.go          174 lines  NO TESTS
+bridge/internal/skills/registry.go        546 lines  NO TESTS
+bridge/internal/skills/router.go          168 lines  NO TESTS
+bridge/internal/skills/schema.go          224 lines  NO TESTS
+bridge/internal/skills/slack_message.go   582 lines  NO TESTS
+bridge/internal/skills/ssrf.go            203 lines  NO TESTS
+bridge/internal/skills/webdav.go          469 lines  NO TESTS
+bridge/internal/skills/web_extract.go     506 lines  NO TESTS
+bridge/internal/skills/web_search.go      331 lines  NO TESTS
+                                                 ----------
+SUBTOTAL                                  6,372 lines  0 test files
+
+bridge/pkg/skills/extractor.go            222 lines  (production)
+bridge/pkg/skills/extractor_test.go       234 lines  (test)
+bridge/pkg/skills/learned_store.go        259 lines  (production)
+bridge/pkg/skills/learned_store_test.go   458 lines  (test)
+                                                 ----------
+SUBTOTAL (prod)                            481 lines  692 lines tests
+
+CRITICAL FINDING:
+  - internal/skills/ has 6,372 lines of security-critical code with ZERO tests
+  - This includes: SSRF validator, policy enforcer, input sanitizer, executor pipeline
+  - pkg/skills/ has proper test coverage (1.4:1 test-to-code ratio)
+  - The gap represents the most security-sensitive code in the skills subsystem

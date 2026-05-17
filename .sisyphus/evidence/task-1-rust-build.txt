@@ -1,0 +1,8 @@
+   Compiling getrandom v0.4.2
+   Compiling bitflags v2.11.0
+   Compiling rusqlite v0.30.0
+   Compiling tempfile v3.27.0
+   Compiling prost-build v0.12.6
+   Compiling tonic-build v0.10.2
+   Compiling rust-vault v0.1.0 (/home/mikmin/.LocalCode/armorclaw-omo/rust-vault)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 7.31s

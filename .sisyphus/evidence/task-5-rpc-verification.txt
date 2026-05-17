@@ -1,0 +1,182 @@
+BEATO RPC Verification Evidence
+Date: 2026-05-16
+VPS: 5.183.11.149
+Bridge image: mikegemut/armorclaw:beato-fix
+
+=== Auth Token ===
+Token source: /data/config.toml (admin_token field)
+Token prefix: aat_57f59b6e...
+Token length: 48
+
+NOTE: /run/armorclaw/admin-token file does NOT exist. Token only in config.toml.
+
+=== Document RPCs (3/3 REGISTERED) ===
+
+--- document.extract_text ---
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "error": {
+    "code": -32602,
+    "message": "document_format is required"
+  }
+}
+PASS — method registered, validates required params
+
+--- document.status ---
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "error": {
+    "code": -32602,
+    "message": "job_id is required"
+  }
+}
+PASS — method registered, validates required params
+
+--- document.list_jobs ---
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "error": {
+    "code": -32602,
+    "message": "workflow_id is required"
+  }
+}
+PASS — method registered, validates required params
+
+=== Email RPCs (4/4 REGISTERED) ===
+
+--- email.queue_status ---
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "error": {
+    "code": -32603,
+    "message": "email outbox store not configured"
+  }
+}
+PASS — method registered, config-dependent error (expected — store not provisioned)
+
+--- email.get ---
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "error": {
+    "code": -32602,
+    "message": "email_id is required"
+  }
+}
+PASS — method registered, validates required params
+
+--- email.list ---
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "error": {
+    "code": -32603,
+    "message": "email outbox store not configured"
+  }
+}
+PASS — method registered, config-dependent error
+
+--- email.retry ---
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "error": {
+    "code": -32602,
+    "message": "email_id is required"
+  }
+}
+PASS — method registered, validates required params
+
+=== Browser RPCs (9/9 REGISTERED) ===
+
+--- browser.fill ---
+{"jsonrpc":"2.0","id":1,"error":{"code":-32602,"message":"job_id is required"}}
+PASS
+
+--- browser.click ---
+{"jsonrpc":"2.0","id":1,"error":{"code":-32602,"message":"job_id is required"}}
+PASS
+
+--- browser.cancel ---
+{"jsonrpc":"2.0","id":1,"error":{"code":-32602,"message":"job_id is required"}}
+PASS
+
+--- browser.wait_for_element ---
+{"jsonrpc":"2.0","id":1,"error":{"code":-32602,"message":"job_id is required"}}
+PASS
+
+--- browser.wait_for_captcha ---
+{"jsonrpc":"2.0","id":1,"error":{"code":-32602,"message":"job_id is required"}}
+PASS
+
+--- browser.wait_for_2fa ---
+{"jsonrpc":"2.0","id":1,"error":{"code":-32602,"message":"job_id is required"}}
+PASS
+
+--- browser.complete ---
+{"jsonrpc":"2.0","id":1,"error":{"code":-32602,"message":"job_id is required"}}
+PASS
+
+--- browser.fail ---
+{"jsonrpc":"2.0","id":1,"error":{"code":-32602,"message":"job_id is required"}}
+PASS
+
+--- browser.replay_diagnostics ---
+{"jsonrpc":"2.0","id":1,"error":{"code":-32602,"message":"tab_id is required"}}
+PASS
+
+=== Regression Check ===
+
+--- status (OLD METHOD) ---
+{"jsonrpc":"2.0","id":1,"error":{"code":-32601,"message":"method not found"}}
+NOTE: "status" method was RENAMED. Not a regression — method moved.
+
+--- bridge.status (NEW NAME) ---
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "result": {
+    "enabled": false,
+    "status": "not_configured",
+    "tls": {
+      "mode": "none",
+      "health": "ok",
+      "fingerprint_sha256": "f38229134a4e6937f3a7c30c759d78f5381cc2a4fabc4af486792489d184edc3",
+      "trust_type": "self_signed",
+      "expires_at": 1810498050,
+      "san_includes_public_ip": true,
+      "cert_source": "shared_cert"
+    }
+  }
+}
+PASS — functional equivalent of old "status"
+
+--- health.check ---
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "result": {
+    "status": "degraded",
+    "components": {
+      "bridge": "ok",
+      "keystore": "initialized",
+      "matrix": "disconnected",
+      "matrix_status": "reconnecting (backoff: 30s)",
+      "sidecar.extraction_mode": "detecting"
+    }
+  }
+}
+PASS — health check works (degraded due to known Matrix issue)
+
+=== Summary ===
+Document RPCs: 3/3 registered
+Email RPCs: 4/4 registered
+Browser RPCs: 9/9 registered
+Total new RPCs verified: 16/16
+
+Regression: bridge.status + health.check both functional (old "status" renamed)
+Auth gate: SEE task-5-auth-gate.txt

@@ -1,0 +1,14 @@
+Found 1 egress_denied entries
+Audit entry details:
+{
+  "container_id": "openclaw-qa-abc123",
+  "event_type": "egress_denied",
+  "host": "malicious.example.com",
+  "method": "POST",
+  "path": "/steal-data",
+  "reason": "Host not in allowlist",
+  "timestamp": "2026-04-07T18:53:24-06:00",
+  "user_id": "user-qa-123"
+}
+Query interface returned 1 events
+First event: Host=malicious.example.com, Path=/steal-data, ContainerID=openclaw-qa-abc123

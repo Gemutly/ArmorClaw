@@ -1,0 +1,29 @@
+{
+  "classification": "path-mismatch",
+  "scheme": "https",
+  "bridge_port": "8443",
+  "timestamp": "2026-05-14T01:01:59Z",
+  "probes": [
+    {
+      "endpoint": "https://localhost:8443/api",
+      "request": "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"rpc.discover\",\"params\":{}}",
+      "response": "{\"code\":-32700,\"message\":\"Invalid JSON\"}",
+      "http_status": "200",
+      "classification": "path-mismatch"
+    },
+    {
+      "endpoint": "https://localhost:8443/rpc",
+      "request": "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"rpc.discover\",\"params\":{}}",
+      "response": "<empty>",
+      "http_status": "404",
+      "classification": "path-mismatch"
+    },
+    {
+      "endpoint": "https://localhost:8443/jsonrpc",
+      "request": "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"rpc.discover\",\"params\":{}}",
+      "response": "<empty>",
+      "http_status": "404",
+      "classification": "path-mismatch"
+    }
+  ]
+}

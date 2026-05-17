@@ -1,0 +1,17 @@
+--- Disk Space ---
+/dev/sda1        96G  9.9G   87G  11% /
+/dev/sda16      881M  119M  701M  15% /boot
+/dev/sda15      105M  6.2M   99M   6% /boot/efi
+
+--- Required Ports (80, 443, 6167, 8443, 8448) ---
+LISTEN 0      4096         0.0.0.0:6167      0.0.0.0:*    users:(("docker-proxy",pid=382683,fd=8))                  
+LISTEN 0      4096         0.0.0.0:8448      0.0.0.0:*    users:(("docker-proxy",pid=382705,fd=8))                  
+LISTEN 0      4096            [::]:6167         [::]:*    users:(("docker-proxy",pid=382689,fd=8))                  
+LISTEN 0      4096            [::]:8448         [::]:*    users:(("docker-proxy",pid=382711,fd=8))                  
+LISTEN 0      4096               *:8443            *:*    users:(("armorclaw-bridg",pid=387481,fd=8))               
+
+--- Docker Version ---
+Docker version 29.2.1, build a5c7197
+
+--- Running Containers ---
+armorclaw-conduit: Up 14 hours

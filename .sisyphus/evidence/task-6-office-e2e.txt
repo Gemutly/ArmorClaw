@@ -1,0 +1,55 @@
+============================================================
+TASK 6: Office E2E Validation — XLSX Extraction Test
+Date: 2026-05-16T20:32Z
+============================================================
+
+TEST: document.extract_text with valid XLSX file
+RPC: document.extract_text
+FORMAT: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet
+FILENAME: beato-test.xlsx
+
+Test File: Minimal valid XLSX (ZIP with [Content_Types].xml, workbook.xml, sheet1.xml)
+Contents: "BEATO Test Cell" (A1), "Office E2E Validation" (A2)
+
+REQUEST PARAMS:
+- token: <admin_token>
+- document_content: <base64-encoded XLSX>
+- document_format: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+- filename: "beato-test.xlsx"
+
+RESPONSE:
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "error": {
+    "code": -32603,
+    "message": "internal server error"
+  }
+}
+
+RESULT: FAILED — XLSX extraction did not succeed.
+
+ROOT CAUSE ANALYSIS:
+1. The Bridge routes XLSX to the Rust sidecar (office_client.go lines 88-90):
+     if isZIP && isXlsx {
+         return rustClient.ExtractText(ctx, req)
+     }
+2. The Rust sidecar is NOT deployed on this VPS — no socket exists.
+   Available sockets: bridge.sock, email-ingest.sock, sidecar-office.sock, sidecar-java/
+   Missing: Rust sidecar socket (DefaultSocketPath)
+3. rustClient is nil → nil pointer dereference → panic caught by RPC recovery middleware
+   → returns generic "internal server error" (no "document extraction failed:" prefix)
+
+SIDECHAIR-OFFICE STATUS:
+- Container: armorclaw-sidecar-office — Restarting (1) every ~30s
+- Error: ModuleNotFoundError: No module named 'sidecar_pb2'
+- NOTE: The Python office sidecar handles only LEGACY OLE formats (MSG, XLS, PPT).
+  XLSX/PPTX/DOCX all route to the Rust sidecar per the 3-layer routing design.
+
+BRIDGE STATUS:
+- PID: 2175541 — running outside systemd (systemd service shows "failed")
+- Command: /usr/local/bin/armorclaw-bridge --config /data/config.toml
+- Matrix: connected (but auth failing — M_FORBIDDEN)
+
+BLOCKER: Rust sidecar must be deployed for XLSX/PPTX/DOCX extraction to work.
+============================================================

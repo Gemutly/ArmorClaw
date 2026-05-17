@@ -1,0 +1,46 @@
+[2026-04-03 01:22:55] [FAIL] Bridge RPC: Endpoint returned unexpected response: 
+[2026-04-03 01:22:56] [PASS] Matrix Client Versions: Endpoint is accessible
+[2026-04-03 01:22:58] [PASS] Matrix Federation: Endpoint is accessible
+[2026-04-03 01:22:58] [FAIL] Bridge RPC JSON-RPC: RPC response: 
+[2026-04-03 01:22:59] [FAIL] Bridge /health Health: Health check failed: 
+[2026-04-03 01:23:00] [FAIL] Bridge /status Health: Health check failed: 
+[2026-04-03 01:23:01] [FAIL] Matrix Health Health: Health check failed: {"versions":["r0.5.0","r0.6.0","v1.1","v1.2","v1.3","v1.4","v1.5","v1.6","v1.7","v1.8","v1.9","v1.10","v1.11","v1.12"],"unstable_features":{"org.matrix.e2e_cross_signing":true,"org.matrix.msc3916.stable":true,"org.matrix.simplified_msc3575":true}}
+[2026-04-03 01:23:02] [PASS] Bridge RPC Timeout: Timeout handled in 1s
+[2026-04-03 01:23:03] [PASS] Matrix API Timeout: Timeout handled in 1s
+[2026-04-03 01:23:04] [WARN] Bridge RPC JSON Format: Could not validate JSON: 
+[2026-04-03 01:23:06] [PASS] Matrix Versions JSON Format: JSON-like structure
+[2026-04-03 01:23:07] [WARN] Bridge Health JSON Format: Could not validate JSON: 
+[2026-04-03 01:23:08] [FAIL] Bridge RPC Error 404: Expected 404, got 000000
+[2026-04-03 01:23:09] [PASS] Matrix API Error 404: HTTP 404 returned
+[2026-04-03 01:23:10] [FAIL] Bridge RPC Invalid Error 400: Expected 400, got 000000
+[2026-04-03 01:23:11] [WARN] Matrix Admin Auth: Auth verification unclear: {"errcode":"M_UNRECOGNIZED","error":"M_UNRECOGNIZED: Unrecognized request"}
+[2026-04-03 01:23:11] [WARN] Bridge Protected Auth: Auth verification unclear: 
+[2026-04-03 01:23:12] [PASS] API Response Time: Response time: .916964403s
+[2026-04-03 01:23:13] [COMPLETE] SUMMARY: Total: 18, Passed: 7, Failed: 7, Pass Rate: 38.00%
+[2026-04-03 01:40:00] [FAIL] Bridge RPC: Endpoint returned unexpected response: 
+[2026-04-03 01:40:01] [PASS] Matrix Client Versions: Endpoint is accessible
+[2026-04-03 01:40:02] [PASS] Matrix Federation: Endpoint is accessible
+[2026-04-03 01:40:03] [FAIL] Bridge RPC JSON-RPC: RPC response: 
+[2026-04-03 01:40:04] [FAIL] Bridge /health Health: Health check failed: 
+[2026-04-03 01:40:04] [FAIL] Bridge /status Health: Health check failed: 
+[2026-04-03 01:40:05] [FAIL] Matrix Health Health: Health check failed: {"versions":["r0.5.0","r0.6.0","v1.1","v1.2","v1.3","v1.4","v1.5","v1.6","v1.7","v1.8","v1.9","v1.10","v1.11","v1.12"],"unstable_features":{"org.matrix.e2e_cross_signing":true,"org.matrix.msc3916.stable":true,"org.matrix.simplified_msc3575":true}}
+[2026-04-03 01:40:06] [PASS] Bridge RPC Timeout: Timeout handled in 1s
+[2026-04-03 03:01:39] [FAIL] Bridge RPC: Endpoint returned unexpected response: 
+[2026-04-03 03:01:40] [PASS] Matrix Client Versions: Endpoint is accessible
+[2026-04-03 03:01:40] [PASS] Matrix Federation: Endpoint is accessible
+[2026-04-03 03:01:41] [FAIL] Bridge RPC JSON-RPC: RPC response: 
+[2026-04-03 03:01:42] [FAIL] Bridge /health Health: Health check failed: 
+[2026-04-03 03:01:43] [FAIL] Bridge /status Health: Health check failed: 
+[2026-04-03 03:01:44] [FAIL] Matrix Health Health: Health check failed: {"versions":["r0.5.0","r0.6.0","v1.1","v1.2","v1.3","v1.4","v1.5","v1.6","v1.7","v1.8","v1.9","v1.10","v1.11","v1.12"],"unstable_features":{"org.matrix.e2e_cross_signing":true,"org.matrix.msc3916.stable":true,"org.matrix.simplified_msc3575":true}}
+[2026-04-03 03:01:44] [PASS] Bridge RPC Timeout: Timeout handled in 0s
+[2026-04-03 03:01:46] [PASS] Matrix API Timeout: Timeout handled in 2s
+[2026-04-03 03:01:47] [WARN] Bridge RPC JSON Format: Could not validate JSON: 
+[2026-04-03 03:01:48] [PASS] Matrix Versions JSON Format: JSON-like structure
+[2026-04-03 03:01:49] [WARN] Bridge Health JSON Format: Could not validate JSON: 
+[2026-04-03 03:01:50] [FAIL] Bridge RPC Error 404: Expected 404, got 000000
+[2026-04-03 03:01:51] [PASS] Matrix API Error 404: HTTP 404 returned
+[2026-04-03 03:01:51] [FAIL] Bridge RPC Invalid Error 400: Expected 400, got 000000
+[2026-04-03 03:01:52] [WARN] Matrix Admin Auth: Auth verification unclear: {"errcode":"M_UNRECOGNIZED","error":"M_UNRECOGNIZED: Unrecognized request"}
+[2026-04-03 03:01:53] [WARN] Bridge Protected Auth: Auth verification unclear: 
+[2026-04-03 03:01:54] [PASS] API Response Time: Response time: .782783305s
+[2026-04-03 03:01:54] [COMPLETE] SUMMARY: Total: 18, Passed: 7, Failed: 7, Pass Rate: 38.00%

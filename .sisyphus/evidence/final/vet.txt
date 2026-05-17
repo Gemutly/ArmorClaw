@@ -1,0 +1,7 @@
+# github.com/hillu/go-yara/v4
+# [pkg-config --cflags  -- yara]
+Package yara was not found in the pkg-config search path.
+Perhaps you should add the directory containing `yara.pc'
+to the PKG_CONFIG_PATH environment variable
+Package 'yara', required by 'virtual:world', not found
+EXIT_CODE=1

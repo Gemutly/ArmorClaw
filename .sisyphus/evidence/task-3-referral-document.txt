@@ -1,0 +1,152 @@
+# Evidence: Task 3 - ArmorChat Referral Document
+
+**Date**: 2026-04-04
+**Task**: Create ArmorChat Referral Document
+**Status**: ✅ COMPLETE
+
+## Deliverable
+
+**File**: `.sisyphus/drafts/armorchat-referral.md`
+**Type**: Markdown documentation
+**Lines**: 487 lines
+**Size**: 18,603 bytes
+
+## Verification
+
+### Acceptance Criteria Met
+- [x] Document exists at `.sisyphus/drafts/armorchat-referral.md`
+- [x] Lists all ArmorChat components with required actions
+- [x] Explains integration points
+- [x] Provides verification checklist
+
+### Document Structure
+
+1. **Executive Summary**
+   - Clear handoff explanation
+   - Repository separation rationale
+   - Next steps for ArmorChat team
+
+2. **Repository Responsibility Matrix**
+   - Clear table showing what's in ArmorChat vs armorclaw-omo
+   - Color-coded by wave priority
+   - Component locations explicitly stated
+
+3. **Required Actions (Waves 1-4)**
+   
+   **Wave 1: Logic Spine Fixes**
+   - MatrixRustClient.verifyDevice() implementation
+   - strings.xml duplicate cleanup
+   - DefaultDebugStateProvider LogTag import
+   
+   **Wave 2: ShadowMap Gatekeeper**
+   - ShadowMapInterceptor 4 regex patterns
+   - Kill-on-violation in MatrixClientImpl.sendTextMessage()
+   - KMP-pure SHA-256 crypto verification
+   
+   **Wave 3: BlindFill & HITL**
+   - VaultViewModel biometric enforcement
+   - PiiAccessRequestCard biometric requirement
+   - RevealSecretScreen 2-second hold timer
+   - Placeholder display in agent tools
+   
+   **Wave 4: Validation Suite**
+   - USB validation script execution
+   - Sentinel mode log monitoring
+   - ControlPlaneStore flagging
+
+4. **Cross-Repository Integration Points**
+   
+   **gRPC Protocol: Bridge → ArmorChat**
+   - Container Terminate RPC
+   - Audit Log Upload RPC
+   - Session Status RPC
+   
+   **BlindFill Protocol: Bridge → ArmorChat**
+   - Placeholder Request
+   - Placeholder Resolution
+   - Browser Injection
+   
+   **Matrix Protocol: ArmorChat → Conduit**
+   - Device Verification
+   - E2EE Key Exchange
+   - Message Sending
+
+5. **Verification Checklist**
+   - 30+ actionable items organized by wave
+   - Clear pass/fail criteria
+   - Integration test scenarios
+
+6. **Security Constraints**
+   - References AGENTS.md requirements
+   - SQLCipher enforcement
+   - Matrix control plane preservation
+   - PII approval flow protection
+
+7. **Appendix: ShadowMap Crypto Verification**
+   - KMP-pure SHA-256 implementation guide
+   - JVM side-channel attack prevention
+   - Kotlin cryptographic best practices
+
+## Key Clarifications
+
+1. **Repository Separation**
+   - ArmorChat Android app is in external repository
+   - Bridge, Rust Vault, OpenClaw are in armorclaw-omo
+   - Clear ownership boundaries
+
+2. **Integration Protocol**
+   - gRPC endpoints documented
+   - Message formats specified
+   - Authentication requirements listed
+
+3. **Wave Priority**
+   - Wave 1: Critical baseline fixes
+   - Wave 2: Active defense mechanisms
+   - Wave 3: Data isolation enforcement
+   - Wave 4: Validation and monitoring
+
+4. **Team Responsibilities**
+   - ArmorChat team: Mobile app hardening
+   - Bridge team: RPC endpoints and container management
+   - Rust team: BlindFill engine maintenance
+   - Security team: Cross-repository validation
+
+## Integration Points
+
+### Bridge → ArmorChat (gRPC)
+```
+rpc TerminateContainer(TerminateContainerRequest) returns (TerminateContainerResponse);
+rpc UploadAuditLog(UploadAuditLogRequest) returns (UploadAuditLogResponse);
+rpc GetSessionStatus(GetSessionStatusRequest) returns (GetSessionStatusResponse);
+```
+
+### BlindFill Flow
+```
+1. Agent requests secret (e.g., "user.email")
+2. Bridge masks as {{VAULT:email:sha256hash}}
+3. Agent sees placeholder only
+4. Playwright injection swaps placeholder → real value
+5. Browser form receives real value (agent never sees it)
+```
+
+### Matrix E2EE Flow
+```
+1. ArmorChat calls verifyDevice()
+2. Matrix Conduit verifies device identity
+3. E2EE keys exchanged
+4. Secure channel established
+5. Messages encrypted end-to-end
+```
+
+## Next Steps for ArmorChat Team
+
+1. Review document at `.sisyphus/drafts/armorchat-referral.md`
+2. Assign Wave 1 tasks to Android developers
+3. Coordinate with Bridge team on gRPC endpoints
+4. Schedule Wave 2 implementation sprint
+5. Plan Wave 3 security review
+6. Prepare Wave 4 validation environment
+
+## Conclusion
+
+ArmorChat Referral Document successfully created with comprehensive guidance for external team. All integration points documented, verification checklist provided, and team responsibilities clearly defined.

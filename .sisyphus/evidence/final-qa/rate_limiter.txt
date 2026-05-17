@@ -1,0 +1,2 @@
+13:// RateLimiter provides per-identity fixed-window rate limiting.
+51:// allowed attempts within the current window.

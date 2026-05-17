@@ -1,0 +1,25 @@
+Layer 1 section: 125 lines (lines 12-136)
+Layer 2 section: 155 lines (lines 137-291)
+Total: 280 lines (291 including header and footer)
+
+Sections present:
+- Layer 1: Deployment Skills (.skills/)
+  - Overview table (4 skills)
+  - Capabilities per skill (4 paragraphs)
+  - Expected results per step (16-row step table)
+  - Findings table (9 findings: 2 HIGH, 2 MEDIUM, 5 LOW)
+  - Platform claims vs reality table (4 skills)
+  - SKILL.md frontmatter consistency table
+  - Automation level issues table
+  - Previous review status table
+  - Test coverage assessment table
+
+- Layer 2: Bridge Go Skills (bridge/internal/skills/)
+  - Overview table (15 files, 6,372 lines)
+  - Executor pipeline PETG (8-step table)
+  - Capabilities per skill (8 paragraphs)
+  - Findings table (27 findings: 3 CRITICAL, 10 HIGH, 9 MEDIUM, 5 LOW)
+  - YAML parser limitations table
+  - RPC methods analysis
+  - Mock vs real implementation table
+  - Test coverage assessment table

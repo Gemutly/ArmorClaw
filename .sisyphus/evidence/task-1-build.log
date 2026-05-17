@@ -1,0 +1,28 @@
+Build verification for task 1:
+===============================
+
+Task: Fix Matrix login in bridge/pkg/matrix/client.go to use Conduit-compatible v3 identifier format
+
+File modified: bridge/pkg/matrix/client.go
+Lines affected: 79-94 (Login function)
+
+Changes verified:
+-----------------
+✓ Line 79: Comment updated to reference /_matrix/client/v3/login
+✓ Line 80: Payload type changed from map[string]string to map[string]interface{}
+✓ Lines 81-87: Login payload includes v3 identifier object with:
+  - type: "m.login.password"
+  - identifier: { type: "m.id.user", user: username }
+  - password: password
+✓ Line 94: Endpoint URL changed from /r0/login to /v3/login
+
+Build verification:
+-------------------
+Command: cd /home/mink/src/armorclaw-omo/bridge && go build -o /tmp/bridge-test ./cmd/bridge
+Exit code: 0
+Status: SUCCESS
+
+File already contains v3 identifier format (commit 33b0847: fix(matrix): use v3 identifier format for Conduit login)
+No additional changes needed. Build passes with exit code 0.
+
+Note: No unintended whitespace/style changes were introduced to struct definitions or other parts of the file.

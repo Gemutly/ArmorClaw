@@ -1,0 +1,90 @@
+Skill Test Coverage Assessment — Task 3
+==========================================
+Date: 2026-04-17
+Method: find + wc -l on all skill-related test files
+
+Test Files by Directory:
+=========================
+
+src/agents/ (in skills/ subdirectory):
+  skills/filter.test.ts                                        35 lines
+  skills/frontmatter.e2e.test.ts                               19 lines
+  skills/refresh.test.ts                                       73 lines
+  skills/bundled-dir.e2e.test.ts                               54 lines
+  Subtotal: 4 files, 181 lines
+
+src/agents/ (root level, skill-related):
+  sandbox-skills.e2e.test.ts                                   92 lines
+  skills.agents-skills-directory.e2e.test.ts                  128 lines
+  skills.buildworkspaceskillsnapshot.e2e.test.ts              236 lines
+  skills.build-workspace-skills-prompt.applies-bundled-allowlist...  37 lines
+  skills.build-workspace-skills-prompt.prefers-workspace...   131 lines
+  skills.build-workspace-skills-prompt.syncs-merged-skills... 185 lines
+  skills.buildworkspaceskillstatus.e2e.test.ts               120 lines
+  skills.compact-skill-paths.test.ts                           60 lines
+  skills.e2e.test.ts                                          299 lines
+  skills-install.download.e2e.test.ts                         283 lines
+  skills-install.download-tarbz2.e2e.test.ts                  243 lines
+  skills-install.e2e.test.ts                                  114 lines
+  skills-install-fallback.e2e.test.ts                         240 lines
+  skills.loadworkspaceskillentries.e2e.test.ts                 82 lines
+  skills.resolveskillspromptforrun.e2e.test.ts                 32 lines
+  skills-status.e2e.test.ts                                    43 lines
+  skills.summarize-skill-description.e2e.test.ts               17 lines
+  Subtotal: 17 files, 2312 lines
+
+src/auto-reply/:
+  skill-commands.test.ts                                      131 lines
+  Subtotal: 1 file, 131 lines
+
+src/cli/:
+  skills-cli.e2e.test.ts                                       85 lines
+  skills-cli.test.ts                                           219 lines
+  Subtotal: 2 files, 304 lines
+
+src/commands/:
+  onboard-skills.e2e.test.ts                                  185 lines
+  Subtotal: 1 file, 185 lines
+
+src/config/:
+  config.skills-entries-config.test.ts                          47 lines
+  Subtotal: 1 file, 47 lines
+
+src/cron/:
+  isolated-agent/run.skill-filter.test.ts                      395 lines (largest!)
+  Subtotal: 1 file, 395 lines
+
+src/discord/monitor/:
+  provider.skill-dedupe.test.ts                                 26 lines
+  Subtotal: 1 file, 26 lines
+
+src/gateway/:
+  server-methods/skills.update.normalizes-api-key.test.ts       53 lines
+  server.skills-status.e2e.test.ts                              48 lines
+  Subtotal: 2 files, 101 lines
+
+src/infra/:
+  skills-remote.test.ts                                         36 lines
+  Subtotal: 1 file, 36 lines
+
+src/security/:
+  skill-scanner.test.ts                                        345 lines
+  Subtotal: 1 file, 345 lines
+
+TOTALS:
+=======
+  Total test files: 31
+  Total test lines: 4,093
+  Largest: src/cron/isolated-agent/run.skill-filter.test.ts (395 lines)
+  Second: src/agents/skills.e2e.test.ts (299 lines)
+  Third: src/agents/skills-install.download.e2e.test.ts (283 lines)
+
+Coverage Assessment:
+====================
+- Core skills infrastructure: WELL COVERED (workspace.ts, config.ts, frontmatter.ts all tested)
+- Skill discovery priority: COVERED (prefers-workspace-skills test)
+- Skill installation: WELL COVERED (download, tarbz2, fallback tests)
+- Security scanning: WELL COVERED (skill-scanner.test.ts, 345 lines)
+- CLI skills commands: COVERED (skills-cli tests)
+- Gateway/remote skills: MODERATE (basic API key normalization)
+- Python runtime skills: NOT TESTED (no test files found for container/openclaw/skills/)

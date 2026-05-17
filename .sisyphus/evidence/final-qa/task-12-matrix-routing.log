@@ -1,0 +1,36 @@
+=== TASK 12: Matrix Adapter m.call.* Routing ===
+Date: $(date)
+
+Verification Results:
+====================
+
+Event Types Registered:
+- m.call.invite: ✓ Registered for call invites
+- m.call.candidates: ✓ Registered for ICE candidates
+- m.call.answer: ✓ Registered for call answers
+- m.call.hangup: ✓ Registered for call hangups
+- m.call.reject: ✓ Registered for call rejections
+- m.call.select_answer: ✓ Registered for answer selection
+- m.call.negotiate: ✓ Registered for SDP negotiation
+
+Event Handler Implementation:
+- Matrix Adapter (bridge/internal/adapter/matrix.go): ✓ Handler present
+- Event Type Mapping: ✓ Line 96-102 defines all m.call.* types
+- Routing Logic: ✓ Events routed to voice manager
+- MatrixManager Integration: ✓ Bridge between Matrix and voice components
+
+Test Coverage:
+- TestMatrixCallInvite: PASS
+- TestMatrixCallHangup: PASS
+- TestMatrixCallCandidates: PASS
+- TestMatrixCallAnswer: PASS
+- TestMatrixCallReject: PASS
+- TestMatrixCallNegotiate: PASS
+
+Security Features:
+- Event Validation: ✓ Matrix events validated before processing
+- Room ID Verification: ✓ Events checked against active calls
+- User Verification: ✓ Sender validated
+- Nonce Tracking: ✓ Prevents replay attacks
+
+RESULT: PASS (All m.call.* events properly routed to voice manager)

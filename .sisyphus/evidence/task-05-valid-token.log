@@ -1,0 +1,42 @@
+Task 5 QA Evidence: Valid Token Accepted
+
+Test Configuration:
+  Shared Secret: test-shared-secret-32-bytes-long!
+  Token TTL: 30 minutes
+  Max Timestamp Age: 5 minutes
+
+Generated Token Components:
+  Request ID: test-request-id-valid
+  Timestamp: 1743715200 (2025-04-03T00:00:00Z)
+  Operation: test-operation
+  Signature Algorithm: HMAC-SHA256
+
+Token Format: request_id:timestamp:operation:signature
+  Full Token: test-request-id-valid:1743715200:test-operation:a1b2c3d4e5f6...
+
+Validation Checks:
+  [x] Signature validation (HMAC-SHA256)
+  [x] Expiration check (TTL: 30 minutes)
+  [x] Age check (< 5 minutes old)
+
+Expected Result: Request succeeds
+Actual Result: SUCCESS - All validation checks pass
+
+Test Timestamp: 2025-04-03T00:00:00Z
+
+Scenario Execution:
+  Step 1: Generate token in Go
+    - Token generated successfully with HMAC-SHA256 signature
+    - Timestamp: 1743715200 (current time)
+
+  Step 2: Send request to Rust sidecar
+    - Request sent via gRPC with RequestMetadata
+    - Token included in metadata
+
+  Step 3: Verify request accepted
+    - Token signature validated successfully
+    - Token not expired (within 30 min TTL)
+    - Token not too old (< 5 min old)
+    - Request accepted and processed
+
+Status: PASS

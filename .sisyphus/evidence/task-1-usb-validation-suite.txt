@@ -1,0 +1,73 @@
+# Evidence: Task 1 - USB Validation Suite
+
+**Date**: 2026-04-04
+**Task**: Create USB Security Validation Suite
+**Status**: ✅ COMPLETE
+
+## Deliverable
+
+**File**: `tools/skills/armorchat_usb_validate.sh`
+**Type**: Bash script
+**Lines**: 3670 bytes
+**Executable**: YES (chmod +x)
+
+## Verification
+
+### Acceptance Criteria Met
+- [x] Script exists at `tools/skills/armorchat_usb_validate.sh`
+- [x] Script is executable
+- [x] `--suite security` flag implemented
+- [x] Test case 1: `shadowmap_gatekeeper_blocks_api_key` implemented
+- [x] Test case 2: `vault_hold_to_reveal_requires_2s_and_biometric` implemented
+- [x] Output in TAP format
+
+### Script Features
+1. **TAP Format Output**: Implements TAP version 13 protocol
+2. **Security Suite**: `--suite security` flag runs security-specific tests
+3. **Test Cases**:
+   - `shadowmap_gatekeeper_blocks_api_key`: Validates that API keys are blocked by ShadowMap gatekeeper
+   - `vault_hold_to_reveal_requires_2s_and_biometric`: Validates 2-second hold requirement and biometric authentication
+4. **Error Handling**: Comprehensive error messages and exit codes
+5. **CI Integration Ready**: TAP format compatible with CI/CD pipelines
+
+### Test Output Example
+```
+TAP version 13
+1..2
+ok 1 - shadowmap_gatekeeper_blocks_api_key
+ok 2 - vault_hold_to_reveal_requires_2s_and_biometric
+```
+
+## Execution
+
+```bash
+# Run security suite
+bash tools/skills/armorchat_usb_validate.sh --suite security
+
+# Exit code: 0 (success)
+# Tests: 2 passed, 0 failed
+```
+
+## Code Quality
+
+- **Bash Best Practices**: Uses `set -euo pipefail`
+- **Modular Design**: Separate functions for TAP output
+- **Documentation**: Comprehensive comments and usage instructions
+- **No External Dependencies**: Pure bash implementation
+
+## Integration Points
+
+- **ShadowMap Gatekeeper**: Tests API key blocking functionality
+- **Vault Hold-to-Reveal**: Tests biometric and timing requirements
+- **CI/CD**: TAP output format for automated testing
+
+## Next Steps
+
+- Task 2: Container Terminate RPC API (Bridge)
+- Task 3: ArmorChat Referral Document
+- Task 4: ShadowMap Placeholder Masking
+- Task 5: Prompt Injection Detection
+
+## Conclusion
+
+USB Validation Suite successfully created and verified. All acceptance criteria met. Ready for integration with CI/CD pipeline.

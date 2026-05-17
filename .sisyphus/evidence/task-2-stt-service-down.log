@@ -1,0 +1,17 @@
+=== QA Scenario: Whisper Service Unavailable ===
+Wed Mar 25 16:04:50 MDT 2026
+
+Testing POST to http://localhost:9001/asr with service down...
+
+Note: Unnecessary use of -X or --request, POST is already inferred.
+  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+  0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0*   Trying 127.0.0.1:9001...
+* TCP_NODELAY set
+* connect to 127.0.0.1 port 9001 failed: Connection refused
+* Failed to connect to localhost port 9001: Connection refused
+  0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0
+* Closing connection 0
+curl: (7) Failed to connect to localhost port 9001: Connection refused
+
+=== End QA Scenario ===

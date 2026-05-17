@@ -1,0 +1,98 @@
+=== Security Pattern Catalog ===
+Date: 2026-04-17
+
+=== 1. sudo usage in .skills/*.yaml ===
+
+File: .skills/provision.yaml
+  Line 42:       sudo $CMD
+    Context: generate_qr step — runs provisioning script with sudo
+    Severity: MEDIUM — sudo without validation; $CMD is unquoted (see item 4)
+  Line 48:       sudo ./deploy/armorclaw-provision.sh --show-url
+    Context: display_deep_link step — runs with sudo
+    Severity: MEDIUM — uses sudo for a display-only operation; unnecessary privilege escalation
+  Line 65:       echo "  Ubuntu/Debian: sudo apt install qrencode"
+    Context: guide step — documentation only
+    Severity: INFO — just instructional text, not a command
+
+=== 2. curl ... | bash patterns ===
+
+File: .skills/deploy.yaml
+  Line 163: "$ENV_VARS bash -c '\\$(curl -fsSL https://raw.githubusercontent.com/Gemutly/ArmorClaw/main/deploy/install.sh)'"
+    Context: deploy_installer step — downloads and executes install.sh from main branch on remote VPS
+    Severity: HIGH — curl|bash from unversioned 'main' branch; no checksum verification; supply chain risk
+  Line 166: "bash -c '\\$(curl -fsSL https://raw.githubusercontent.com/Gemutly/ArmorClaw/main/deploy/install.sh)'"
+    Context: deploy_installer step — same pattern without env vars
+    Severity: HIGH — same curl|bash from unversioned main; no pinning/tag/checksum
+
+=== 3. Hardcoded IP addresses (5.183.11.149) ===
+
+File: .skills/deploy.yaml
+  Line 271: command: "/armorclaw_deploy vps_ip=5.183.11.149 domain=armorclaw.example.com mode=sentinel"
+    Context: Example command in 'examples' section
+    Severity: LOW — documentation only, but reveals potential production IP
+  Line 277: command: "/armorclaw_deploy vps_ip=5.183.11.149 ssh_user=ubuntu ssh_key=~/.ssh/my_key.pem mode=sentinel domain=armorclaw.example.com"
+    Context: Example command
+    Severity: LOW — documentation only, but same IP reused across multiple examples
+  Line 280: command: "/armorclaw_deploy vps_ip=5.183.11.149 domain=armorclaw.example.com mode=sentinel"
+    Context: Example command
+    Severity: LOW — documentation only
+
+File: .skills/cloudflare.yaml
+  Line 339: command: "/cloudflare domain=armorclaw.example.com mode=proxy cf_api_token=your-token vps_ip=5.183.11.149"
+    Context: Example command
+    Severity: LOW — documentation only
+
+NOTE: All 4 occurrences are in example/documentation sections, not executable commands.
+      However, using the same IP across multiple examples suggests it's a real VPS IP
+      that should be replaced with placeholder IPs (e.g., 192.0.2.1 per RFC 5737).
+
+=== 4. Unquoted variable expansions in bash commands ===
+
+File: .skills/provision.yaml
+  Line 42: sudo $CMD
+    Context: $CMD is unquoted — word splitting and globbing risks
+    Severity: MEDIUM — if expiry param contains spaces/special chars, could cause unexpected behavior
+  Line 248: CF_API_TOKEN="$CF_API_TOKEN" $SETUP_CMD (cloudflare.yaml)
+    Context: $SETUP_CMD is unquoted when executed
+    Severity: MEDIUM — domain/mode values with spaces could cause word-splitting issues
+
+File: .skills/status.yaml
+  Line 91: $SSH_CMD "docker info >/dev/null 2>&1 && echo '✓ Docker daemon running' || echo '✗ Docker daemon not running'"
+    Context: $SSH_CMD used as bare variable (word-split intentional for command execution)
+    Severity: LOW — intentional pattern for SSH command execution, but fragile
+
+=== 5. return 0 used outside functions (bash error) ===
+
+File: .skills/status.yaml
+  Line 150: return 0
+    Context: check_ssl step — uses `return 0` to exit early when no domain provided
+    Severity: HIGH — `return 0` only works inside a function. These step commands run as
+    inline scripts, not functions. This will produce "return: can only `return' from a
+    function or sourced script" error. Should be `exit 0` instead.
+
+=== 6. API key/secret references in commands ===
+
+File: .skills/deploy.yaml
+  Line 150: ENV_VARS="$ENV_VARS CF_API_TOKEN=$cf_api_token CF_TUNNEL_DOMAIN=$domain"
+    Context: Passes API token via environment variable to remote SSH command
+    Severity: LOW — env var passing is acceptable; not persisted
+  Line 157: ENV_VARS="$ENV_VARS ARMORCLAW_ADMIN_PASSWORD=$admin_password"
+    Context: Passes admin password via environment variable to remote SSH command
+    Severity: MEDIUM — password visible in process args on remote host (ps auxww)
+  Line 163: "$ENV_VARS bash -c '\\$(curl ...)'"
+    Context: Environment variables passed as prefix to command
+    Severity: MEDIUM — secrets visible in process listing on VPS
+
+File: .skills/cloudflare.yaml
+  Line 187: -H "Authorization: Bearer $CF_API_TOKEN"
+    Context: Validates Cloudflare API token via curl
+    Severity: LOW — standard API auth, token from env var
+  Line 248: CF_API_TOKEN="$CF_API_TOKEN" $SETUP_CMD
+    Context: Passes token to setup script via env var
+    Severity: LOW — env var pattern is acceptable
+
+SUMMARY:
+  HIGH severity:   3 (curl|bash unversioned x2, return 0 bug x1)
+  MEDIUM severity: 4 (sudo without validation x2, unquoted var expansion x2)
+  LOW severity:    7 (hardcoded IPs in docs x4, API key env passing x3)
+  INFO:            1 (sudo in documentation)

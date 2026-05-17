@@ -1,0 +1,2 @@
+60:	KeystoreRateLimited = -32006
+938:		return nil, &ErrorObj{Code: KeystoreRateLimited, Message: "rate limit exceeded"}

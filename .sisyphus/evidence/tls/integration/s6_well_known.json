@@ -1,0 +1,15 @@
+{
+  "com.armorclaw": {
+    "api_endpoint": "https://0.0.0.0:8080/api",
+    "base_url": "https://0.0.0.0:8080",
+    "push_gateway": "https://0.0.0.0:8080/_matrix/push/v1/notify",
+    "tls_mode": "none",
+    "ws_endpoint": "wss://0.0.0.0:8080/ws"
+  },
+  "m.homeserver": {
+    "base_url": "http://localhost:6167"
+  },
+  "m.identity_server": {
+    "base_url": "http://localhost:6167"
+  }
+}

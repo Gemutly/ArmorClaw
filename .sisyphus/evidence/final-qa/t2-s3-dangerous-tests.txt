@@ -1,0 +1,12 @@
+=== RUN   TestPreExecutionChecks_URLWithQueryParams
+--- PASS: TestPreExecutionChecks_URLWithQueryParams (0.00s)
+=== RUN   TestPreExecutionChecks_JSONBody
+--- PASS: TestPreExecutionChecks_JSONBody (0.00s)
+=== RUN   TestPreExecutionChecks_HTMLContent
+--- PASS: TestPreExecutionChecks_HTMLContent (0.00s)
+=== RUN   TestPreExecutionChecks_MathExpression
+--- PASS: TestPreExecutionChecks_MathExpression (0.00s)
+=== RUN   TestPreExecutionChecks_URLWithAmpersand
+--- PASS: TestPreExecutionChecks_URLWithAmpersand (0.00s)
+PASS
+ok  	github.com/armorclaw/bridge/internal/skills	0.006s

@@ -1,0 +1,8 @@
+-rw-rw-r-- 1 mikmin mikmin 3213 Apr 17 23:42 .sisyphus/evidence/task-7-coverage-check.txt
+-rw-rw-r-- 1 mikmin mikmin    0 Apr 24 19:42 .sisyphus/evidence/task-7-evidence-listing.txt
+-rw-rw-r-- 1 mikmin mikmin 1025 Apr 18 02:20 .sisyphus/evidence/task-7-manifest-filters.txt
+-rw-r--r-- 1 mikmin mikmin 5029 Apr 12 20:55 .sisyphus/evidence/task-7-security-evidence.txt
+-rw-r--r-- 1 mikmin mikmin  328 Apr 12 20:55 .sisyphus/evidence/task-7-security-success.txt
+-rw-rw-r-- 1 mikmin mikmin 2311 Apr 24 19:42 .sisyphus/evidence/task-7-t3-output.txt
+-rw-rw-r-- 1 mikmin mikmin 1335 Apr 24 19:33 .sisyphus/evidence/task-7-t4-output.txt
+-rw-rw-r-- 1 mikmin mikmin 1718 Apr 24 19:41 .sisyphus/evidence/task-7-t5-output.txt

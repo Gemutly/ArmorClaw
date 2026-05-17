@@ -1,0 +1,4 @@
+{"seq":1,"type":"step","name":"init","ts_ms":1700000000000,"detail":{"action":"start"}}
+{"seq":2,"type":"progress","name":"processing","ts_ms":1700000001000,"detail":{"percent":50}}
+{"seq":3,"type":"checkpoint","name":"halfway","ts_ms":1700000002000,"detail":{"saved":true}}
+{"seq":4,"type":"error","name":"test_error","ts_ms":1700000003000,"detail":{"message":"simulated"}}

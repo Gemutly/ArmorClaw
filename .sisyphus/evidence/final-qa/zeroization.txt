@@ -1,0 +1,16 @@
+bridge/pkg/keystore/securemem_test.go:5:func TestZeroBytes(t *testing.T) {
+bridge/pkg/keystore/securemem_test.go:7:	ZeroBytes(b)
+bridge/pkg/keystore/securemem_test.go:15:func TestZeroBytesEmpty(t *testing.T) {
+bridge/pkg/keystore/securemem_test.go:17:	ZeroBytes(b) // must not panic
+bridge/pkg/keystore/securemem_test.go:20:func TestZeroBytesNil(t *testing.T) {
+bridge/pkg/keystore/securemem_test.go:22:	ZeroBytes(b) // must not panic
+bridge/pkg/keystore/securemem.go:5:// ZeroBytes securely overwrites the contents of b with zeros.
+bridge/pkg/keystore/securemem.go:7:func ZeroBytes(b []byte) {
+bridge/pkg/keystore/sealed_keystore.go:504:			ZeroBytes(sk.vaultKey)
+bridge/pkg/keystore/sealed_keystore.go:834:		ZeroBytes(candidateBytes)
+bridge/pkg/keystore/sealed_keystore.go:837:	ZeroBytes(candidateBytes)
+bridge/pkg/keystore/sealed_keystore.go:863:		ZeroBytes(sk.vaultKey)
+bridge/pkg/keystore/key_derivation.go:164:	defer ZeroBytes(derived.Key)
+bridge/pkg/keystore/key_derivation.go:206:	defer ZeroBytes(derived.Key)
+bridge/pkg/keystore/key_derivation.go:259:	defer ZeroBytes(plaintext)
+bridge/pkg/keystore/key_derivation.go:276:	defer ZeroBytes(plaintext)

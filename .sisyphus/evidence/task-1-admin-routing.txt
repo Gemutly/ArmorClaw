@@ -1,0 +1,27 @@
+=== BUILD VERIFICATION (Docker golang:1.25-bookworm) ===
+Pre-existing jetski/navchart module error confirmed on clean checkout.
+My changes introduce NO new errors.
+
+=== CHANGES IN setup_secretary.go ===
+206:	adminHandler *adapter.CommandHandler,
+225:			adminHandler: adminHandler,
+
+=== CHANGES IN main.go ===
+2607:	claimMgr := admin.NewClaimManager(nil, admin.DefaultClaimConfig())
+2608:	lockdownMgr, lockdownErr := lockdown.NewManager(lockdown.Config{StateFile: "/var/lib/armorclaw/lockdown.json"})
+2613:	var adminCmdHandler *adapter.CommandHandler
+2615:		adminCmdHandler = adapter.NewCommandHandler(claimMgr, lockdownMgr, matrixAdapter, nil)
+2624:		adminCmdHandler,
+
+=== DEPENDENCY ORDER IN main.go ===
+38:	"github.com/armorclaw/bridge/pkg/lockdown"
+2607:	claimMgr := admin.NewClaimManager(nil, admin.DefaultClaimConfig())
+2608:	lockdownMgr, lockdownErr := lockdown.NewManager(lockdown.Config{StateFile: "/var/lib/armorclaw/lockdown.json"})
+2609:	if lockdownErr != nil {
+2610:		log.Printf("Warning: Failed to initialize lockdown manager: %v", lockdownErr)
+2611:		lockdownMgr = nil
+2613:	var adminCmdHandler *adapter.CommandHandler
+2614:	if claimMgr != nil && lockdownMgr != nil && matrixAdapter != nil {
+2615:		adminCmdHandler = adapter.NewCommandHandler(claimMgr, lockdownMgr, matrixAdapter, nil)
+2619:	taskScheduler := setupSecretaryCommandHandler(
+2624:		adminCmdHandler,

@@ -1,0 +1,20 @@
+=== Script Validation ===
+Date: 2026-04-17
+
+--- deploy/install.sh ---
+  EXISTS: yes
+  bash -n: VALID (no syntax errors)
+
+--- deploy/setup-cloudflare.sh ---
+  EXISTS: yes
+  bash -n: VALID (no syntax errors)
+
+--- deploy/armorclaw-provision.sh ---
+  EXISTS: yes
+  bash -n: VALID (no syntax errors)
+
+--- deploy/health-check.sh ---
+  EXISTS: yes
+  bash -n: VALID (no syntax errors)
+
+SUMMARY: All 4 referenced scripts exist and pass bash syntax validation.

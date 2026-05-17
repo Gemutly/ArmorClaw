@@ -1,0 +1,82 @@
+=== RUN   TestDenyByDefault_S2
+--- PASS: TestDenyByDefault_S2 (0.00s)
+=== RUN   TestYAMLv3Parser_S3
+--- PASS: TestYAMLv3Parser_S3 (0.00s)
+=== RUN   TestIPv6Blocking_S6
+=== RUN   TestIPv6Blocking_S6/IPv6_loopback
+=== RUN   TestIPv6Blocking_S6/IPv6_unique-local
+=== RUN   TestIPv6Blocking_S6/IPv6_link-local
+=== RUN   TestIPv6Blocking_S6/IPv4-mapped_IPv6
+--- PASS: TestIPv6Blocking_S6 (0.00s)
+    --- PASS: TestIPv6Blocking_S6/IPv6_loopback (0.00s)
+    --- PASS: TestIPv6Blocking_S6/IPv6_unique-local (0.00s)
+    --- PASS: TestIPv6Blocking_S6/IPv6_link-local (0.00s)
+    --- PASS: TestIPv6Blocking_S6/IPv4-mapped_IPv6 (0.00s)
+=== RUN   TestExtractHostStripsUserinfo_S7
+--- PASS: TestExtractHostStripsUserinfo_S7 (0.00s)
+=== RUN   TestEmailSendPolicy_S8
+--- PASS: TestEmailSendPolicy_S8 (0.00s)
+=== RUN   TestDefaultGovernorInstalled_F1
+--- PASS: TestDefaultGovernorInstalled_F1 (0.00s)
+=== RUN   TestExecuteSkill_AuthorizerDeny
+--- PASS: TestExecuteSkill_AuthorizerDeny (0.00s)
+=== RUN   TestExecuteSkill_AuthorizerError
+--- PASS: TestExecuteSkill_AuthorizerError (0.00s)
+=== RUN   TestExecuteSkill_NilAuthorizer_BackwardCompat
+--- PASS: TestExecuteSkill_NilAuthorizer_BackwardCompat (0.00s)
+=== RUN   TestExecuteSkill_AuthorizerAllow
+--- PASS: TestExecuteSkill_AuthorizerAllow (0.00s)
+=== RUN   TestPreExecutionChecks_URLWithQueryParams
+--- PASS: TestPreExecutionChecks_URLWithQueryParams (0.00s)
+=== RUN   TestPreExecutionChecks_JSONBody
+--- PASS: TestPreExecutionChecks_JSONBody (0.00s)
+=== RUN   TestPreExecutionChecks_HTMLContent
+--- PASS: TestPreExecutionChecks_HTMLContent (0.00s)
+=== RUN   TestPreExecutionChecks_MathExpression
+--- PASS: TestPreExecutionChecks_MathExpression (0.00s)
+=== RUN   TestPreExecutionChecks_URLWithAmpersand
+--- PASS: TestPreExecutionChecks_URLWithAmpersand (0.00s)
+=== RUN   TestDefaultTimeout_S12
+--- PASS: TestDefaultTimeout_S12 (0.00s)
+=== RUN   TestTimeoutDetection_S13
+--- PASS: TestTimeoutDetection_S13 (0.00s)
+=== RUN   TestParentCancellationNotMisreported_S13
+--- PASS: TestParentCancellationNotMisreported_S13 (0.00s)
+=== RUN   TestPolicyEnforcer_AllowExplicit
+--- PASS: TestPolicyEnforcer_AllowExplicit (0.00s)
+=== RUN   TestPolicyEnforcer_BlockExplicit
+--- PASS: TestPolicyEnforcer_BlockExplicit (0.00s)
+=== RUN   TestPolicyEnforcer_DenyUnknown
+--- PASS: TestPolicyEnforcer_DenyUnknown (0.00s)
+=== RUN   TestPolicyEnforcer_AllowOverridesBlock
+--- PASS: TestPolicyEnforcer_AllowOverridesBlock (0.00s)
+=== RUN   TestPolicyEnforcer_AllSkillPoliciesHaveRisk
+--- PASS: TestPolicyEnforcer_AllSkillPoliciesHaveRisk (0.00s)
+=== RUN   TestParseSkillFile_AllFields
+--- PASS: TestParseSkillFile_AllFields (0.00s)
+=== RUN   TestParseSkillFile_TimeoutExtraction
+=== RUN   TestParseSkillFile_TimeoutExtraction/int_timeout
+=== RUN   TestParseSkillFile_TimeoutExtraction/string_timeout
+=== RUN   TestParseSkillFile_TimeoutExtraction/missing_timeout
+--- PASS: TestParseSkillFile_TimeoutExtraction (0.00s)
+    --- PASS: TestParseSkillFile_TimeoutExtraction/int_timeout (0.00s)
+    --- PASS: TestParseSkillFile_TimeoutExtraction/string_timeout (0.00s)
+    --- PASS: TestParseSkillFile_TimeoutExtraction/missing_timeout (0.00s)
+=== RUN   TestParseSkillFile_EnabledFalse
+--- PASS: TestParseSkillFile_EnabledFalse (0.00s)
+=== RUN   TestParseSkillFile_MissingOptionalFields
+--- PASS: TestParseSkillFile_MissingOptionalFields (0.00s)
+=== RUN   TestRegistry_NewRegistry
+--- PASS: TestRegistry_NewRegistry (0.00s)
+=== RUN   TestRegistry_RegisterAndLookup
+--- PASS: TestRegistry_RegisterAndLookup (0.00s)
+=== RUN   TestRegistry_DomainExtraction
+--- PASS: TestRegistry_DomainExtraction (0.00s)
+=== RUN   TestRegistry_RiskAssignment
+--- PASS: TestRegistry_RiskAssignment (0.00s)
+=== RUN   TestSSRF_IPv6Multicast
+--- PASS: TestSSRF_IPv6Multicast (0.00s)
+=== RUN   TestSSRF_ExistingIPv6Ranges
+--- PASS: TestSSRF_ExistingIPv6Ranges (0.00s)
+PASS
+ok  	github.com/armorclaw/bridge/internal/skills	(cached)

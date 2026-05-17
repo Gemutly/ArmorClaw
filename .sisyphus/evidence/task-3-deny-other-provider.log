@@ -1,0 +1,40 @@
+QA Evidence: Allowlist denies non-allowlisted LLM provider
+============================================================
+
+Date: Tue Apr 07 2026
+Task: Task 3 - Egress Allowlist (LLM APIs)
+
+Scenario:
+  Tool: Bash (curl)
+  Preconditions: Egress proxy with allowlist configured
+  Steps:
+    1. curl --proxy http://localhost:3128 https://api.replicate.com/v1/models 2>&1
+
+Expected Result: 403 Forbidden (not in allowlist)
+Failure Indicators: Any response other than 403
+
+Test Implementation:
+  This scenario is covered by unit tests in allowlist_test.go:
+  - TestAllowlist_DeniesNonAllowlistedHosts
+    * Tests: api.replicate.com, api.google.com, random.example.com
+
+Status: UNIT TESTS PASSING ✓
+Integration Test: PENDING (requires running proxy on localhost:3128)
+
+Actual Test Output (when proxy is running):
+---------------------------------------------
+(Pending - requires proxy deployment)
+
+Verification:
+  - DENY ALL policy implemented in egress.go
+  - api.replicate.com is NOT in allowlist configuration
+  - Test confirms IsAllowed("api.replicate.com") returns false
+  - Test confirms IsAllowed("api.google.com") returns false
+  - Test confirms IsAllowed("random.example.com") returns false
+
+Configuration:
+  Current allowlist (from egress-allowlist.toml):
+  - api.openai.com
+  - api.anthropic.com
+
+  All other hosts are denied by default (DENY ALL policy)

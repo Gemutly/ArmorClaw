@@ -1,0 +1,33 @@
+Task 3: Wire SecurityConfigViewModel to SecurityConfigScreen
+Date: 2026-04-18
+Status: ALREADY COMPLETE - No changes needed
+
+EVIDENCE: SecurityConfigScreen.kt is already fully wired to SecurityConfigViewModel.
+
+Verification 1: grep "SecurityConfigViewModel" SecurityConfigScreen.kt
+  Line 17: import app.armorclaw.viewmodel.SecurityConfigViewModel
+  Line 48: viewModel: SecurityConfigViewModel = viewModel()
+  RESULT: PASS (2 matches)
+
+Verification 2: grep "remember.*mutableStateOf.*listOf.*banking" SecurityConfigScreen.kt
+  RESULT: PASS (0 matches - no hardcoded category state)
+
+Verification 3: grep "remember.*mutableStateOf.*listOf" SecurityConfigScreen.kt
+  RESULT: PASS (0 matches - no hardcoded category list state)
+
+Wiring Details (all present):
+  - ViewModel instantiation: Line 48 `viewModel: SecurityConfigViewModel = viewModel()`
+  - State collection: Lines 55-59 collectAsState() for uiState, categories, permissions, isSaving, currentError
+  - Category loading: Line 68 LaunchedEffect calls viewModel.loadCategories()
+  - Category mapping: Lines 72-92 bridgeCategories.map {} builds display data from ViewModel
+  - Permission changes: Line 301 viewModel.setPermission(category.id, permString)
+  - Save button: Lines 124-128 viewModel.savePermissions { success -> if (success) onComplete() }
+  - Loading UI: Lines 226-242 SecurityConfigUiState.Loading with CircularProgressIndicator
+  - Error UI: Lines 184-223 error card with viewModel.clearError() dismiss
+  - Saving indicator: Lines 130-144 CircularProgress + "Saving..." when isSaving
+
+RPC Methods Used (via ViewModel -> SetupRepository -> BridgeApi):
+  - security.get_categories (via repository.getSecurityCategories())
+  - security.set_category (via repository.setCategoryPermission())
+
+No files modified. Task was already complete.

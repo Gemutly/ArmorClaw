@@ -1,0 +1,16 @@
+T1: Fix Fingerprint to Standard SHA-256 DER
+Date: 2026-04-29
+Status: PASS
+
+Changes:
+1. bridge/pkg/http/server.go — Added crypto/sha256 import
+2. bridge/pkg/http/server.go:250-258 — Replaced GetCertificateFingerprint():
+   - OLD: cert.Signature hex truncation (non-standard)
+   - NEW: sha256.Sum256(block.Bytes) hex (standard SHA-256 DER)
+   - Removed x509.ParseCertificate call (no longer needed for fingerprint)
+3. bridge/pkg/setup/ssl_test.go — Added TestFingerprintSHA256:
+   - Verifies fingerprint is exactly 64 chars
+   - Verifies all chars are lowercase hex (0-9, a-f)
+
+Build: go build ./pkg/http/... — PASS (zero errors)
+Tests: go test ./pkg/setup/... — 9/9 PASS

@@ -1,0 +1,5 @@
+194:	keystoreLimiter   *keystore.RateLimiter
+277:		keystoreLimiter:  cfg.KeystoreLimiter,
+937:	if s.keystoreLimiter != nil && s.keystoreLimiter.Exceeded(identity) {
+956:	if s.keystoreLimiter != nil {
+957:		s.keystoreLimiter.Record(identity)

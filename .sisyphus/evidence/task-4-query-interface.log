@@ -1,0 +1,8 @@
+Logged 3 egress denied events
+Query interface returned 3 total events
+Query interface returned 2 events since 2026-04-07 18:34:03.095070176 -0600 MDT m=-1199.999918299
+Query interface working correctly ✓
+
+Recent events:
+  1. Host=new-attack.com, Path=/new, Method=GET
+  2. Host=recent-attack.com, Path=/recent, Method=POST

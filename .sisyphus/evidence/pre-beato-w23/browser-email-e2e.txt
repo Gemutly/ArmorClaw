@@ -1,0 +1,19 @@
+=== W2.3: Browser/Email Pipeline E2E ===
+Date: 2026-05-15T21:44:10Z
+
+--- Jetski/Browser sidecar status ---
+{"jsonrpc":"2.0","id":1,"error":{"code":-32601,"message":"method not found"}}
+
+--- Browser service status ---
+curl: (7) Failed to connect to localhost port 8080 after 0 ms: Couldn't connect to server
+
+--- Email pipeline status ---
+{"jsonrpc":"2.0","id":1,"error":{"code":-32601,"message":"method not found"}}
+
+--- Trust layer status ---
+{"jsonrpc":"2.0","id":1,"error":{"code":-32601,"message":"method not found"}}
+
+--- Document pipeline status ---
+{"jsonrpc":"2.0","id":1,"error":{"code":-32601,"message":"method not found"}}
+
+=== W2.3 COMPLETE ===

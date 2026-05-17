@@ -1,0 +1,35 @@
+QA Evidence: Allowlist denies subdomain not in allowlist
+=========================================================
+
+Date: Tue Apr 07 2026
+Task: Task 3 - Egress Allowlist (LLM APIs)
+
+Scenario:
+  Tool: Bash (curl)
+  Preconditions: Egress proxy with allowlist configured
+  Steps:
+    1. curl --proxy http://localhost:3128 https://subdomain.api.openai.com/test 2>&1
+
+Expected Result: 403 Forbidden (exact match only)
+Failure Indicators: Any response other than 403
+
+Test Implementation:
+  This scenario is covered by unit tests in allowlist_test.go:
+  - TestAllowlist_ExactMatch_DeniesSubdomains
+    * Tests: subdomain.subdomain.api.openai.com, subdomain.api.openai.com, openai.com
+
+Status: UNIT TESTS PASSING ✓
+Integration Test: PENDING (requires running proxy on localhost:3128)
+
+Actual Test Output (when proxy is running):
+---------------------------------------------
+(Pending - requires proxy deployment)
+
+Verification:
+  - Exact match only (no wildcards) implemented
+  - Subdomain.api.openai.com is NOT in allowlist configuration
+  - Test confirms IsAllowed("subdomain.api.openai.com") returns false
+  - Test confirms IsAllowed("openai.com") returns false
+
+Security Note:
+  This prevents DNS rebinding attacks by requiring exact hostname matches

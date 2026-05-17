@@ -1,0 +1,1131 @@
+go: downloading github.com/BurntSushi/toml v1.4.0
+go: downloading github.com/stretchr/testify v1.11.1
+go: downloading github.com/google/uuid v1.6.0
+go: downloading github.com/gorilla/websocket v1.5.3
+go: downloading github.com/mutecomm/go-sqlcipher/v4 v4.4.2
+go: downloading golang.org/x/crypto v0.50.0
+go: downloading github.com/rs/zerolog v1.35.0
+go: downloading maunium.net/go/mautrix v0.27.0
+go: downloading github.com/docker/docker v28.5.2+incompatible
+go: downloading modernc.org/sqlite v1.45.0
+go: downloading github.com/davecgh/go-spew v1.1.1
+go: downloading github.com/pmezard/go-difflib v1.0.0
+go: downloading github.com/pion/webrtc/v3 v3.2.24
+go: downloading golang.org/x/sys v0.43.0
+go: downloading github.com/mattn/go-colorable v0.1.14
+go: downloading golang.org/x/net v0.53.0
+go: downloading gopkg.in/yaml.v3 v3.0.1
+go: downloading github.com/opencontainers/image-spec v1.1.1
+go: downloading golang.org/x/oauth2 v0.36.0
+go: downloading google.golang.org/api v0.276.0
+go: downloading github.com/robfig/cron/v3 v3.0.1
+go: downloading golang.org/x/sync v0.20.0
+go: downloading github.com/tidwall/gjson v1.18.0
+go: downloading go.mau.fi/util v0.9.8
+go: downloading golang.org/x/exp v0.0.0-20260410095643-746e56fc9e2f
+go: downloading github.com/tidwall/sjson v1.2.5
+go: downloading github.com/prometheus/client_golang v1.21.1
+go: downloading github.com/mattn/go-isatty v0.0.20
+go: downloading github.com/pion/rtp v1.8.3
+go: downloading github.com/pion/datachannel v1.5.5
+go: downloading github.com/pion/dtls/v2 v2.2.7
+go: downloading github.com/pion/ice/v2 v2.3.11
+go: downloading github.com/pion/interceptor v0.1.25
+go: downloading github.com/pion/logging v0.2.2
+go: downloading github.com/pion/randutil v0.1.0
+go: downloading github.com/pion/rtcp v1.2.12
+go: downloading github.com/pion/sctp v1.8.8
+go: downloading github.com/pion/sdp/v3 v3.0.6
+go: downloading github.com/pion/srtp/v2 v2.0.18
+go: downloading github.com/pion/stun v0.6.1
+go: downloading github.com/pion/transport/v2 v2.2.3
+go: downloading github.com/docker/go-connections v0.6.0
+go: downloading github.com/docker/go-units v0.5.0
+go: downloading github.com/moby/docker-image-spec v1.3.1
+go: downloading github.com/containerd/errdefs v1.0.0
+go: downloading github.com/containerd/errdefs/pkg v0.3.0
+go: downloading github.com/distribution/reference v0.6.0
+go: downloading github.com/opencontainers/go-digest v1.0.0
+go: downloading github.com/pkg/errors v0.9.1
+go: downloading go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.67.0
+go: downloading go.opentelemetry.io/otel/trace v1.43.0
+go: downloading github.com/hillu/go-yara/v4 v4.3.4
+go: downloading google.golang.org/grpc v1.80.0
+go: downloading go.opentelemetry.io/otel v1.43.0
+go: downloading google.golang.org/protobuf v1.36.11
+go: downloading cloud.google.com/go/compute/metadata v0.9.0
+go: downloading github.com/tidwall/match v1.1.1
+go: downloading github.com/tidwall/pretty v1.2.1
+go: downloading github.com/petermattis/goid v0.0.0-20260330135022-df67b199bc81
+go: downloading github.com/skip2/go-qrcode v0.0.0-20200617195104-da1b6568686e
+go: downloading github.com/beorn7/perks v1.0.1
+go: downloading github.com/cespare/xxhash/v2 v2.3.0
+go: downloading github.com/prometheus/client_model v0.6.1
+go: downloading github.com/prometheus/common v0.62.0
+go: downloading github.com/prometheus/procfs v0.15.1
+go: downloading github.com/pion/mdns v0.0.8
+go: downloading github.com/pion/turn/v2 v2.1.3
+go: downloading github.com/felixge/httpsnoop v1.0.4
+go: downloading go.opentelemetry.io/otel/metric v1.43.0
+go: downloading google.golang.org/genproto/googleapis/rpc v0.0.0-20260401024825-9d38bb4040a9
+go: downloading filippo.io/edwards25519 v1.2.0
+go: downloading github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822
+go: downloading github.com/go-logr/logr v1.4.3
+go: downloading golang.org/x/text v0.36.0
+go: downloading github.com/go-logr/stdr v1.2.2
+go: downloading go.opentelemetry.io/auto/sdk v1.2.1
+go: downloading modernc.org/libc v1.67.6
+go: downloading github.com/googleapis/gax-go/v2 v2.21.0
+go: downloading cloud.google.com/go/auth v0.20.0
+go: downloading cloud.google.com/go/auth/oauth2adapt v0.2.8
+go: downloading github.com/google/s2a-go v0.1.9
+go: downloading github.com/googleapis/enterprise-certificate-proxy v0.3.14
+go: downloading modernc.org/mathutil v1.7.1
+go: downloading modernc.org/memory v1.11.0
+go: downloading github.com/dustin/go-humanize v1.0.1
+go: downloading github.com/remyoudompheng/bigfft v0.0.0-20230129092748-24d4a6f8daec
+# github.com/armorclaw/bridge/pkg/rpc
+pkg/rpc/browser.go:13:2: no required module provides package github.com/armorclaw/jetski/navchart; to add it:
+	go get github.com/armorclaw/jetski/navchart
+FAIL	github.com/armorclaw/bridge/pkg/rpc [setup failed]
+FAIL	github.com/armorclaw/bridge/pkg/config [setup failed]
+# github.com/armorclaw/bridge/pkg/config
+pkg/rpc/browser.go:13:2: no required module provides package github.com/armorclaw/jetski/navchart; to add it:
+	go get github.com/armorclaw/jetski/navchart
+=== RUN   TestNewChallengeManager
+--- PASS: TestNewChallengeManager (0.00s)
+=== RUN   TestNewChallengeManagerWithKey
+--- PASS: TestNewChallengeManagerWithKey (0.00s)
+=== RUN   TestGenerateChallenge
+--- PASS: TestGenerateChallenge (0.00s)
+=== RUN   TestVerifyChallenge
+--- PASS: TestVerifyChallenge (0.00s)
+=== RUN   TestVerifyChallengeInvalidSignature
+--- PASS: TestVerifyChallengeInvalidSignature (0.00s)
+=== RUN   TestVerifyChallengeNotFound
+--- PASS: TestVerifyChallengeNotFound (0.00s)
+=== RUN   TestVerifyChallengeAlreadyUsed
+--- PASS: TestVerifyChallengeAlreadyUsed (0.00s)
+=== RUN   TestGetChallenge
+--- PASS: TestGetChallenge (0.00s)
+=== RUN   TestGetChallengeNotFound
+--- PASS: TestGetChallengeNotFound (0.00s)
+=== RUN   TestRegisterDevice
+--- PASS: TestRegisterDevice (0.00s)
+=== RUN   TestRegisterDeviceInvalidKey
+--- PASS: TestRegisterDeviceInvalidKey (0.00s)
+=== RUN   TestUnregisterDevice
+--- PASS: TestUnregisterDevice (0.00s)
+=== RUN   TestChallengeCleanupExpired
+--- PASS: TestChallengeCleanupExpired (0.01s)
+=== RUN   TestGetServerPublicKey
+--- PASS: TestGetServerPublicKey (0.00s)
+=== RUN   TestSignWithServerKey
+--- PASS: TestSignWithServerKey (0.00s)
+=== RUN   TestChallengeToMatrixEvent
+--- PASS: TestChallengeToMatrixEvent (0.00s)
+=== RUN   TestChallengeMarshalJSON
+--- PASS: TestChallengeMarshalJSON (0.00s)
+=== RUN   TestChallengeResponseUnmarshalJSON
+--- PASS: TestChallengeResponseUnmarshalJSON (0.00s)
+=== RUN   TestListPendingChallenges
+--- PASS: TestListPendingChallenges (0.00s)
+=== RUN   TestGetStats
+--- PASS: TestGetStats (0.00s)
+=== RUN   TestChallengeBasedUnseal
+--- PASS: TestChallengeBasedUnseal (0.00s)
+=== RUN   TestChallengeBasedUnsealInvalidSignature
+--- PASS: TestChallengeBasedUnsealInvalidSignature (0.00s)
+=== RUN   TestChallengeBasedUnsealExpired
+--- PASS: TestChallengeBasedUnsealExpired (0.01s)
+=== RUN   TestChallengeBasedUnsealAlreadyUsed
+--- PASS: TestChallengeBasedUnsealAlreadyUsed (0.00s)
+=== RUN   TestChallengePolicyRequiresChallengeManager
+--- PASS: TestChallengePolicyRequiresChallengeManager (0.00s)
+=== RUN   TestSetChallengeManager
+--- PASS: TestSetChallengeManager (0.00s)
+=== RUN   TestGetChallengeForRequestNotFound
+--- PASS: TestGetChallengeForRequestNotFound (0.00s)
+=== RUN   TestMobileApprovalPolicyStillWorks
+--- PASS: TestMobileApprovalPolicyStillWorks (0.00s)
+=== RUN   TestAutoPolicyStillWorks
+--- PASS: TestAutoPolicyStillWorks (0.00s)
+=== RUN   TestKeyDerivationIntegration
+--- PASS: TestKeyDerivationIntegration (0.23s)
+=== RUN   TestKeyDerivationWithDifferentParams
+--- PASS: TestKeyDerivationWithDifferentParams (0.09s)
+=== RUN   TestKeyDerivationRekeyFlow
+--- PASS: TestKeyDerivationRekeyFlow (0.71s)
+=== RUN   TestKeyDerivationParamChange
+--- PASS: TestKeyDerivationParamChange (0.74s)
+=== RUN   TestKeyDerivationMultipleKeys
+--- PASS: TestKeyDerivationMultipleKeys (0.87s)
+=== RUN   TestKeyDerivationJSONSerialization
+--- PASS: TestKeyDerivationJSONSerialization (0.15s)
+=== RUN   TestKeyDerivationPerformance
+    key_derivation_integration_test.go:264: Key wrap time: 79.991815ms
+--- PASS: TestKeyDerivationPerformance (0.08s)
+=== RUN   TestKeyDerivationBoundaryConditions
+--- PASS: TestKeyDerivationBoundaryConditions (0.02s)
+=== RUN   TestKeyDerivationDifferentPasswords
+--- PASS: TestKeyDerivationDifferentPasswords (0.27s)
+=== RUN   TestEstimateDerivationTimeAccuracy
+--- PASS: TestEstimateDerivationTimeAccuracy (0.00s)
+=== RUN   TestNewKeyDerivation
+--- PASS: TestNewKeyDerivation (0.00s)
+=== RUN   TestNewKeyDerivationInvalidParams
+=== RUN   TestNewKeyDerivationInvalidParams/memory_too_low
+=== RUN   TestNewKeyDerivationInvalidParams/iterations_zero
+=== RUN   TestNewKeyDerivationInvalidParams/parallelism_zero
+=== RUN   TestNewKeyDerivationInvalidParams/key_length_too_short
+=== RUN   TestNewKeyDerivationInvalidParams/salt_length_too_short
+--- PASS: TestNewKeyDerivationInvalidParams (0.00s)
+    --- PASS: TestNewKeyDerivationInvalidParams/memory_too_low (0.00s)
+    --- PASS: TestNewKeyDerivationInvalidParams/iterations_zero (0.00s)
+    --- PASS: TestNewKeyDerivationInvalidParams/parallelism_zero (0.00s)
+    --- PASS: TestNewKeyDerivationInvalidParams/key_length_too_short (0.00s)
+    --- PASS: TestNewKeyDerivationInvalidParams/salt_length_too_short (0.00s)
+=== RUN   TestDeriveKey
+--- PASS: TestDeriveKey (0.18s)
+=== RUN   TestDeriveKeyWithNewSalt
+--- PASS: TestDeriveKeyWithNewSalt (0.13s)
+=== RUN   TestDeriveKeyEmptySalt
+--- PASS: TestDeriveKeyEmptySalt (0.00s)
+=== RUN   TestWrapUnwrapKey
+--- PASS: TestWrapUnwrapKey (0.14s)
+=== RUN   TestUnwrapKeyWrongPassword
+--- PASS: TestUnwrapKeyWrongPassword (0.13s)
+=== RUN   TestUnwrapKeyNilWrapped
+--- PASS: TestUnwrapKeyNilWrapped (0.00s)
+=== RUN   TestUnwrapKeyInvalidVersion
+--- PASS: TestUnwrapKeyInvalidVersion (0.00s)
+=== RUN   TestWrapKeyInvalidLength
+--- PASS: TestWrapKeyInvalidLength (0.00s)
+=== RUN   TestVerifyPassword
+--- PASS: TestVerifyPassword (0.19s)
+=== RUN   TestRekey
+--- PASS: TestRekey (0.32s)
+=== RUN   TestRekeyWrongOldPassword
+--- PASS: TestRekeyWrongOldPassword (0.16s)
+=== RUN   TestChangeParams
+--- PASS: TestChangeParams (0.50s)
+=== RUN   TestChangeParamsInvalid
+--- PASS: TestChangeParamsInvalid (0.08s)
+=== RUN   TestWrappedKeyJSON
+--- PASS: TestWrappedKeyJSON (0.07s)
+=== RUN   TestGenerateRandomKey
+--- PASS: TestGenerateRandomKey (0.00s)
+=== RUN   TestGenerateRandomKeyTooShort
+--- PASS: TestGenerateRandomKeyTooShort (0.00s)
+=== RUN   TestGetDefaultParams
+--- PASS: TestGetDefaultParams (0.00s)
+=== RUN   TestGetSetParams
+--- PASS: TestGetSetParams (0.00s)
+=== RUN   TestEstimateDerivationTime
+--- PASS: TestEstimateDerivationTime (0.00s)
+=== RUN   TestConstantTimeCompare
+--- PASS: TestConstantTimeCompare (0.00s)
+=== RUN   TestKeyDerivationParamsValidate
+=== RUN   TestKeyDerivationParamsValidate/valid_defaults
+=== RUN   TestKeyDerivationParamsValidate/minimum_memory
+=== RUN   TestKeyDerivationParamsValidate/memory_too_low
+--- PASS: TestKeyDerivationParamsValidate (0.00s)
+    --- PASS: TestKeyDerivationParamsValidate/valid_defaults (0.00s)
+    --- PASS: TestKeyDerivationParamsValidate/minimum_memory (0.00s)
+    --- PASS: TestKeyDerivationParamsValidate/memory_too_low (0.00s)
+=== RUN   TestKeystoreEncryption
+--- PASS: TestKeystoreEncryption (0.11s)
+=== RUN   TestStoreAndRetrieve
+--- PASS: TestStoreAndRetrieve (0.12s)
+=== RUN   TestListKeys
+--- PASS: TestListKeys (0.20s)
+=== RUN   TestDelete
+--- PASS: TestDelete (0.20s)
+=== RUN   TestExpiredKey
+--- PASS: TestExpiredKey (0.19s)
+=== RUN   TestHardeningTableCreated
+--- PASS: TestHardeningTableCreated (0.17s)
+=== RUN   TestDefaultHardeningValues
+--- PASS: TestDefaultHardeningValues (0.17s)
+=== RUN   TestErrorMessageContent
+    keystore_test.go:535: Error message:
+        KEY MISMATCH: Database exists but cannot be decrypted with current key
+        This is NOT corruption - your data is encrypted with a different key.
+        
+        Possible causes:
+          1. Container restart changed hardware-derived key
+          2. ARMORCLAW_KEYSTORE_SECRET changed
+          3. Database moved from different machine
+          4. keystore.key file changed
+        
+        To fix:
+          1. Ensure /var/lib/armorclaw is persisted as Docker volume
+          2. Set ARMORCLAW_KEYSTORE_SECRET environment variable
+          3. For container restarts, use --migrate-keystore flag
+          4. Restore /etc/armorclaw/keystore.key from backup
+          5. Accept data loss: delete database file and restart
+        
+        Troubleshooting: https://github.com/Gemutly/ArmorClaw/blob/main/docs/guides/keystore.md
+        Database path: /tmp/TestErrorMessageContent3170972156/001/test.db
+        Salt path: /tmp/TestErrorMessageContent3170972156/001/test.db.salt
+        
+        Original error: file is not a database
+--- PASS: TestErrorMessageContent (0.20s)
+=== RUN   TestMigrateHardwareKey
+time=2026-05-07T16:34:20.976Z level=INFO msg="container detected" service=armorclaw component=bridge version=1.1.0 type=docker indicator=/.dockerenv
+    keystore_test.go:607: Failed to migrate keystore: cannot verify database with hardware-derived key: KEY MISMATCH: Database exists but cannot be decrypted with current key
+        This is NOT corruption - your data is encrypted with a different key.
+        
+        Possible causes:
+          1. Container restart changed hardware-derived key
+          2. ARMORCLAW_KEYSTORE_SECRET changed
+          3. Database moved from different machine
+          4. keystore.key file changed
+        
+        To fix:
+          1. Ensure /var/lib/armorclaw is persisted as Docker volume
+          2. Set ARMORCLAW_KEYSTORE_SECRET environment variable
+          3. For container restarts, use --migrate-keystore flag
+          4. Restore /etc/armorclaw/keystore.key from backup
+          5. Accept data loss: delete database file and restart
+        
+        Troubleshooting: https://github.com/Gemutly/ArmorClaw/blob/main/docs/guides/keystore.md
+        Database path: /tmp/TestMigrateHardwareKey2682615955/001/test.db
+        Salt path: /tmp/TestMigrateHardwareKey2682615955/001/test.db.salt
+--- FAIL: TestMigrateHardwareKey (0.37s)
+=== RUN   TestSystemdSpawn
+=== RUN   TestSystemdSpawn/SystemdContainerFile
+    keystore_test.go:690: systemd-nspawn detection would check /run/systemd/container for nspawn string
+=== RUN   TestSystemdSpawn/ContainerEnvFile
+    keystore_test.go:699: systemd-nspawn detection would check /.containerenv for nspawn string
+--- PASS: TestSystemdSpawn (0.00s)
+    --- PASS: TestSystemdSpawn/SystemdContainerFile (0.00s)
+    --- PASS: TestSystemdSpawn/ContainerEnvFile (0.00s)
+=== RUN   TestPodman
+=== RUN   TestPodman/PodmanPidFile
+    keystore_test.go:731: Podman detection would check /run/podman/podman.pid existence
+=== RUN   TestPodman/PodmanEnvFile
+    keystore_test.go:740: Podman detection would check .podmanenv existence
+--- PASS: TestPodman (0.00s)
+    --- PASS: TestPodman/PodmanPidFile (0.00s)
+    --- PASS: TestPodman/PodmanEnvFile (0.00s)
+=== RUN   TestECS
+=== RUN   TestECS/ECSMetadataURI
+=== RUN   TestECS/AWSExecutionEnv
+--- PASS: TestECS (0.00s)
+    --- PASS: TestECS/ECSMetadataURI (0.00s)
+    --- PASS: TestECS/AWSExecutionEnv (0.00s)
+=== RUN   TestExistingDetection
+=== RUN   TestExistingDetection/DockerEnvFile
+    keystore_test.go:813: Docker detection would check /.dockerenv existence
+=== RUN   TestExistingDetection/ProcCgroup
+--- PASS: TestExistingDetection (0.00s)
+    --- PASS: TestExistingDetection/DockerEnvFile (0.00s)
+    --- PASS: TestExistingDetection/ProcCgroup (0.00s)
+=== RUN   TestOAuth_StoreAndGetRoundTrip
+--- PASS: TestOAuth_StoreAndGetRoundTrip (0.21s)
+=== RUN   TestOAuth_GetTokenNotFound
+--- PASS: TestOAuth_GetTokenNotFound (0.21s)
+=== RUN   TestOAuth_RevokeToken
+--- PASS: TestOAuth_RevokeToken (0.22s)
+=== RUN   TestOAuth_RevokeNonexistentToken
+--- PASS: TestOAuth_RevokeNonexistentToken (0.22s)
+=== RUN   TestOAuth_ListTokens
+--- PASS: TestOAuth_ListTokens (0.22s)
+=== RUN   TestOAuth_EncryptionAtRest
+--- PASS: TestOAuth_EncryptionAtRest (0.21s)
+=== RUN   TestOAuth_TokenInfoFields
+--- PASS: TestOAuth_TokenInfoFields (0.21s)
+=== RUN   TestOAuth_ClosedKeystore
+--- PASS: TestOAuth_ClosedKeystore (0.22s)
+=== RUN   TestOAuth_MultipleProviders
+--- PASS: TestOAuth_MultipleProviders (0.22s)
+=== RUN   TestNewPIIRequestManager
+--- PASS: TestNewPIIRequestManager (0.00s)
+=== RUN   TestCreatePIIRequest
+time=2026-05-07T16:34:23.291Z level=INFO msg=pii_request_created service=armorclaw component=bridge version=1.1.0 component=pii_request request_id=pii_f4f47fd21048833b8147501d agent_id=agent-001 skill_id=skill-001 profile_id=profile-001 fields_count=2 expires_at=2026-05-07T16:39:23.291Z
+--- PASS: TestCreatePIIRequest (0.00s)
+=== RUN   TestGetPIIRequest
+time=2026-05-07T16:34:23.291Z level=INFO msg=pii_request_created service=armorclaw component=bridge version=1.1.0 component=pii_request request_id=pii_6b3541550843bc8eb43e702e agent_id=agent-002 skill_id=skill-002 profile_id=profile-002 fields_count=1 expires_at=2026-05-07T16:39:23.291Z
+--- PASS: TestGetPIIRequest (0.00s)
+=== RUN   TestApprovePIIRequest
+time=2026-05-07T16:34:23.292Z level=INFO msg=pii_request_created service=armorclaw component=bridge version=1.1.0 component=pii_request request_id=pii_db00a6e64a29bfebb3d6891e agent_id=agent-003 skill_id=skill-003 profile_id=profile-003 fields_count=2 expires_at=2026-05-07T16:39:23.292Z
+time=2026-05-07T16:34:23.292Z level=INFO msg=pii_request_approved service=armorclaw component=bridge version=1.1.0 component=pii_request request_id=pii_db00a6e64a29bfebb3d6891e approved_by=user-001 approved_fields=[email]
+--- PASS: TestApprovePIIRequest (0.00s)
+=== RUN   TestDenyPIIRequest
+time=2026-05-07T16:34:23.292Z level=INFO msg=pii_request_created service=armorclaw component=bridge version=1.1.0 component=pii_request request_id=pii_79b1f5c2f55103529c845abe agent_id=agent-004 skill_id=skill-004 profile_id=profile-004 fields_count=1 expires_at=2026-05-07T16:39:23.292Z
+time=2026-05-07T16:34:23.292Z level=INFO msg=pii_request_denied service=armorclaw component=bridge version=1.1.0 component=pii_request request_id=pii_79b1f5c2f55103529c845abe denied_by=user-002 reason="SSN access not allowed"
+--- PASS: TestDenyPIIRequest (0.00s)
+=== RUN   TestCancelPIIRequest
+time=2026-05-07T16:34:23.292Z level=INFO msg=pii_request_created service=armorclaw component=bridge version=1.1.0 component=pii_request request_id=pii_369f3e8353f204257a4094b9 agent_id=agent-005 skill_id=skill-005 profile_id=profile-005 fields_count=1 expires_at=2026-05-07T16:39:23.292Z
+time=2026-05-07T16:34:23.292Z level=INFO msg=pii_request_cancelled service=armorclaw component=bridge version=1.1.0 component=pii_request request_id=pii_369f3e8353f204257a4094b9
+--- PASS: TestCancelPIIRequest (0.00s)
+=== RUN   TestFulfillPIIRequest
+time=2026-05-07T16:34:23.292Z level=INFO msg=pii_request_created service=armorclaw component=bridge version=1.1.0 component=pii_request request_id=pii_4e41cadf01c373694809fb3d agent_id=agent-006 skill_id=skill-006 profile_id=profile-006 fields_count=1 expires_at=2026-05-07T16:39:23.292Z
+time=2026-05-07T16:34:23.292Z level=INFO msg=pii_request_approved service=armorclaw component=bridge version=1.1.0 component=pii_request request_id=pii_4e41cadf01c373694809fb3d approved_by=user-003 approved_fields=[email]
+time=2026-05-07T16:34:23.292Z level=INFO msg=pii_request_fulfilled service=armorclaw component=bridge version=1.1.0 component=pii_request request_id=pii_4e41cadf01c373694809fb3d fields_count=1
+--- PASS: TestFulfillPIIRequest (0.00s)
+=== RUN   TestFulfillWithoutApproval
+time=2026-05-07T16:34:23.292Z level=INFO msg=pii_request_created service=armorclaw component=bridge version=1.1.0 component=pii_request request_id=pii_7542ddde942b6047f8a719ab agent_id=agent-007 skill_id=skill-007 profile_id=profile-007 fields_count=1 expires_at=2026-05-07T16:39:23.292Z
+--- PASS: TestFulfillWithoutApproval (0.00s)
+=== RUN   TestPIIRequestExpiration
+time=2026-05-07T16:34:23.292Z level=INFO msg=pii_request_created service=armorclaw component=bridge version=1.1.0 component=pii_request request_id=pii_04372fde5811b7b49ce48675 agent_id=agent-008 skill_id=skill-008 profile_id=profile-008 fields_count=1 expires_at=2026-05-07T16:34:23.293Z
+--- PASS: TestPIIRequestExpiration (0.01s)
+=== RUN   TestPIIRequestIsClosed
+time=2026-05-07T16:34:23.302Z level=INFO msg=pii_request_created service=armorclaw component=bridge version=1.1.0 component=pii_request request_id=pii_3642e07c9b88cb7ac8c60214 agent_id=agent-009 skill_id=skill-009 profile_id=profile-009 fields_count=1 expires_at=2026-05-07T16:39:23.302Z
+time=2026-05-07T16:34:23.302Z level=INFO msg=pii_request_approved service=armorclaw component=bridge version=1.1.0 component=pii_request request_id=pii_3642e07c9b88cb7ac8c60214 approved_by=user-005 approved_fields=[email]
+--- PASS: TestPIIRequestIsClosed (0.00s)
+=== RUN   TestListPendingPIIRequests
+time=2026-05-07T16:34:23.303Z level=INFO msg=pii_request_created service=armorclaw component=bridge version=1.1.0 component=pii_request request_id=pii_da1874e984ca9408c23ea671 agent_id=agent-010 skill_id=skill-010 profile_id=profile-010 fields_count=1 expires_at=2026-05-07T16:39:23.302Z
+time=2026-05-07T16:34:23.303Z level=INFO msg=pii_request_created service=armorclaw component=bridge version=1.1.0 component=pii_request request_id=pii_e2a4f6fe700a883f5535a7e2 agent_id=agent-010 skill_id=skill-010 profile_id=profile-010 fields_count=1 expires_at=2026-05-07T16:39:23.303Z
+time=2026-05-07T16:34:23.303Z level=INFO msg=pii_request_created service=armorclaw component=bridge version=1.1.0 component=pii_request request_id=pii_6cef0effaad908a5e69686e0 agent_id=agent-010 skill_id=skill-010 profile_id=profile-010 fields_count=1 expires_at=2026-05-07T16:39:23.303Z
+time=2026-05-07T16:34:23.303Z level=INFO msg=pii_request_approved service=armorclaw component=bridge version=1.1.0 component=pii_request request_id=pii_e2a4f6fe700a883f5535a7e2 approved_by=user-006 approved_fields=[email]
+--- PASS: TestListPendingPIIRequests (0.00s)
+=== RUN   TestListPIIRequestsByAgent
+time=2026-05-07T16:34:23.303Z level=INFO msg=pii_request_created service=armorclaw component=bridge version=1.1.0 component=pii_request request_id=pii_30daa294f8940c587ac5a336 agent_id=agent-alice skill_id=skill-011 profile_id=profile-011 fields_count=1 expires_at=2026-05-07T16:39:23.303Z
+time=2026-05-07T16:34:23.303Z level=INFO msg=pii_request_created service=armorclaw component=bridge version=1.1.0 component=pii_request request_id=pii_6b24e913724e5aefcb289e84 agent_id=agent-bob skill_id=skill-012 profile_id=profile-012 fields_count=1 expires_at=2026-05-07T16:39:23.303Z
+time=2026-05-07T16:34:23.303Z level=INFO msg=pii_request_created service=armorclaw component=bridge version=1.1.0 component=pii_request request_id=pii_53678db67fb7a6f6f9881737 agent_id=agent-alice skill_id=skill-013 profile_id=profile-013 fields_count=1 expires_at=2026-05-07T16:39:23.303Z
+--- PASS: TestListPIIRequestsByAgent (0.00s)
+=== RUN   TestPIIRequestStats
+time=2026-05-07T16:34:23.303Z level=INFO msg=pii_request_created service=armorclaw component=bridge version=1.1.0 component=pii_request request_id=pii_5bd51fc497711fa476561959 agent_id=agent-014 skill_id=skill-014 profile_id=profile-014 fields_count=1 expires_at=2026-05-07T16:39:23.303Z
+time=2026-05-07T16:34:23.303Z level=INFO msg=pii_request_created service=armorclaw component=bridge version=1.1.0 component=pii_request request_id=pii_673090588b969c100c7b10b0 agent_id=agent-015 skill_id=skill-015 profile_id=profile-015 fields_count=1 expires_at=2026-05-07T16:39:23.303Z
+time=2026-05-07T16:34:23.303Z level=INFO msg=pii_request_created service=armorclaw component=bridge version=1.1.0 component=pii_request request_id=pii_073d858e1b2a2ddd5f8b152f agent_id=agent-016 skill_id=skill-016 profile_id=profile-016 fields_count=1 expires_at=2026-05-07T16:39:23.303Z
+time=2026-05-07T16:34:23.303Z level=INFO msg=pii_request_approved service=armorclaw component=bridge version=1.1.0 component=pii_request request_id=pii_5bd51fc497711fa476561959 approved_by=user-007 approved_fields=[email]
+time=2026-05-07T16:34:23.303Z level=INFO msg=pii_request_denied service=armorclaw component=bridge version=1.1.0 component=pii_request request_id=pii_673090588b969c100c7b10b0 denied_by=user-008 reason="Not allowed"
+--- PASS: TestPIIRequestStats (0.00s)
+=== RUN   TestPIIRequestToMatrixEvent
+time=2026-05-07T16:34:23.303Z level=INFO msg=pii_request_created service=armorclaw component=bridge version=1.1.0 component=pii_request request_id=pii_22ab4bcf9eb0908cafd94a9e agent_id=agent-017 skill_id=skill-017 profile_id=profile-017 fields_count=2 expires_at=2026-05-07T16:39:23.303Z
+--- PASS: TestPIIRequestToMatrixEvent (0.00s)
+=== RUN   TestApproveAlreadyClosed
+time=2026-05-07T16:34:23.303Z level=INFO msg=pii_request_created service=armorclaw component=bridge version=1.1.0 component=pii_request request_id=pii_65820d491a5ac7d7a7ed8516 agent_id=agent-018 skill_id=skill-018 profile_id=profile-018 fields_count=1 expires_at=2026-05-07T16:39:23.303Z
+time=2026-05-07T16:34:23.303Z level=INFO msg=pii_request_approved service=armorclaw component=bridge version=1.1.0 component=pii_request request_id=pii_65820d491a5ac7d7a7ed8516 approved_by=user-009 approved_fields=[email]
+--- PASS: TestApproveAlreadyClosed (0.00s)
+=== RUN   TestCallbackInvocation
+time=2026-05-07T16:34:23.303Z level=INFO msg=pii_request_created service=armorclaw component=bridge version=1.1.0 component=pii_request request_id=pii_d2b212709af3887ac4b4b9e6 agent_id=agent-019 skill_id=skill-019 profile_id=profile-019 fields_count=1 expires_at=2026-05-07T16:39:23.303Z
+time=2026-05-07T16:34:23.303Z level=INFO msg=pii_request_approved service=armorclaw component=bridge version=1.1.0 component=pii_request request_id=pii_d2b212709af3887ac4b4b9e6 approved_by=user-011 approved_fields=[email]
+time=2026-05-07T16:34:23.303Z level=INFO msg=pii_request_created service=armorclaw component=bridge version=1.1.0 component=pii_request request_id=pii_6c2ef3d25c9542f82b54b684 agent_id=agent-020 skill_id=skill-020 profile_id=profile-020 fields_count=1 expires_at=2026-05-07T16:39:23.303Z
+time=2026-05-07T16:34:23.303Z level=INFO msg=pii_request_denied service=armorclaw component=bridge version=1.1.0 component=pii_request request_id=pii_6c2ef3d25c9542f82b54b684 denied_by=user-012 reason=Denied
+--- PASS: TestCallbackInvocation (0.00s)
+=== RUN   TestRateLimiterExceeded
+--- PASS: TestRateLimiterExceeded (0.00s)
+=== RUN   TestRateLimiterPerIdentity
+--- PASS: TestRateLimiterPerIdentity (0.00s)
+=== RUN   TestRateLimiterWindowExpiry
+--- PASS: TestRateLimiterWindowExpiry (0.06s)
+=== RUN   TestRateLimiterConcurrent
+--- PASS: TestRateLimiterConcurrent (0.00s)
+=== RUN   TestNewSealedKeystore
+time=2026-05-07T16:34:23.367Z level=INFO msg="container detected" service=armorclaw component=bridge version=1.1.0 type=docker indicator=/.dockerenv
+--- PASS: TestNewSealedKeystore (0.18s)
+=== RUN   TestNewSealedKeystoreDefaults
+time=2026-05-07T16:34:23.544Z level=INFO msg="container detected" service=armorclaw component=bridge version=1.1.0 type=docker indicator=/.dockerenv
+--- PASS: TestNewSealedKeystoreDefaults (0.15s)
+=== RUN   TestIsSealed
+time=2026-05-07T16:34:23.695Z level=INFO msg="container detected" service=armorclaw component=bridge version=1.1.0 type=docker indicator=/.dockerenv
+--- PASS: TestIsSealed (0.18s)
+=== RUN   TestGetStatus
+time=2026-05-07T16:34:23.874Z level=INFO msg="container detected" service=armorclaw component=bridge version=1.1.0 type=docker indicator=/.dockerenv
+--- PASS: TestGetStatus (0.19s)
+=== RUN   TestRequestUnsealMobileApproval
+time=2026-05-07T16:34:24.065Z level=INFO msg="container detected" service=armorclaw component=bridge version=1.1.0 type=docker indicator=/.dockerenv
+--- PASS: TestRequestUnsealMobileApproval (0.19s)
+=== RUN   TestRequestUnsealAutoPolicy
+time=2026-05-07T16:34:24.250Z level=INFO msg="container detected" service=armorclaw component=bridge version=1.1.0 type=docker indicator=/.dockerenv
+--- PASS: TestRequestUnsealAutoPolicy (0.15s)
+=== RUN   TestApproveUnseal
+time=2026-05-07T16:34:24.405Z level=INFO msg="container detected" service=armorclaw component=bridge version=1.1.0 type=docker indicator=/.dockerenv
+--- PASS: TestApproveUnseal (0.08s)
+=== RUN   TestApproveUnsealExpiredRequest
+time=2026-05-07T16:34:24.490Z level=INFO msg="container detected" service=armorclaw component=bridge version=1.1.0 type=docker indicator=/.dockerenv
+--- PASS: TestApproveUnsealExpiredRequest (0.09s)
+=== RUN   TestRejectUnseal
+time=2026-05-07T16:34:24.583Z level=INFO msg="container detected" service=armorclaw component=bridge version=1.1.0 type=docker indicator=/.dockerenv
+--- PASS: TestRejectUnseal (0.10s)
+=== RUN   TestGetPendingRequests
+time=2026-05-07T16:34:24.681Z level=INFO msg="container detected" service=armorclaw component=bridge version=1.1.0 type=docker indicator=/.dockerenv
+--- PASS: TestGetPendingRequests (0.08s)
+=== RUN   TestSeal
+time=2026-05-07T16:34:24.765Z level=INFO msg="container detected" service=armorclaw component=bridge version=1.1.0 type=docker indicator=/.dockerenv
+--- PASS: TestSeal (0.08s)
+=== RUN   TestSealAll
+time=2026-05-07T16:34:24.849Z level=INFO msg="container detected" service=armorclaw component=bridge version=1.1.0 type=docker indicator=/.dockerenv
+--- PASS: TestSealAll (0.09s)
+=== RUN   TestExtendSession
+time=2026-05-07T16:34:24.934Z level=INFO msg="container detected" service=armorclaw component=bridge version=1.1.0 type=docker indicator=/.dockerenv
+--- PASS: TestExtendSession (0.10s)
+=== RUN   TestRetrieveProfileSealed
+time=2026-05-07T16:34:25.030Z level=INFO msg="container detected" service=armorclaw component=bridge version=1.1.0 type=docker indicator=/.dockerenv
+--- PASS: TestRetrieveProfileSealed (0.09s)
+=== RUN   TestRetrieveProfileUnsealed
+time=2026-05-07T16:34:25.123Z level=INFO msg="container detected" service=armorclaw component=bridge version=1.1.0 type=docker indicator=/.dockerenv
+--- PASS: TestRetrieveProfileUnsealed (0.09s)
+=== RUN   TestCleanupExpired
+time=2026-05-07T16:34:25.215Z level=INFO msg="container detected" service=armorclaw component=bridge version=1.1.0 type=docker indicator=/.dockerenv
+--- PASS: TestCleanupExpired (0.09s)
+=== RUN   TestSetPolicy
+time=2026-05-07T16:34:25.306Z level=INFO msg="container detected" service=armorclaw component=bridge version=1.1.0 type=docker indicator=/.dockerenv
+--- PASS: TestSetPolicy (0.09s)
+=== RUN   TestToMatrixEvent
+--- PASS: TestToMatrixEvent (0.00s)
+=== RUN   TestPasswordUnsealCorrect
+time=2026-05-07T16:34:25.398Z level=INFO msg="container detected" service=armorclaw component=bridge version=1.1.0 type=docker indicator=/.dockerenv
+--- PASS: TestPasswordUnsealCorrect (0.35s)
+=== RUN   TestPasswordUnsealWrong
+time=2026-05-07T16:34:25.752Z level=INFO msg="container detected" service=armorclaw component=bridge version=1.1.0 type=docker indicator=/.dockerenv
+--- PASS: TestPasswordUnsealWrong (0.29s)
+=== RUN   TestPasswordUnsealAlreadyUnsealed
+time=2026-05-07T16:34:26.046Z level=INFO msg="container detected" service=armorclaw component=bridge version=1.1.0 type=docker indicator=/.dockerenv
+--- PASS: TestPasswordUnsealAlreadyUnsealed (0.35s)
+=== RUN   TestPasswordSealZerosVaultKey
+time=2026-05-07T16:34:26.393Z level=INFO msg="container detected" service=armorclaw component=bridge version=1.1.0 type=docker indicator=/.dockerenv
+--- PASS: TestPasswordSealZerosVaultKey (0.34s)
+=== RUN   TestListKeysReturnsNames
+time=2026-05-07T16:34:26.733Z level=INFO msg="container detected" service=armorclaw component=bridge version=1.1.0 type=docker indicator=/.dockerenv
+--- PASS: TestListKeysReturnsNames (0.37s)
+=== RUN   TestListKeysSealed
+time=2026-05-07T16:34:27.105Z level=INFO msg="container detected" service=armorclaw component=bridge version=1.1.0 type=docker indicator=/.dockerenv
+--- PASS: TestListKeysSealed (0.21s)
+=== RUN   TestDeleteKeyRemovesKey
+time=2026-05-07T16:34:27.320Z level=INFO msg="container detected" service=armorclaw component=bridge version=1.1.0 type=docker indicator=/.dockerenv
+--- PASS: TestDeleteKeyRemovesKey (0.37s)
+=== RUN   TestDeleteKeySealed
+time=2026-05-07T16:34:27.689Z level=INFO msg="container detected" service=armorclaw component=bridge version=1.1.0 type=docker indicator=/.dockerenv
+--- PASS: TestDeleteKeySealed (0.23s)
+=== RUN   TestPasswordConcurrent
+time=2026-05-07T16:34:27.919Z level=INFO msg="container detected" service=armorclaw component=bridge version=1.1.0 type=docker indicator=/.dockerenv
+--- PASS: TestPasswordConcurrent (0.47s)
+=== RUN   TestAutoSealTimer
+time=2026-05-07T16:34:28.390Z level=INFO msg="container detected" service=armorclaw component=bridge version=1.1.0 type=docker indicator=/.dockerenv
+--- PASS: TestAutoSealTimer (0.55s)
+=== RUN   TestTimerActivityReset
+time=2026-05-07T16:34:28.940Z level=INFO msg="container detected" service=armorclaw component=bridge version=1.1.0 type=docker indicator=/.dockerenv
+--- PASS: TestTimerActivityReset (0.70s)
+=== RUN   TestSessionStatus
+time=2026-05-07T16:34:29.637Z level=INFO msg="container detected" service=armorclaw component=bridge version=1.1.0 type=docker indicator=/.dockerenv
+--- PASS: TestSessionStatus (0.36s)
+=== RUN   TestTimerResetOnExtend
+time=2026-05-07T16:34:29.994Z level=INFO msg="container detected" service=armorclaw component=bridge version=1.1.0 type=docker indicator=/.dockerenv
+--- PASS: TestTimerResetOnExtend (0.96s)
+=== RUN   TestExtendPasswordSessionWhenSealed
+time=2026-05-07T16:34:30.950Z level=INFO msg="container detected" service=armorclaw component=bridge version=1.1.0 type=docker indicator=/.dockerenv
+--- PASS: TestExtendPasswordSessionWhenSealed (0.23s)
+=== RUN   TestSealedGetBlocked
+time=2026-05-07T16:34:31.177Z level=INFO msg="container detected" service=armorclaw component=bridge version=1.1.0 type=docker indicator=/.dockerenv
+--- PASS: TestSealedGetBlocked (0.24s)
+=== RUN   TestSealedGetAllowed
+time=2026-05-07T16:34:31.417Z level=INFO msg="container detected" service=armorclaw component=bridge version=1.1.0 type=docker indicator=/.dockerenv
+--- PASS: TestSealedGetAllowed (0.37s)
+=== RUN   TestSealedSetBlocked
+time=2026-05-07T16:34:31.783Z level=INFO msg="container detected" service=armorclaw component=bridge version=1.1.0 type=docker indicator=/.dockerenv
+--- PASS: TestSealedSetBlocked (0.22s)
+=== RUN   TestSealedSetAllowed
+time=2026-05-07T16:34:32.008Z level=INFO msg="container detected" service=armorclaw component=bridge version=1.1.0 type=docker indicator=/.dockerenv
+--- PASS: TestSealedSetAllowed (0.36s)
+=== RUN   TestRetrieveNoFlagUnchanged
+time=2026-05-07T16:34:32.373Z level=INFO msg="container detected" service=armorclaw component=bridge version=1.1.0 type=docker indicator=/.dockerenv
+--- PASS: TestRetrieveNoFlagUnchanged (0.22s)
+=== RUN   TestSealedCheckFunc
+time=2026-05-07T16:34:32.595Z level=INFO msg="container detected" service=armorclaw component=bridge version=1.1.0 type=docker indicator=/.dockerenv
+--- PASS: TestSealedCheckFunc (0.34s)
+=== RUN   TestResetTimerFunc
+time=2026-05-07T16:34:32.938Z level=INFO msg="container detected" service=armorclaw component=bridge version=1.1.0 type=docker indicator=/.dockerenv
+--- PASS: TestResetTimerFunc (0.81s)
+=== RUN   TestZeroBytes
+--- PASS: TestZeroBytes (0.00s)
+=== RUN   TestZeroBytesEmpty
+--- PASS: TestZeroBytesEmpty (0.00s)
+=== RUN   TestZeroBytesNil
+--- PASS: TestZeroBytesNil (0.00s)
+=== RUN   TestWipeAllData_SystemWide
+    wipe_test.go:77: WipeAllData correctly performs system-wide deletion
+--- PASS: TestWipeAllData_SystemWide (0.15s)
+=== RUN   TestWipeAllData_RequiresOpenKeystore
+    wipe_test.go:105: WipeAllData correctly rejected: keystore is not open
+--- PASS: TestWipeAllData_RequiresOpenKeystore (0.00s)
+FAIL
+FAIL	github.com/armorclaw/bridge/pkg/keystore	19.408s
+=== RUN   TestNewBudgetTracker
+--- PASS: TestNewBudgetTracker (0.00s)
+=== RUN   TestStartSession
+time=2026-05-07T16:34:19.627Z level=INFO msg="security event" service=armorclaw component=bridge version=1.1.0 component=voice_budget component=security event_type=voice_session_started timestamp=2026-05-07T16:34:19Z category=security source_file=budget_test.go source_line=29 event_type=voice_session_started session_id=test-session call_id=call-123 room_id=room-456 token_limit=50000 duration_limit=10m0s
+--- PASS: TestStartSession (0.00s)
+=== RUN   TestRecordTokenUsage
+time=2026-05-07T16:34:19.627Z level=INFO msg="security event" service=armorclaw component=bridge version=1.1.0 component=voice_budget component=security event_type=voice_session_started timestamp=2026-05-07T16:34:19Z category=security source_file=budget_test.go source_line=53 event_type=voice_session_started session_id=test-session call_id=call-123 room_id=room-456 token_limit=1000 duration_limit=10m0s
+--- PASS: TestRecordTokenUsage (0.00s)
+=== RUN   TestTokenLimitWarning
+time=2026-05-07T16:34:19.627Z level=INFO msg="security event" service=armorclaw component=bridge version=1.1.0 component=voice_budget component=security event_type=voice_session_started timestamp=2026-05-07T16:34:19Z category=security source_file=budget_test.go source_line=99 event_type=voice_session_started session_id=test-session call_id=call-123 room_id=room-456 token_limit=1000 duration_limit=10m0s
+time=2026-05-07T16:34:19.627Z level=INFO msg="security event" service=armorclaw component=bridge version=1.1.0 component=voice_budget component=security event_type=voice_budget_warning timestamp=2026-05-07T16:34:19Z category=security source_file=budget_test.go source_line=105 event_type=voice_budget_warning session_id=test-session call_id=call-123 usage_percent=80.10000000000001 tokens_used=801 tokens_remaining=199
+--- PASS: TestTokenLimitWarning (0.00s)
+=== RUN   TestTokenLimitExceeded
+time=2026-05-07T16:34:19.627Z level=INFO msg="security event" service=armorclaw component=bridge version=1.1.0 component=voice_budget component=security event_type=voice_session_started timestamp=2026-05-07T16:34:19Z category=security source_file=budget_test.go source_line=125 event_type=voice_session_started session_id=test-session call_id=call-123 room_id=room-456 token_limit=1000 duration_limit=10m0s
+time=2026-05-07T16:34:19.627Z level=INFO msg="security event" service=armorclaw component=bridge version=1.1.0 component=voice_budget component=security event_type=voice_session_ended timestamp=2026-05-07T16:34:19Z category=security source_file=asm_amd64.s source_line=1693 event_type=voice_session_ended session_id=test-session call_id=call-123 duration=53.621µs input_tokens=500 output_tokens=501
+--- PASS: TestTokenLimitExceeded (0.10s)
+=== RUN   TestDurationLimit
+time=2026-05-07T16:34:19.728Z level=INFO msg="security event" service=armorclaw component=bridge version=1.1.0 component=voice_budget component=security event_type=voice_session_started timestamp=2026-05-07T16:34:19Z category=security source_file=budget_test.go source_line=152 event_type=voice_session_started session_id=test-session call_id=call-123 room_id=room-456 token_limit=100000 duration_limit=100ms
+--- PASS: TestDurationLimit (0.15s)
+=== RUN   TestEndSession
+time=2026-05-07T16:34:19.878Z level=INFO msg="security event" service=armorclaw component=bridge version=1.1.0 component=voice_budget component=security event_type=voice_session_started timestamp=2026-05-07T16:34:19Z category=security source_file=budget_test.go source_line=172 event_type=voice_session_started session_id=test-session call_id=call-123 room_id=room-456 token_limit=100000 duration_limit=10m0s
+time=2026-05-07T16:34:19.878Z level=INFO msg="security event" service=armorclaw component=bridge version=1.1.0 component=voice_budget component=security event_type=voice_session_ended timestamp=2026-05-07T16:34:19Z category=security source_file=budget_test.go source_line=181 event_type=voice_session_ended session_id=test-session call_id=call-123 duration=32.765µs input_tokens=100 output_tokens=200
+--- PASS: TestEndSession (0.00s)
+time=2026-05-07T16:34:19.878Z level=INFO msg="security event" service=armorclaw component=bridge version=1.1.0 component=voice_budget component=security event_type=voice_session_ended timestamp=2026-05-07T16:34:19Z category=security source_file=asm_amd64.s source_line=1693 event_type=voice_session_ended session_id=test-session call_id=call-123 duration=150.272312ms input_tokens=0 output_tokens=0
+=== RUN   TestGetAllSessions
+time=2026-05-07T16:34:19.878Z level=INFO msg="security event" service=armorclaw component=bridge version=1.1.0 component=voice_budget component=security event_type=voice_session_started timestamp=2026-05-07T16:34:19Z category=security source_file=budget_test.go source_line=205 event_type=voice_session_started session_id=session-1 call_id=call-1 room_id=room-1 token_limit=100000 duration_limit=10m0s
+time=2026-05-07T16:34:19.878Z level=INFO msg="security event" service=armorclaw component=bridge version=1.1.0 component=voice_budget component=security event_type=voice_session_started timestamp=2026-05-07T16:34:19Z category=security source_file=budget_test.go source_line=206 event_type=voice_session_started session_id=session-2 call_id=call-2 room_id=room-2 token_limit=100000 duration_limit=10m0s
+time=2026-05-07T16:34:19.878Z level=INFO msg="security event" service=armorclaw component=bridge version=1.1.0 component=voice_budget component=security event_type=voice_session_started timestamp=2026-05-07T16:34:19Z category=security source_file=budget_test.go source_line=207 event_type=voice_session_started session_id=session-3 call_id=call-3 room_id=room-3 token_limit=100000 duration_limit=10m0s
+time=2026-05-07T16:34:19.878Z level=INFO msg="security event" service=armorclaw component=bridge version=1.1.0 component=voice_budget component=security event_type=voice_session_ended timestamp=2026-05-07T16:34:19Z category=security source_file=budget_test.go source_line=210 event_type=voice_session_ended session_id=session-2 call_id=call-2 duration=13.735µs input_tokens=0 output_tokens=0
+--- PASS: TestGetAllSessions (0.00s)
+=== RUN   TestVoiceBudgetGetStats
+time=2026-05-07T16:34:19.878Z level=INFO msg="security event" service=armorclaw component=bridge version=1.1.0 component=voice_budget component=security event_type=voice_session_started timestamp=2026-05-07T16:34:19Z category=security source_file=budget_test.go source_line=224 event_type=voice_session_started session_id=session-1 call_id=call-1 room_id=room-1 token_limit=100000 duration_limit=10m0s
+time=2026-05-07T16:34:19.878Z level=INFO msg="security event" service=armorclaw component=bridge version=1.1.0 component=voice_budget component=security event_type=voice_session_started timestamp=2026-05-07T16:34:19Z category=security source_file=budget_test.go source_line=228 event_type=voice_session_started session_id=session-2 call_id=call-2 room_id=room-2 token_limit=100000 duration_limit=10m0s
+--- PASS: TestVoiceBudgetGetStats (0.00s)
+=== RUN   TestEnforceLimits
+time=2026-05-07T16:34:19.878Z level=INFO msg="security event" service=armorclaw component=bridge version=1.1.0 component=voice_budget component=security event_type=voice_session_started timestamp=2026-05-07T16:34:19Z category=security source_file=budget_test.go source_line=250 event_type=voice_session_started session_id=test-session call_id=call-123 room_id=room-456 token_limit=100 duration_limit=1h0m0s
+time=2026-05-07T16:34:19.878Z level=INFO msg="security event" service=armorclaw component=bridge version=1.1.0 component=voice_budget component=security event_type=voice_budget_enforced timestamp=2026-05-07T16:34:19Z category=security source_file=hashtriemap.go source_line=512 event_type=voice_budget_enforced session_id=test-session call_id=call-123 reason=token_limit_exceeded tokens_used=101 token_limit=100
+time=2026-05-07T16:34:19.878Z level=INFO msg="security event" service=armorclaw component=bridge version=1.1.0 component=voice_budget component=security event_type=voice_session_ended timestamp=2026-05-07T16:34:19Z category=security source_file=asm_amd64.s source_line=1693 event_type=voice_session_ended session_id=test-session call_id=call-123 duration=32.076µs input_tokens=50 output_tokens=51
+time=2026-05-07T16:34:19.878Z level=INFO msg="security event" service=armorclaw component=bridge version=1.1.0 component=voice_budget component=security event_type=voice_session_ended timestamp=2026-05-07T16:34:19Z category=security source_file=asm_amd64.s source_line=1693 event_type=voice_session_ended session_id=test-session call_id=call-123 duration=45.059µs input_tokens=50 output_tokens=51
+--- PASS: TestEnforceLimits (0.10s)
+=== RUN   TestSessionStateString
+=== RUN   TestSessionStateString/unknown
+=== RUN   TestSessionStateString/active
+=== RUN   TestSessionStateString/ended
+--- PASS: TestSessionStateString (0.00s)
+    --- PASS: TestSessionStateString/unknown (0.00s)
+    --- PASS: TestSessionStateString/active (0.00s)
+    --- PASS: TestSessionStateString/ended (0.00s)
+=== RUN   TestStop
+time=2026-05-07T16:34:19.979Z level=INFO msg="security event" service=armorclaw component=bridge version=1.1.0 component=voice_budget component=security event_type=voice_session_started timestamp=2026-05-07T16:34:19Z category=security source_file=budget_test.go source_line=296 event_type=voice_session_started session_id=session-1 call_id=call-1 room_id=room-1 token_limit=100000 duration_limit=10m0s
+time=2026-05-07T16:34:19.979Z level=INFO msg="security event" service=armorclaw component=bridge version=1.1.0 component=voice_budget component=security event_type=voice_session_started timestamp=2026-05-07T16:34:19Z category=security source_file=budget_test.go source_line=297 event_type=voice_session_started session_id=session-2 call_id=call-2 room_id=room-2 token_limit=100000 duration_limit=10m0s
+time=2026-05-07T16:34:19.979Z level=INFO msg="security event" service=armorclaw component=bridge version=1.1.0 component=voice_budget component=security event_type=voice_session_ended timestamp=2026-05-07T16:34:19Z category=security source_file=budget.go source_line=395 event_type=voice_session_ended session_id=session-1 call_id=call-1 duration=39.69µs input_tokens=0 output_tokens=0
+time=2026-05-07T16:34:19.979Z level=INFO msg="security event" service=armorclaw component=bridge version=1.1.0 component=voice_budget component=security event_type=voice_session_ended timestamp=2026-05-07T16:34:19Z category=security source_file=budget.go source_line=395 event_type=voice_session_ended session_id=session-2 call_id=call-2 duration=29.523µs input_tokens=0 output_tokens=0
+--- PASS: TestStop (0.00s)
+=== RUN   TestE2EServiceHealth
+    e2e_test.go:17: Skipping E2E test. Set ARMORCLAW_E2E=1 to enable.
+--- SKIP: TestE2EServiceHealth (0.00s)
+=== RUN   TestSTTService_Transcribe_Success
+--- PASS: TestSTTService_Transcribe_Success (0.00s)
+=== RUN   TestSTTService_Transcribe_ContextCancellation
+--- PASS: TestSTTService_Transcribe_ContextCancellation (0.00s)
+=== RUN   TestSTTService_Transcribe_EmptyAudio
+--- PASS: TestSTTService_Transcribe_EmptyAudio (0.00s)
+=== RUN   TestSTTService_Transcribe_ServiceUnavailable
+--- PASS: TestSTTService_Transcribe_ServiceUnavailable (0.00s)
+=== RUN   TestSTTService_Transcribe_RetryExhaustion
+--- PASS: TestSTTService_Transcribe_RetryExhaustion (0.00s)
+=== RUN   TestTTSService_Synthesize_Success
+--- PASS: TestTTSService_Synthesize_Success (0.00s)
+=== RUN   TestTTSService_Synthesize_ContextCancellation
+--- PASS: TestTTSService_Synthesize_ContextCancellation (0.00s)
+=== RUN   TestTTSService_Synthesize_EmptyText
+--- PASS: TestTTSService_Synthesize_EmptyText (0.00s)
+=== RUN   TestTTSService_Synthesize_ServiceUnavailable
+--- PASS: TestTTSService_Synthesize_ServiceUnavailable (0.00s)
+=== RUN   TestTTSService_Synthesize_TextTooLong
+--- PASS: TestTTSService_Synthesize_TextTooLong (0.00s)
+=== RUN   TestVADService_DetectSpeech_Success
+--- PASS: TestVADService_DetectSpeech_Success (0.00s)
+=== RUN   TestVADService_DetectSpeech_NoSpeech
+--- PASS: TestVADService_DetectSpeech_NoSpeech (0.00s)
+=== RUN   TestVADService_DetectSpeech_ContextCancellation
+--- PASS: TestVADService_DetectSpeech_ContextCancellation (0.00s)
+=== RUN   TestVADService_DetectSpeech_EmptyAudio
+--- PASS: TestVADService_DetectSpeech_EmptyAudio (0.00s)
+=== RUN   TestVADService_DetectSpeech_ServiceUnavailable
+--- PASS: TestVADService_DetectSpeech_ServiceUnavailable (0.00s)
+PASS
+ok  	github.com/armorclaw/bridge/pkg/voice	0.361s
+=== RUN   TestGenerateRecoveryPhrase
+    backup_test.go:33: generated 24 unique words out of 24
+--- PASS: TestGenerateRecoveryPhrase (0.00s)
+=== RUN   TestValidateRecoveryPhrase
+--- PASS: TestValidateRecoveryPhrase (0.00s)
+=== RUN   TestCreateBackup
+--- PASS: TestCreateBackup (0.10s)
+=== RUN   TestDeleteBackup
+--- PASS: TestDeleteBackup (0.09s)
+=== RUN   TestBackupExists
+--- PASS: TestBackupExists (0.06s)
+=== RUN   TestNoRestoreBackup
+--- PASS: TestNoRestoreBackup (0.00s)
+=== RUN   TestNewCrossSigningService_NilEngine
+--- PASS: TestNewCrossSigningService_NilEngine (0.00s)
+=== RUN   TestCrossSigning_GenerateKeyPair
+--- PASS: TestCrossSigning_GenerateKeyPair (0.00s)
+=== RUN   TestCrossSigning_SignAndVerify
+--- PASS: TestCrossSigning_SignAndVerify (0.00s)
+=== RUN   TestCrossSigning_Bootstrap
+--- PASS: TestCrossSigning_Bootstrap (0.00s)
+=== RUN   TestCrossSigning_IsBootstrapped
+--- PASS: TestCrossSigning_IsBootstrapped (0.00s)
+=== RUN   TestCrossSigning_NilSafeMethods
+--- PASS: TestCrossSigning_NilSafeMethods (0.00s)
+=== RUN   TestCrossSigning_SignDevice
+--- PASS: TestCrossSigning_SignDevice (0.00s)
+=== RUN   TestE2EE_EncryptDecryptRoundTrip_ServiceWiring
+--- PASS: TestE2EE_EncryptDecryptRoundTrip_ServiceWiring (0.00s)
+=== RUN   TestE2EE_EncryptDecryptRoundTrip_StoreLevel
+--- PASS: TestE2EE_EncryptDecryptRoundTrip_StoreLevel (0.00s)
+=== RUN   TestE2EE_DualModeMessaging
+--- PASS: TestE2EE_DualModeMessaging (0.00s)
+=== RUN   TestE2EE_DualModeMessaging_ProcessStateEvents
+--- PASS: TestE2EE_DualModeMessaging_ProcessStateEvents (0.00s)
+=== RUN   TestE2EE_KillSwitch_DisabledGlobals
+--- PASS: TestE2EE_KillSwitch_DisabledGlobals (0.00s)
+=== RUN   TestE2EE_KillSwitch_NilCryptoEngine
+--- PASS: TestE2EE_KillSwitch_NilCryptoEngine (0.00s)
+=== RUN   TestE2EE_SASVerification_FullFlow
+--- PASS: TestE2EE_SASVerification_FullFlow (0.00s)
+=== RUN   TestE2EE_SASVerification_EmojiDeterministic
+--- PASS: TestE2EE_SASVerification_EmojiDeterministic (0.00s)
+=== RUN   TestE2EE_SASVerification_MACTamperDetection
+2026/05/07 16:34:19 WARN SAS verification MAC mismatch transaction_id=V-0BfbVmMcjJbV3LptR63kP8vhIRy4ePrYoij0TEGrY
+--- PASS: TestE2EE_SASVerification_MACTamperDetection (0.00s)
+=== RUN   TestE2EE_SASVerification_CancelMidFlow
+--- PASS: TestE2EE_SASVerification_CancelMidFlow (0.00s)
+=== RUN   TestE2EE_CrossSigningBootstrap
+--- PASS: TestE2EE_CrossSigningBootstrap (0.00s)
+=== RUN   TestE2EE_CrossSigningBootstrap_KeyIsolation
+--- PASS: TestE2EE_CrossSigningBootstrap_KeyIsolation (0.00s)
+=== RUN   TestE2EE_CrossSigning_SignKeyAndVerify
+--- PASS: TestE2EE_CrossSigning_SignKeyAndVerify (0.00s)
+=== RUN   TestE2EE_SessionPersistence
+--- PASS: TestE2EE_SessionPersistence (0.00s)
+=== RUN   TestE2EE_SessionPersistence_SignaturesAcrossInstances
+--- PASS: TestE2EE_SessionPersistence_SignaturesAcrossInstances (0.00s)
+=== RUN   TestE2EE_DeploymentMigration
+--- PASS: TestE2EE_DeploymentMigration (0.00s)
+=== RUN   TestE2EE_DeploymentMigration_MixedRooms
+--- PASS: TestE2EE_DeploymentMigration_MixedRooms (0.00s)
+=== RUN   TestE2EE_OutboundSessionLifecycle
+--- PASS: TestE2EE_OutboundSessionLifecycle (0.00s)
+=== RUN   TestE2EE_MessageIndex_ReplayProtection
+--- PASS: TestE2EE_MessageIndex_ReplayProtection (0.00s)
+=== RUN   TestE2EE_CrossService_Integration
+--- PASS: TestE2EE_CrossService_Integration (0.00s)
+=== RUN   TestE2EE_OlmSessionPersistence
+--- PASS: TestE2EE_OlmSessionPersistence (0.00s)
+=== RUN   TestE2EE_WithheldSessionTracking
+--- PASS: TestE2EE_WithheldSessionTracking (0.00s)
+=== RUN   TestEncryptionService_NilSafe
+--- PASS: TestEncryptionService_NilSafe (0.00s)
+=== RUN   TestRoomEncryptionCache_SetAndGet
+--- PASS: TestRoomEncryptionCache_SetAndGet (0.00s)
+=== RUN   TestRoomEncryptionCache_DisabledGlobally
+--- PASS: TestRoomEncryptionCache_DisabledGlobally (0.00s)
+=== RUN   TestRoomEncryptionCache_NilSafe
+--- PASS: TestRoomEncryptionCache_NilSafe (0.00s)
+=== RUN   TestRoomEncryptionCache_ProcessStateEvents
+--- PASS: TestRoomEncryptionCache_ProcessStateEvents (0.00s)
+=== RUN   TestRoomEncryptionCache_Clear
+--- PASS: TestRoomEncryptionCache_Clear (0.00s)
+=== RUN   TestEncryptionService_ShouldEncrypt
+--- PASS: TestEncryptionService_ShouldEncrypt (0.00s)
+=== RUN   TestEncryptionService_DecryptionFailure_Placeholder
+2026/05/07 16:34:19 WARN decryption failed, emitting placeholder event_id=$evt1 room_id=!room:test sender=@user:test
+--- PASS: TestEncryptionService_DecryptionFailure_Placeholder (0.00s)
+=== RUN   TestEncryptionService_DecryptionFailure_RetryQueue
+2026/05/07 16:34:19 WARN decryption failed, emitting placeholder event_id=$evt1 room_id=!room:test sender=@user:test
+2026/05/07 16:34:19 WARN decryption failed, emitting placeholder event_id=$evt2 room_id=!room:test sender=@user:test
+2026/05/07 16:34:19 WARN max retries exceeded for decryption event_id=$evt1 room_id=!room:test
+2026/05/07 16:34:19 WARN max retries exceeded for decryption event_id=$evt2 room_id=!room:test
+--- PASS: TestEncryptionService_DecryptionFailure_RetryQueue (0.00s)
+=== RUN   TestEncryptionService_OnRoomEncryptionEvent
+--- PASS: TestEncryptionService_OnRoomEncryptionEvent (0.00s)
+=== RUN   TestNewEncryptionService_NilLogger
+--- PASS: TestNewEncryptionService_NilLogger (0.00s)
+=== RUN   TestKeyExchangeService_NilSafe
+--- PASS: TestKeyExchangeService_NilSafe (0.00s)
+=== RUN   TestKeyExchangeService_ProcessDeviceListChanges_Empty
+--- PASS: TestKeyExchangeService_ProcessDeviceListChanges_Empty (0.00s)
+=== RUN   TestNewKeyExchangeService_NilEngine
+--- PASS: TestNewKeyExchangeService_NilEngine (0.00s)
+=== RUN   TestKeyExchangeService_QueryKeys_Empty
+--- PASS: TestKeyExchangeService_QueryKeys_Empty (0.00s)
+=== RUN   TestKeyExchangeService_ClaimKeys_Empty
+--- PASS: TestKeyExchangeService_ClaimKeys_Empty (0.00s)
+=== RUN   TestStoreOlmAccountCRUD
+--- PASS: TestStoreOlmAccountCRUD (0.28s)
+=== RUN   TestStoreOutboundGroupSessionCRUD
+--- PASS: TestStoreOutboundGroupSessionCRUD (0.29s)
+=== RUN   TestStoreDeviceKeysCRUD
+--- PASS: TestStoreDeviceKeysCRUD (0.30s)
+=== RUN   TestStoreOlmSessionCRUD
+--- PASS: TestStoreOlmSessionCRUD (0.29s)
+=== RUN   TestStoreNextBatchCRUD
+--- PASS: TestStoreNextBatchCRUD (0.17s)
+=== RUN   TestStoreCrossSigningKeys
+--- PASS: TestStoreCrossSigningKeys (0.17s)
+=== RUN   TestStoreSignatures
+--- PASS: TestStoreSignatures (0.30s)
+=== RUN   TestStoreMessageIndex
+--- PASS: TestStoreMessageIndex (0.29s)
+=== RUN   TestStoreWithheldSession
+--- PASS: TestStoreWithheldSession (0.27s)
+=== RUN   TestStoreTrackedUserOutdated
+--- PASS: TestStoreTrackedUserOutdated (0.29s)
+=== RUN   TestStoreGetGroupSessionsForRoom
+--- PASS: TestStoreGetGroupSessionsForRoom (0.29s)
+=== RUN   TestStoreUpdateInboundGroupSession
+--- PASS: TestStoreUpdateInboundGroupSession (0.30s)
+=== RUN   TestStoreFlush
+--- PASS: TestStoreFlush (0.20s)
+=== RUN   TestStoreClear
+--- PASS: TestStoreClear (0.48s)
+=== RUN   TestSchemaMigration
+--- PASS: TestSchemaMigration (0.29s)
+=== RUN   TestSchemaMigrationIdempotent
+--- PASS: TestSchemaMigrationIdempotent (0.30s)
+=== RUN   TestMemoryStoreInterface
+--- PASS: TestMemoryStoreInterface (0.00s)
+=== RUN   TestNewSASVerificationService_NilEngine
+--- PASS: TestNewSASVerificationService_NilEngine (0.00s)
+=== RUN   TestSASVerification_FullFlow
+--- PASS: TestSASVerification_FullFlow (0.00s)
+=== RUN   TestSASVerification_Cancel
+--- PASS: TestSASVerification_Cancel (0.00s)
+=== RUN   TestSASVerification_Timeout
+--- PASS: TestSASVerification_Timeout (0.00s)
+=== RUN   TestSASVerification_NilSafeMethods
+--- PASS: TestSASVerification_NilSafeMethods (0.00s)
+=== RUN   TestSASVerification_EmojiGeneration
+--- PASS: TestSASVerification_EmojiGeneration (0.00s)
+=== RUN   TestSASVerification_MACTamperDetection
+2026/05/07 16:34:24 WARN SAS verification MAC mismatch transaction_id=0oL9CBKyDGBccfWwoSkPEyofJDazHXClB3nOSxOBcFI
+--- PASS: TestSASVerification_MACTamperDetection (0.00s)
+PASS
+ok  	github.com/armorclaw/bridge/pkg/crypto	4.791s
+=== RUN   TestNewBrowserSkill
+--- PASS: TestNewBrowserSkill (0.00s)
+=== RUN   TestNavigate
+--- PASS: TestNavigate (0.00s)
+=== RUN   TestNavigateInvalidURL
+--- PASS: TestNavigateInvalidURL (0.00s)
+=== RUN   TestWaitForElement
+--- PASS: TestWaitForElement (0.00s)
+=== RUN   TestFillForm
+--- PASS: TestFillForm (0.00s)
+=== RUN   TestClick
+--- PASS: TestClick (0.00s)
+=== RUN   TestWaitForCaptcha
+--- PASS: TestWaitForCaptcha (0.00s)
+=== RUN   TestWaitFor2FA
+--- PASS: TestWaitFor2FA (0.00s)
+=== RUN   TestComplete
+--- PASS: TestComplete (0.00s)
+=== RUN   TestFail
+--- PASS: TestFail (0.00s)
+=== RUN   TestNilEmitter
+--- PASS: TestNilEmitter (0.00s)
+=== RUN   TestGetSession
+--- PASS: TestGetSession (0.00s)
+=== RUN   TestAuditCreated
+--- PASS: TestAuditCreated (0.00s)
+=== RUN   TestAuditUpdated
+--- PASS: TestAuditUpdated (0.00s)
+=== RUN   TestAuditReplayed
+--- PASS: TestAuditReplayed (0.00s)
+=== RUN   TestAuditRejected
+--- PASS: TestAuditRejected (0.00s)
+=== RUN   TestAuditDeleted
+--- PASS: TestAuditDeleted (0.00s)
+=== RUN   TestAuditMultipleEvents
+--- PASS: TestAuditMultipleEvents (0.00s)
+=== RUN   TestAuditNoPIIInDetails
+--- PASS: TestAuditNoPIIInDetails (0.00s)
+=== RUN   TestSaveChart
+--- PASS: TestSaveChart (0.00s)
+=== RUN   TestGetChart
+--- PASS: TestGetChart (0.00s)
+=== RUN   TestFindForDomain
+--- PASS: TestFindForDomain (0.00s)
+=== RUN   TestRecordOutcomeSuccess
+--- PASS: TestRecordOutcomeSuccess (0.00s)
+=== RUN   TestRecordOutcomeFailure
+--- PASS: TestRecordOutcomeFailure (0.00s)
+=== RUN   TestRecordOutcomeConfidenceBounds
+--- PASS: TestRecordOutcomeConfidenceBounds (0.00s)
+=== RUN   TestDeleteChart
+--- PASS: TestDeleteChart (0.00s)
+=== RUN   TestDeleteNonExistentChart
+--- PASS: TestDeleteNonExistentChart (0.00s)
+=== RUN   TestGetNonExistentChart
+--- PASS: TestGetNonExistentChart (0.00s)
+=== RUN   TestSaveChartWithParentAndSession
+--- PASS: TestSaveChartWithParentAndSession (0.00s)
+=== RUN   TestFindForDomainOrderByConfidence
+--- PASS: TestFindForDomainOrderByConfidence (0.00s)
+=== RUN   TestSaveChartAutoVersions
+--- PASS: TestSaveChartAutoVersions (0.00s)
+=== RUN   TestSaveChartNoAutoVersionForDifferentTitle
+--- PASS: TestSaveChartNoAutoVersionForDifferentTitle (0.00s)
+=== RUN   TestListVersions
+--- PASS: TestListVersions (0.00s)
+=== RUN   TestListVersionsOnlySameDomainTitle
+--- PASS: TestListVersionsOnlySameDomainTitle (0.00s)
+=== RUN   TestRevertToVersion
+--- PASS: TestRevertToVersion (0.00s)
+=== RUN   TestRevertToVersionNotFound
+--- PASS: TestRevertToVersionNotFound (0.00s)
+=== RUN   TestRevertToVersionBadVersion
+--- PASS: TestRevertToVersionBadVersion (0.00s)
+=== RUN   TestActionTypeConstants
+--- PASS: TestActionTypeConstants (0.00s)
+=== RUN   TestNavChartRoundtrip
+--- PASS: TestNavChartRoundtrip (0.00s)
+=== RUN   TestOmitEmpty
+--- PASS: TestOmitEmpty (0.00s)
+=== RUN   TestStripeChartUnmarshal
+    chart_types_test.go:140: stripe.com.acsb.json not available: open ../../../jetski/lighthouse/charts/stripe.com.acsb.json: no such file or directory
+--- SKIP: TestStripeChartUnmarshal (0.00s)
+=== RUN   TestValidateForStorage_ValidMinimal
+--- PASS: TestValidateForStorage_ValidMinimal (0.00s)
+=== RUN   TestValidateForStorage_UnsupportedVersion
+--- PASS: TestValidateForStorage_UnsupportedVersion (0.00s)
+=== RUN   TestValidateForStorage_EmptyTargetDomain
+--- PASS: TestValidateForStorage_EmptyTargetDomain (0.00s)
+=== RUN   TestValidateForStorage_NoSchemeDomain
+--- PASS: TestValidateForStorage_NoSchemeDomain (0.00s)
+=== RUN   TestValidateForStorage_LocalhostRejected
+--- PASS: TestValidateForStorage_LocalhostRejected (0.00s)
+=== RUN   TestValidateForStorage_EmptyActionMap
+--- PASS: TestValidateForStorage_EmptyActionMap (0.00s)
+=== RUN   TestValidateForStorage_ClickWithoutSelector
+--- PASS: TestValidateForStorage_ClickWithoutSelector (0.00s)
+=== RUN   TestValidateForStorage_ClickWithoutPrimaryCSS
+--- PASS: TestValidateForStorage_ClickWithoutPrimaryCSS (0.00s)
+=== RUN   TestValidateForStorage_InputWithoutSelector
+--- PASS: TestValidateForStorage_InputWithoutSelector (0.00s)
+=== RUN   TestValidateForStorage_InputWithSelector
+--- PASS: TestValidateForStorage_InputWithSelector (0.00s)
+=== RUN   TestValidateForStorage_NavigateNoSelectorNeeded
+--- PASS: TestValidateForStorage_NavigateNoSelectorNeeded (0.00s)
+=== RUN   TestValidateForStorage_WaitNoSelectorNeeded
+--- PASS: TestValidateForStorage_WaitNoSelectorNeeded (0.00s)
+=== RUN   TestValidateForStorage_PIIInValue_SSN
+--- PASS: TestValidateForStorage_PIIInValue_SSN (0.00s)
+=== RUN   TestValidateForStorage_PIIInValue_CreditCard
+--- PASS: TestValidateForStorage_PIIInValue_CreditCard (0.00s)
+=== RUN   TestValidateForStorage_PIIInValue_Email
+--- PASS: TestValidateForStorage_PIIInValue_Email (0.00s)
+=== RUN   TestValidateForStorage_PIIInValue_Password
+--- PASS: TestValidateForStorage_PIIInValue_Password (0.00s)
+=== RUN   TestValidateForStorage_PlaceholderAllowed
+--- PASS: TestValidateForStorage_PlaceholderAllowed (0.00s)
+=== RUN   TestValidateForStorage_NonPIILiteralAllowed
+--- PASS: TestValidateForStorage_NonPIILiteralAllowed (0.00s)
+=== RUN   TestValidateForStorage_PIIInURL
+--- PASS: TestValidateForStorage_PIIInURL (0.00s)
+=== RUN   TestValidateForStorage_PIIInSelector
+--- PASS: TestValidateForStorage_PIIInSelector (0.00s)
+=== RUN   TestValidateForStorage_MultipleIssues
+--- PASS: TestValidateForStorage_MultipleIssues (0.00s)
+=== RUN   TestValidateForReplay_ValidWithPII
+--- PASS: TestValidateForReplay_ValidWithPII (0.00s)
+=== RUN   TestValidateForReplay_UnresolvedPlaceholder
+--- PASS: TestValidateForReplay_UnresolvedPlaceholder (0.00s)
+=== RUN   TestValidateForReplay_DomainPolicyRejects
+--- PASS: TestValidateForReplay_DomainPolicyRejects (0.00s)
+=== RUN   TestValidateForReplay_DomainPolicyAllows
+--- PASS: TestValidateForReplay_DomainPolicyAllows (0.00s)
+=== RUN   TestValidateForReplay_StorageFailsFirst
+--- PASS: TestValidateForReplay_StorageFailsFirst (0.00s)
+=== RUN   TestValidateForReplay_FlagsApprovalActions
+--- PASS: TestValidateForReplay_FlagsApprovalActions (0.00s)
+=== RUN   TestValidateForReplay_ClickSubmitApproval
+--- PASS: TestValidateForReplay_ClickSubmitApproval (0.00s)
+=== RUN   TestValidateForReplay_UnresolvedURLPlaceholder
+--- PASS: TestValidateForReplay_UnresolvedURLPlaceholder (0.00s)
+=== RUN   TestValidateForReplay_UnresolvedSelectorPlaceholder
+--- PASS: TestValidateForReplay_UnresolvedSelectorPlaceholder (0.00s)
+=== RUN   TestRequiresApproval_NilError
+--- PASS: TestRequiresApproval_NilError (0.00s)
+=== RUN   TestRequiresApproval_NonValidationError
+--- PASS: TestRequiresApproval_NonValidationError (0.00s)
+=== RUN   TestValidationIssue_Error
+--- PASS: TestValidationIssue_Error (0.00s)
+=== RUN   TestValidationError_Error
+--- PASS: TestValidationError_Error (0.00s)
+=== RUN   TestAllowAllDomains
+--- PASS: TestAllowAllDomains (0.00s)
+=== RUN   TestNewChartValidator_DefaultPolicy
+--- PASS: TestNewChartValidator_DefaultPolicy (0.00s)
+=== RUN   TestIsValidTargetDomain
+--- PASS: TestIsValidTargetDomain (0.00s)
+=== RUN   TestFindUnresolvedPlaceholders
+--- PASS: TestFindUnresolvedPlaceholders (0.00s)
+=== RUN   TestAllocateNew
+--- PASS: TestAllocateNew (0.00s)
+=== RUN   TestAllocateExisting
+--- PASS: TestAllocateExisting (0.00s)
+=== RUN   TestAllocateDifferent
+--- PASS: TestAllocateDifferent (0.00s)
+=== RUN   TestRelease
+--- PASS: TestRelease (0.00s)
+=== RUN   TestGetContext_Exists
+--- PASS: TestGetContext_Exists (0.00s)
+=== RUN   TestGetContext_NotFound
+--- PASS: TestGetContext_NotFound (0.00s)
+=== RUN   TestConcurrentAllocation
+--- PASS: TestConcurrentAllocation (0.00s)
+=== RUN   TestConcurrentDifferentAgents
+--- PASS: TestConcurrentDifferentAgents (0.00s)
+=== RUN   TestE2E_Navigate_FullPath
+--- PASS: TestE2E_Navigate_FullPath (0.00s)
+=== RUN   TestE2E_Fill_NoPII_FullPath
+--- PASS: TestE2E_Fill_NoPII_FullPath (0.00s)
+=== RUN   TestE2E_Fill_WithPII_FullPath
+--- PASS: TestE2E_Fill_WithPII_FullPath (0.00s)
+=== RUN   TestE2E_Extract_FullPath
+--- PASS: TestE2E_Extract_FullPath (0.00s)
+=== RUN   TestE2E_Screenshot_FullPath
+--- PASS: TestE2E_Screenshot_FullPath (0.00s)
+=== RUN   TestE2E_ServiceError_PropagatesToHandler
+--- PASS: TestE2E_ServiceError_PropagatesToHandler (0.00s)
+=== RUN   TestE2E_ServiceResponseError_InResult
+--- PASS: TestE2E_ServiceResponseError_InResult (0.00s)
+=== RUN   TestE2E_ContextCancellation
+--- PASS: TestE2E_ContextCancellation (5.00s)
+=== RUN   TestE2E_MultiStep_SequentialActions
+--- PASS: TestE2E_MultiStep_SequentialActions (0.00s)
+=== RUN   TestE2E_Client_HealthCheck
+--- PASS: TestE2E_Client_HealthCheck (0.00s)
+=== RUN   TestE2E_Client_Click
+--- PASS: TestE2E_Client_Click (0.00s)
+=== RUN   TestE2E_Client_Wait
+--- PASS: TestE2E_Client_Wait (0.00s)
+=== RUN   TestE2E_TableDriven_AllActions
+=== RUN   TestE2E_TableDriven_AllActions/navigate
+=== RUN   TestE2E_TableDriven_AllActions/fill
+=== RUN   TestE2E_TableDriven_AllActions/extract
+=== RUN   TestE2E_TableDriven_AllActions/screenshot
+--- PASS: TestE2E_TableDriven_AllActions (0.00s)
+    --- PASS: TestE2E_TableDriven_AllActions/navigate (0.00s)
+    --- PASS: TestE2E_TableDriven_AllActions/fill (0.00s)
+    --- PASS: TestE2E_TableDriven_AllActions/extract (0.00s)
+    --- PASS: TestE2E_TableDriven_AllActions/screenshot (0.00s)
+=== RUN   TestE2E_Fill_WithPII_HITLApproval
+--- PASS: TestE2E_Fill_WithPII_HITLApproval (0.05s)
+=== RUN   TestE2E_Workflow_MultiStep
+--- PASS: TestE2E_Workflow_MultiStep (0.00s)
+=== RUN   TestE2E_UnsupportedAction_ReturnsError
+--- PASS: TestE2E_UnsupportedAction_ReturnsError (0.00s)
+=== RUN   TestE2E_MissingURL_ReturnsError
+--- PASS: TestE2E_MissingURL_ReturnsError (0.00s)
+=== RUN   TestHandlerName
+--- PASS: TestHandlerName (0.00s)
+=== RUN   TestHandler_NavigateAction
+--- PASS: TestHandler_NavigateAction (0.00s)
+=== RUN   TestHandler_FillAction
+--- PASS: TestHandler_FillAction (0.00s)
+=== RUN   TestHandler_ExtractAction
+--- PASS: TestHandler_ExtractAction (0.00s)
+=== RUN   TestHandler_ScreenshotAction
+--- PASS: TestHandler_ScreenshotAction (0.00s)
+=== RUN   TestHandler_WorkflowAction
+--- PASS: TestHandler_WorkflowAction (0.00s)
+=== RUN   TestHandler_InvalidJSON
+--- PASS: TestHandler_InvalidJSON (0.00s)
+=== RUN   TestHandler_MissingAction
+--- PASS: TestHandler_MissingAction (0.00s)
+=== RUN   TestHandler_UnsupportedAction
+--- PASS: TestHandler_UnsupportedAction (0.00s)
+=== RUN   TestHandler_NestedIntent
+--- PASS: TestHandler_NestedIntent (0.00s)
+=== RUN   TestHandler_ServerError
+--- PASS: TestHandler_ServerError (0.00s)
+=== RUN   TestServiceResponseToBrowserResult_WithTitle
+--- PASS: TestServiceResponseToBrowserResult_WithTitle (0.00s)
+=== RUN   TestServiceResponseToBrowserResult_NilResponse
+--- PASS: TestServiceResponseToBrowserResult_NilResponse (0.00s)
+=== RUN   TestServiceResponseToBrowserResult_NoTitle
+--- PASS: TestServiceResponseToBrowserResult_NoTitle (0.00s)
+=== RUN   TestNormalize_EmptyFrames
+--- PASS: TestNormalize_EmptyFrames (0.00s)
+=== RUN   TestNormalize_EmptySlice
+--- PASS: TestNormalize_EmptySlice (0.00s)
+=== RUN   TestNormalize_NavigateOnly
+--- PASS: TestNormalize_NavigateOnly (0.00s)
+=== RUN   TestNormalize_NavigateFillClick
+--- PASS: TestNormalize_NavigateFillClick (0.00s)
+=== RUN   TestNormalize_FiltersNoise
+--- PASS: TestNormalize_FiltersNoise (0.00s)
+=== RUN   TestNormalize_SelectorContext
+--- PASS: TestNormalize_SelectorContext (0.00s)
+=== RUN   TestPIIDetection
+=== RUN   TestPIIDetection/SSN
+=== RUN   TestPIIDetection/CreditCard
+=== RUN   TestPIIDetection/CreditCardDashed
+=== RUN   TestPIIDetection/CreditCardSpaced
+=== RUN   TestPIIDetection/Email
+=== RUN   TestPIIDetection/Password
+=== RUN   TestPIIDetection/NoPII
+=== RUN   TestPIIDetection/NormalText
+--- PASS: TestPIIDetection (0.00s)
+    --- PASS: TestPIIDetection/SSN (0.00s)
+    --- PASS: TestPIIDetection/CreditCard (0.00s)
+    --- PASS: TestPIIDetection/CreditCardDashed (0.00s)
+    --- PASS: TestPIIDetection/CreditCardSpaced (0.00s)
+    --- PASS: TestPIIDetection/Email (0.00s)
+    --- PASS: TestPIIDetection/Password (0.00s)
+    --- PASS: TestPIIDetection/NoPII (0.00s)
+    --- PASS: TestPIIDetection/NormalText (0.00s)
+=== RUN   TestReplacePII
+=== RUN   TestReplacePII/SSN
+=== RUN   TestReplacePII/CreditCard
+=== RUN   TestReplacePII/Email
+=== RUN   TestReplacePII/NoPII
+=== RUN   TestReplacePII/MixedPII
+=== RUN   TestReplacePII/NonPIIPreserved
+--- PASS: TestReplacePII (0.00s)
+    --- PASS: TestReplacePII/SSN (0.00s)
+    --- PASS: TestReplacePII/CreditCard (0.00s)
+    --- PASS: TestReplacePII/Email (0.00s)
+    --- PASS: TestReplacePII/NoPII (0.00s)
+    --- PASS: TestReplacePII/MixedPII (0.00s)
+    --- PASS: TestReplacePII/NonPIIPreserved (0.00s)
+=== RUN   TestExtractDomain
+=== RUN   TestExtractDomain/https://example.com/path
+=== RUN   TestExtractDomain/http://shop.example.com:8080/checkout
+=== RUN   TestExtractDomain/example.com/path
+=== RUN   TestExtractDomain/#00
+=== RUN   TestExtractDomain/not-a-url
+--- PASS: TestExtractDomain (0.00s)
+    --- PASS: TestExtractDomain/https://example.com/path (0.00s)
+    --- PASS: TestExtractDomain/http://shop.example.com:8080/checkout (0.00s)
+    --- PASS: TestExtractDomain/example.com/path (0.00s)
+    --- PASS: TestExtractDomain/#00 (0.00s)
+    --- PASS: TestExtractDomain/not-a-url (0.00s)
+=== RUN   TestFilterFrames
+--- PASS: TestFilterFrames (0.00s)
+=== RUN   TestGroupFrames
+--- PASS: TestGroupFrames (0.00s)
+=== RUN   TestScanChartsForPII_EmptyStore
+--- PASS: TestScanChartsForPII_EmptyStore (0.00s)
+=== RUN   TestScanChartsForPII_CleanChart
+--- PASS: TestScanChartsForPII_CleanChart (0.00s)
+=== RUN   TestScanChartsForPII_SSNInValue
+--- PASS: TestScanChartsForPII_SSNInValue (0.00s)
+=== RUN   TestScanChartsForPII_CreditCardInValue
+--- PASS: TestScanChartsForPII_CreditCardInValue (0.00s)
+=== RUN   TestScanChartsForPII_EmailInValue
+--- PASS: TestScanChartsForPII_EmailInValue (0.00s)
+=== RUN   TestScanChartsForPII_PIIInURL
+--- PASS: TestScanChartsForPII_PIIInURL (0.00s)
+=== RUN   TestScanChartsForPII_PIIInSelector
+--- PASS: TestScanChartsForPII_PIIInSelector (0.00s)
+=== RUN   TestScanChartsForPII_MultipleFindings
+--- PASS: TestScanChartsForPII_MultipleFindings (0.00s)
+=== RUN   TestScanChartsForPII_MultipleDomains
+--- PASS: TestScanChartsForPII_MultipleDomains (0.00s)
+=== RUN   TestScanChartsForPII_StoreError
+--- PASS: TestScanChartsForPII_StoreError (0.00s)
+=== RUN   TestScanSingleChart_FallbackRawSteps
+--- PASS: TestScanSingleChart_FallbackRawSteps (0.00s)
+=== RUN   TestScanSingleChart_CleanPlaceholder
+--- PASS: TestScanSingleChart_CleanPlaceholder (0.00s)
+=== RUN   TestIsPlaceholder
+--- PASS: TestIsPlaceholder (0.00s)
+=== RUN   TestSeverityForType
+--- PASS: TestSeverityForType (0.00s)
+PASS
+ok  	github.com/armorclaw/bridge/pkg/browser	5.135s
+FAIL

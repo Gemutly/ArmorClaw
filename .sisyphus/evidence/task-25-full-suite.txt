@@ -1,0 +1,200 @@
+=== cargo check ===
+    Checking rust-vault v0.1.0 (/home/mink/src/armorclaw-omo/rust-vault)
+warning: unused import: `Placeholder`
+  --> src/blindfill/integration.rs:15:79
+   |
+15 | use crate::blindfill::placeholder::{parse_placeholders, replace_placeholders, Placeholder};
+   |                                                                               ^^^^^^^^^^^
+   |
+   = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: `rust-vault` (lib) generated 1 warning (run `cargo fix --lib -p rust-vault` to apply 1 suggestion)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.42s
+
+=== cargo test --lib ===
+warning: unused import: `Placeholder`
+  --> src/blindfill/integration.rs:15:79
+   |
+15 | use crate::blindfill::placeholder::{parse_placeholders, replace_placeholders, Placeholder};
+   |                                                                               ^^^^^^^^^^^
+   |
+   = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: `rust-vault` (lib test) generated 1 warning (run `cargo fix --lib -p rust-vault --tests` to apply 1 suggestion)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.18s
+     Running unittests src/lib.rs (target/debug/deps/rust_vault-06232086e7b8ab23)
+
+running 48 tests
+test blindfill::cdp_interceptor::tests::test_enable_params_structure ... ok
+test blindfill::cdp_interceptor::tests::test_old_secret_format_rejected ... ok
+test blindfill::cdp_interceptor::tests::test_resolve_placeholders_nested_object ... FAILED
+test blindfill::cdp_interceptor::tests::test_resolve_placeholders_simple_string ... FAILED
+test blindfill::cdp_interceptor::tests::test_resolve_placeholders_multiple_fields ... FAILED
+test blindfill::placeholder::tests::test_error_conditional ... ok
+test blindfill::placeholder::tests::test_error_hash_invalid_chars ... ok
+test blindfill::placeholder::tests::test_error_hash_uppercase ... ok
+test blindfill::placeholder::tests::test_error_loop ... ok
+test blindfill::placeholder::tests::test_error_empty_field ... ok
+test blindfill::placeholder::tests::test_error_empty_hash ... ok
+test blindfill::placeholder::tests::test_error_missing_hash ... FAILED
+test blindfill::placeholder::tests::test_error_missing_vault_prefix ... ok
+test blindfill::placeholder::tests::test_error_nested_placeholder ... FAILED
+test blindfill::placeholder::tests::test_error_secret_prefix_rejected ... ok
+test blindfill::placeholder::tests::test_parse_multiple_placeholders ... FAILED
+test blindfill::placeholder::tests::test_parse_no_placeholders ... ok
+test blindfill::placeholder::tests::test_parse_valid_placeholder ... FAILED
+test blindfill::placeholder::tests::test_placeholder_to_string ... ok
+test blindfill::placeholder::tests::test_replace_missing_secret ... FAILED
+test blindfill::placeholder::tests::test_replace_placeholders ... FAILED
+test db::vault::tests::test_zeroizing_string_drops_zeroized ... ok
+test governance::ephemeral::tests::happy_path_issue_consume_returns_plaintext ... ok
+test governance::ephemeral::tests::proactive_zeroize_removes_all_tokens_for_tool ... ok
+test governance::ephemeral::tests::session_binding_wrong_session_returns_unauthorized ... ok
+test governance::event_notifier::tests::channel_closed_display_format ... ok
+test governance::ephemeral::tests::tool_binding_wrong_tool_returns_wrong_tool ... ok
+test governance::event_notifier::tests::events_missed_display_format ... ok
+test governance::event_notifier::tests::channel_closed_when_notifier_dropped ... ok
+test governance::event_notifier::tests::multiple_subscribers_receive_same_event ... ok
+test governance::event_notifier::tests::normal_event_delivery_works ... ok
+test governance::event_notifier::tests::single_capacity_misses_events_when_overwhelmed ... ok
+test governance::event_notifier::tests::slow_consumer_detection_returns_events_missed ... ok
+test governance::event_notifier::tests::vault_event_clone_independence ... ok
+test grpc::middleware::auth::tests::test_extract_cert_info_missing_cn ... ok
+test grpc::governance_service::tests::service_can_be_created ... ok
+test grpc::middleware::auth::tests::test_extract_cert_info_with_metadata ... ok
+test grpc::middleware::auth::tests::test_mtls_interceptor_creation ... ok
+test grpc::middleware::auth::tests::test_validate_allowed_cn ... ok
+test grpc::middleware::auth::tests::test_validate_expired_cert ... ok
+test grpc::middleware::auth::tests::test_validate_future_cert ... ok
+test grpc::middleware::auth::tests::test_validate_unallowed_cn ... ok
+test governance::ephemeral::tests::race_condition_1000_consumers_exactly_1_succeeds ... ok
+test governance::ephemeral::tests::ttl_expiration_expired_token_returns_expired ... ok
+test blindfill::integration::tests::test_extract_placeholders_for_agent_context ... FAILED
+test blindfill::integration::tests::test_old_secret_format_rejected ... ok
+test blindfill::integration::tests::test_process_request_with_placeholders ... FAILED
+test blindfill::integration::tests::test_process_request_no_placeholders ... ok
+
+failures:
+
+---- blindfill::cdp_interceptor::tests::test_resolve_placeholders_nested_object stdout ----
+
+thread 'blindfill::cdp_interceptor::tests::test_resolve_placeholders_nested_object' (7164) panicked at src/blindfill/cdp_interceptor.rs:151:9:
+assertion failed: result.is_ok()
+
+---- blindfill::cdp_interceptor::tests::test_resolve_placeholders_simple_string stdout ----
+
+thread 'blindfill::cdp_interceptor::tests::test_resolve_placeholders_simple_string' (7165) panicked at src/blindfill/cdp_interceptor.rs:131:9:
+assertion failed: result.is_ok()
+
+---- blindfill::cdp_interceptor::tests::test_resolve_placeholders_multiple_fields stdout ----
+
+thread 'blindfill::cdp_interceptor::tests::test_resolve_placeholders_multiple_fields' (7163) panicked at src/blindfill/cdp_interceptor.rs:168:9:
+assertion failed: result.is_ok()
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+---- blindfill::placeholder::tests::test_error_missing_hash stdout ----
+
+thread 'blindfill::placeholder::tests::test_error_missing_hash' (7176) panicked at src/blindfill/placeholder.rs:343:17:
+assertion failed: msg.contains("must be in format {{VAULT:field:hash}}")
+
+---- blindfill::placeholder::tests::test_error_nested_placeholder stdout ----
+
+thread 'blindfill::placeholder::tests::test_error_nested_placeholder' (7178) panicked at src/blindfill/placeholder.rs:402:18:
+Expected NestedPlaceholder error
+
+---- blindfill::placeholder::tests::test_parse_multiple_placeholders stdout ----
+
+thread 'blindfill::placeholder::tests::test_parse_multiple_placeholders' (7180) panicked at src/blindfill/placeholder.rs:293:9:
+assertion failed: result.is_ok()
+
+---- blindfill::placeholder::tests::test_parse_valid_placeholder stdout ----
+
+thread 'blindfill::placeholder::tests::test_parse_valid_placeholder' (7182) panicked at src/blindfill/placeholder.rs:283:9:
+assertion failed: result.is_ok()
+
+---- blindfill::placeholder::tests::test_replace_missing_secret stdout ----
+
+thread 'blindfill::placeholder::tests::test_replace_missing_secret' (7184) panicked at src/blindfill/placeholder.rs:444:54:
+called `Result::unwrap()` on an `Err` value: InvalidHash("hash must be lowercase hexadecimal, found: a1b2c3")
+
+---- blindfill::placeholder::tests::test_replace_placeholders stdout ----
+
+thread 'blindfill::placeholder::tests::test_replace_placeholders' (7185) panicked at src/blindfill/placeholder.rs:433:54:
+called `Result::unwrap()` on an `Err` value: InvalidHash("hash must be lowercase hexadecimal, found: a1b2c3")
+
+---- blindfill::integration::tests::test_extract_placeholders_for_agent_context stdout ----
+
+thread 'blindfill::integration::tests::test_extract_placeholders_for_agent_context' (7166) panicked at src/blindfill/integration.rs:176:66:
+called `Result::unwrap()` on an `Err` value: InvalidPlaceholderFormat("hash must be lowercase hexadecimal, found: a1b2c3")
+
+---- blindfill::integration::tests::test_process_request_with_placeholders stdout ----
+
+thread 'blindfill::integration::tests::test_process_request_with_placeholders' (7169) panicked at src/blindfill/integration.rs:127:61:
+called `Result::unwrap()` on an `Err` value: InvalidPlaceholderFormat("hash must be lowercase hexadecimal, found: a1b2c3")
+
+
+failures:
+    blindfill::cdp_interceptor::tests::test_resolve_placeholders_multiple_fields
+    blindfill::cdp_interceptor::tests::test_resolve_placeholders_nested_object
+    blindfill::cdp_interceptor::tests::test_resolve_placeholders_simple_string
+    blindfill::integration::tests::test_extract_placeholders_for_agent_context
+    blindfill::integration::tests::test_process_request_with_placeholders
+    blindfill::placeholder::tests::test_error_missing_hash
+    blindfill::placeholder::tests::test_error_nested_placeholder
+    blindfill::placeholder::tests::test_parse_multiple_placeholders
+    blindfill::placeholder::tests::test_parse_valid_placeholder
+    blindfill::placeholder::tests::test_replace_missing_secret
+    blindfill::placeholder::tests::test_replace_placeholders
+
+test result: FAILED. 37 passed; 11 failed; 0 ignored; 0 measured; 0 filtered out; finished in 9.16s
+
+error: test failed, to rerun pass `--lib`
+
+=== cargo test --test grpc_server_test ===
+   Compiling rust-vault v0.1.0 (/home/mink/src/armorclaw-omo/rust-vault)
+warning: unused import: `Placeholder`
+  --> src/blindfill/integration.rs:15:79
+   |
+15 | use crate::blindfill::placeholder::{parse_placeholders, replace_placeholders, Placeholder};
+   |                                                                               ^^^^^^^^^^^
+   |
+   = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: `rust-vault` (lib) generated 1 warning (run `cargo fix --lib -p rust-vault` to apply 1 suggestion)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 2.04s
+     Running tests/grpc_server_test.rs (target/debug/deps/grpc_server_test-ecbdbda811dc0b17)
+
+running 5 tests
+test test_grpc_server_can_be_created ... ok
+test test_grpc_server_creates_unix_socket ... ok
+test test_grpc_server_socket_cleanup_on_shutdown ... ok
+test test_grpc_server_socket_permissions_0600 ... ok
+test test_server_serves_and_accepts_connections ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+
+=== cargo test --test governance_service_test ===
+warning: unused import: `Placeholder`
+  --> src/blindfill/integration.rs:15:79
+   |
+15 | use crate::blindfill::placeholder::{parse_placeholders, replace_placeholders, Placeholder};
+   |                                                                               ^^^^^^^^^^^
+   |
+   = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: `rust-vault` (lib) generated 1 warning (run `cargo fix --lib -p rust-vault` to apply 1 suggestion)
+   Compiling rust-vault v0.1.0 (/home/mink/src/armorclaw-omo/rust-vault)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 1.67s
+     Running tests/governance_service_test.rs (target/debug/deps/governance_service_test-dd2c5d0a642f5084)
+
+running 6 tests
+test consume_nonexistent_token_returns_not_found ... ok
+test consume_with_wrong_session_returns_permission_denied ... ok
+test issue_and_consume_token_round_trip ... ok
+test double_consume_returns_not_found ... ok
+test subscribe_events_receives_issued_event ... ok
+test zeroize_destroys_secrets ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+

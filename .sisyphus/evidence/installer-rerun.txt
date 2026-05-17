@@ -1,0 +1,346 @@
+# Installer Validation: Rerun / Idempotency
+# Generated: 2026-03-14
+# Status: FULL VALIDATION
+
+## 1. Parallel Install Protection
+
+### installer-v5.sh (lines 336-340)
+
+```bash
+exec 200>"$LOCKFILE"
+flock -n 200 || {
+    echo "ERROR: installer already running" >&2
+    exit 1
+}
+```
+
+**Lockfile:** `/tmp/armorclaw-install.lock`
+**Behavior:** Non-blocking (`-n`) - fails immediately if locked
+**Message:** "ERROR: installer already running"
+
+**Evidence:** PASS - Prevents concurrent runs
+
+---
+
+### setup-quick.sh (lines 64-69)
+
+```bash
+exec 200>"$LOCKFILE"
+if ! flock -n 200; then
+    echo -e "${RED}ERROR:${NC} Another instance of setup-quick.sh is already running."
+    exit 1
+fi
+```
+
+**Lockfile:** `/tmp/armorclaw-quick.lock`
+**Separate lock:** Allows installer-v5.sh to run with setup-quick.sh (sequential)
+
+**Evidence:** PASS - Independent lockfile
+
+---
+
+### setup-matrix.sh (lines 49-53)
+
+```bash
+exec 200>"$LOCKFILE"
+if ! flock -n 200; then
+    echo -e "${RED}ERROR:${NC} Another instance of setup-matrix.sh is already running."
+    exit 1
+fi
+```
+
+**Lockfile:** `/tmp/armorclaw-matrix-setup.lock`
+
+**Evidence:** PASS - Third independent lockfile
+
+---
+
+## 2. Existing Installation Detection
+
+### Bridge Binary - setup-quick.sh (lines 809-817)
+
+```bash
+if [[ -x "$INSTALL_DIR/armorclaw-bridge" ]]; then
+    print_done "Bridge already installed at $INSTALL_DIR/armorclaw-bridge"
+    if ! $NON_INTERACTIVE && prompt_yes_no "Reinstall bridge?" "n"; then
+        $SUDO rm -f "$INSTALL_DIR/armorclaw-bridge"
+    else
+        return 0  # Skip reinstall
+    fi
+fi
+```
+
+**Behavior:**
+- Detects existing binary
+- Prompts for reinstall (interactive)
+- Skips by default (non-interactive)
+
+**Evidence:** PASS - Safe default behavior
+
+---
+
+### Conduit Container - quickstart-entrypoint.sh (lines 185-254)
+
+**Detection Methods:**
+1. **By image:** `docker ps -a --filter "ancestor=matrixconduit/matrix-conduit"`
+2. **By port:** Check for port 6167 exposure
+3. **By name:** Verify container name matches Conduit pattern
+
+**Behavior on Found:**
+```bash
+if [ -n "$CONDUIT_CONTAINER" ]; then
+    USE_EXISTING_CONDUIT=true
+    
+    # Check if running
+    if ! docker ps --format '{{.Names}}' | grep -q "^${CONDUIT_CONTAINER}$"; then
+        docker start "$CONDUIT_CONTAINER"
+    fi
+fi
+```
+
+**Evidence:** PASS - Reuses existing containers
+
+---
+
+### Matrix Already Enabled - setup-matrix.sh (lines 163-168)
+
+```bash
+if grep -A5 '^\[matrix\]' "$CONFIG_FILE" 2>/dev/null | grep -Eq '^[[:space:]]*enabled[[:space:]]*=[[:space:]]*true'; then
+    print_warning "Matrix appears to be already enabled"
+    if ! prompt_yes_no "Continue with reconfiguration?" "n"; then
+        exit 0
+    fi
+fi
+```
+
+**Evidence:** PASS - Warns and prompts before reconfiguration
+
+---
+
+## 3. Bootstrap Flag
+
+### quickstart-entrypoint.sh (lines 89-92)
+
+```bash
+if [ -f "$INIT_FLAG" ]; then
+    log "Configuration already bootstrapped, starting services..."
+    exec /opt/armorclaw/container-setup.sh "$@"
+fi
+```
+
+**Flag File:** `/var/lib/armorclaw/.bootstrapped`
+**Behavior:** Skips bootstrap, starts services directly
+
+**Evidence:** PASS - Prevents re-bootstrap
+
+---
+
+## 4. Data Migration Safety
+
+### quickstart-entrypoint.sh (lines 110-115)
+
+```bash
+if [ -d /var/lib/matrix-conduit ] && [ ! -d /var/lib/conduit ]; then
+    log "Migrating existing Matrix data from /var/lib/matrix-conduit"
+    mv /var/lib/matrix-conduit /var/lib/conduit
+    log_success "Migration complete"
+fi
+```
+
+**Safety:** Only migrates if new path doesn't exist
+**Idempotency:** Won't migrate twice
+
+**Evidence:** PASS - One-time migration
+
+---
+
+### setup-matrix.sh (lines 261-266)
+
+Same migration pattern for full setup
+
+---
+
+## 5. Server Name Conflict Handling
+
+### quickstart-entrypoint.sh (lines 210-242)
+
+**Scenario:** User provides different server name than existing database
+
+```bash
+if [ "$SERVER_NAME_USER_PROVIDED" = true ] && [ "$ARMORCLAW_SERVER_NAME" != "$EXISTING_SERVER_NAME" ]; then
+    log_warn "Provided server name ($ARMORCLAW_SERVER_NAME) differs from database ($EXISTING_SERVER_NAME)"
+    log_warn "Conduit cannot reuse database after changing server name"
+    
+    # Delete old database and container
+    docker rm -f "$CONDUIT_CONTAINER"
+    docker volume rm armorclaw-conduit-data
+    
+    # Will create new database with new server name
+fi
+```
+
+**Alternative:** Use existing server name from database
+
+**Evidence:** PASS - Explicit handling of conflict
+
+---
+
+## 6. Configuration Preservation
+
+### Keystore - setup-quick.sh (lines 1012-1016)
+
+```bash
+if [[ -f "$keystore_db" ]]; then
+    print_done "Keystore already exists"
+    return 0
+fi
+```
+
+**Evidence:** PASS - Never overwrites keystore
+
+---
+
+### Config Backup - setup-matrix.sh (lines 460-461)
+
+```bash
+cp "$CONFIG_FILE" "$CONFIG_FILE.bak"
+print_info "Backup saved to $CONFIG_FILE.bak"
+```
+
+**Evidence:** PASS - Config preserved before modification
+
+---
+
+## 7. Service Restart Safety
+
+### setup-matrix.sh (lines 577-598)
+
+```bash
+if systemctl is-active armorclaw-bridge &>/dev/null; then
+    systemctl restart armorclaw-bridge
+    print_success "Bridge restarted"
+    
+    # Wait for socket
+    while [[ ! -S "$BRIDGE_SOCK" ]] && [[ $count -lt 30 ]]; do
+        sleep 0.5
+        ((count++)) || true
+    done
+fi
+```
+
+**Behavior:** Only restarts if already running
+**Timeout:** 15 seconds for socket
+
+**Evidence:** PASS - Safe restart with verification
+
+---
+
+## 8. Tunnel Container Replacement
+
+### setup-quick.sh - Cloudflare (lines 502-505)
+
+```bash
+if docker ps -a --format '{{.Names}}' | grep -q "^armorclaw-tunnel$"; then
+    print_info "Removing existing tunnel container..."
+    docker rm -f armorclaw-tunnel 2>/dev/null || true
+fi
+```
+
+### setup-quick.sh - ngrok (lines 626-628)
+
+```bash
+if docker ps -a --format '{{.Names}}' | grep -q "^armorclaw-tunnel$"; then
+    docker rm -f armorclaw-tunnel 2>/dev/null || true
+fi
+pkill -f "ngrok http" 2>/dev/null || true
+```
+
+**Evidence:** PASS - Clean replacement of tunnel
+
+---
+
+## 9. Rerun Test Scenarios
+
+### Scenario 1: Successful Quick Setup → Rerun Quick Setup
+
+| Component | Rerun Behavior |
+|-----------|----------------|
+| Lockfile | Acquired (previous run released) |
+| Bridge binary | Detected, prompts to skip reinstall |
+| Conduit container | Detected, reused |
+| Keystore | Detected, preserved |
+| Systemd service | Restarted if running |
+| Tunnel | Replaced with new container |
+
+**Expected:** Safe rerun, no data loss
+
+**Evidence:** PASS - All components protected
+
+---
+
+### Scenario 2: Failed Installation → Rerun
+
+| Component | Rerun Behavior |
+|-----------|----------------|
+| Lockfile | Acquired |
+| Partial state | May remain (no automatic cleanup) |
+| Config files | Overwritten (no backup of partial) |
+
+**Gap:** No automatic rollback of partial state
+
+**Evidence:** PARTIAL - Recommend manual cleanup between retries
+
+---
+
+### Scenario 3: Parallel Run Attempt
+
+```
+Process A: Acquires lock, runs installer
+Process B: Fails immediately with "ERROR: installer already running"
+```
+
+**Evidence:** PASS - Parallel runs blocked
+
+---
+
+## Summary
+
+| Mechanism | Status | Notes |
+|-----------|--------|-------|
+| Lockfile (installer) | PASS | Non-blocking, clear error |
+| Lockfile (quick) | PASS | Independent lock |
+| Lockfile (matrix) | PASS | Independent lock |
+| Bridge detection | PASS | Prompt-based reinstall |
+| Conduit detection | PASS | Multi-method detection |
+| Bootstrap flag | PASS | Prevents re-bootstrap |
+| Data migration | PASS | One-time, safe |
+| Server name conflict | PASS | Explicit handling |
+| Config backup | PASS | .bak file |
+| Keystore preservation | PASS | Never overwritten |
+| Service restart | PASS | Conditional + timeout |
+| Tunnel replacement | PASS | Clean replacement |
+
+**IDEMPOTENCY VERDICT: PASS** ✅
+
+---
+
+## Identified Gap
+
+### Gap: No Automatic Rollback
+**Severity:** MEDIUM
+**Impact:** Partial state may remain after failed installation
+
+**Current Behavior:** Script exits, leaves partial state
+**Recommendation:** Consider `trap 'cleanup_on_error' ERR` pattern:
+
+```bash
+cleanup_on_error() {
+    print_error "Installation failed, cleaning up..."
+    systemctl stop armorclaw-bridge 2>/dev/null || true
+    docker rm -f armorclaw-conduit armorclaw-tunnel 2>/dev/null || true
+    # Remove partial configs?
+}
+trap cleanup_on_error ERR
+```
+
+**Trade-off:** May remove user's existing valid configs on error

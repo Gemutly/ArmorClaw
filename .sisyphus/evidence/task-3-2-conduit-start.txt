@@ -1,0 +1,22 @@
+Task: 3.2 Start Conduit container on VPS
+Timestamp: $(date -Iseconds)
+Result: SUCCESS
+
+Commands executed:
+  docker pull matrixconduit/matrix-conduit:latest
+  mkdir -p /var/lib/conduit
+  docker run -d \
+    --name armorclaw-conduit \
+    --restart unless-stopped \
+    -p 6167:6167 \
+    -v /etc/conduit/conduit.toml:/etc/conduit.toml:ro \
+    -v /var/lib/conduit:/var/lib/conduit \
+    -e CONDUIT_CONFIG=/etc/conduit.toml \
+    matrixconduit/matrix-conduit:latest
+
+Expected: Container running with port 6167 mapped
+Actual: Container running (ID: 1fbf1ed6d90)
+  - Status: Up
+  - Port: 0.0.0.0:6167->6167/tcp
+
+Status: PASSED

@@ -1,0 +1,212 @@
+# Installer Validation: Configuration Generation
+# Generated: 2026-03-13
+# Status: STATIC ANALYSIS
+
+## 1. Configuration File Generation
+
+### setup-quick.sh - generate_config() (lines 906-1002)
+
+**Generated File:** `/etc/armorclaw/config.toml`
+
+**Configuration Sections:**
+
+### [server] section
+```toml
+[server]
+socket_path = "$SOCKET_PATH"
+daemonize = false
+```
+- **Socket path:** `/run/armorclaw/bridge.sock`
+- **daemonize:** false (runs in foreground for debugging)
+
+### [keystore] section
+```toml
+[keystore]
+db_path = "$DATA_DIR/keystore.db"
+```
+- **Database path:** `/var/lib/armorclaw/keystore.db`
+- **Evidence:** GOOD - Isolated from system files
+
+### [matrix] section
+```toml
+[matrix]
+enabled = false
+homeserver_url = ""
+username = ""
+password = ""
+device_id = "armorclaw-bridge"
+```
+- **Default:** Matrix disabled
+- **Device ID:** Static identifier for bridge sessions
+- **Evidence:** GOOD - Secure defaults (disabled by default)
+
+### [budget] section
+```toml
+[budget]
+daily_limit_usd = 5.00
+monthly_limit_usd = 100.00
+alert_threshold = 80.0
+hard_stop = true
+```
+- **Daily limit:** $5.00
+- **Monthly limit:** $100.00
+- **Alert threshold:** 80% (triggers warning)
+- **Hard stop:** true (blocks requests when exceeded)
+- **Evidence:** GOOD - Sensible defaults with cost protection
+
+### [logging] section
+```toml
+[logging]
+level = "info"
+format = "text"
+output = "stdout"
+```
+- **Level:** info (production-appropriate)
+- **Format:** text (human-readable)
+- **Output:** stdout (for systemd journal)
+- **Evidence:** GOOD - Production-ready logging
+
+### [provisioning] section
+```toml
+[provisioning]
+signing_secret = "$provisioning_secret"
+default_expiry_seconds = 60
+max_expiry_seconds = 300
+one_time_use = true
+```
+- **Signing secret:** Generated via `openssl rand -hex 32`
+- **Default expiry:** 60 seconds (1 minute)
+- **Max expiry:** 300 seconds (5 minutes)
+- **One-time use:** true (token invalidated after use)
+- **Evidence:** EXCELLENT - Secure QR provisioning
+
+### Other sections (disabled by default):
+- `[voice]` - enabled = false
+- `[webrtc]` - signaling_enabled = false
+- `[notifications]` - enabled = false
+- `[eventbus]` - websocket_enabled = false
+- `[discovery]` - enabled = true, port 8080
+
+---
+
+## 2. Conduit Configuration
+
+### quickstart-entrypoint.sh (lines 262-267)
+```toml
+[global]
+server_name = "$SERVER_NAME"
+database_backend = "rocksdb"
+database_path = "/var/lib/matrix-conduit"
+```
+
+- **server_name:** Auto-detected or user-provided
+- **database_backend:** rocksdb (efficient for single-server)
+- **database_path:** `/var/lib/matrix-conduit`
+- **Evidence:** GOOD - Minimal required config
+
+### Environment variables passed to container:
+```
+CONDUIT_SERVER_NAME
+CONDUIT_DATABASE_BACKEND
+CONDUIT_DATABASE_PATH
+CONDUIT_ALLOW_REGISTRATION
+CONDUIT_CONFIG
+CONDUIT_ADDRESS
+CONDUIT_PORT
+```
+
+---
+
+## 3. Systemd Service Configuration
+
+### setup-quick.sh (lines 1036-1078)
+
+**Key configurations:**
+
+```ini
+[Service]
+User=armorclaw
+Group=armorclaw
+ExecStart=/opt/armorclaw/armorclaw-bridge -config /etc/armorclaw/config.toml
+Restart=always
+RestartSec=5
+RuntimeDirectory=armorclaw
+RuntimeDirectoryMode=0755
+LimitNOFILE=65536
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/armorclaw
+```
+
+**Security Analysis:**
+- `User=armorclaw` - Runs as non-root service user
+- `NoNewPrivileges=true` - Cannot escalate privileges
+- `PrivateTmp=true` - Isolated /tmp directory
+- `ProtectSystem=strict` - Read-only filesystem except ReadWritePaths
+- `ProtectHome=true` - Cannot access /home
+- `ReadWritePaths=/var/lib/armorclaw` - Only allowed write location
+
+**Evidence:** EXCELLENT - Hardened systemd service
+
+---
+
+## 4. Directory Structure
+
+**Created directories:**
+| Path | Permissions | Owner | Purpose |
+|------|------------|-------|---------|
+| /etc/armorclaw | 755 (implicit) | armorclaw:armorclaw | Configuration files |
+| /var/lib/armorclaw | 700 | armorclaw:armorclaw | Data storage (keystore, etc.) |
+| /run/armorclaw | 770 | armorclaw:armorclaw | Runtime files (socket) |
+| /opt/armorclaw | 755 | root:root | Binary installation |
+| /var/log/armorclaw | 755 | root:root | Log files |
+
+**Evidence:** GOOD - Proper permission isolation
+
+---
+
+## 5. Path Validation
+
+### File references in scripts:
+| Script | Reference | Validation |
+|--------|-----------|------------|
+| installer-v5.sh | WORK_DIR (temp) | Created via mktemp -d |
+| setup-quick.sh | CONFIG_DIR=/etc/armorclaw | mkdir -p with sudo |
+| setup-quick.sh | DATA_DIR=/var/lib/armorclaw | mkdir -p with sudo |
+| setup-quick.sh | RUN_DIR=/run/armorclaw | mkdir -p with sudo |
+| setup-quick.sh | INSTALL_DIR=/opt/armorclaw | mkdir -p with sudo |
+| quickstart-entrypoint.sh | CONFIG_DIR=/etc/armorclaw | mkdir -p |
+| quickstart-entrypoint.sh | DATA_DIR=/var/lib/armorclaw | mkdir -p |
+| quickstart-entrypoint.sh | CONDUIT_CONFIG=/etc/conduit.toml | Copied from template |
+
+**Cross-reference validation:**
+- Bridge binary path in systemd matches installation: `/opt/armorclaw/armorclaw-bridge`
+- Socket path in config matches systemd RuntimeDirectory: `/run/armorclaw/bridge.sock`
+- Keystore path in config matches DATA_DIR: `/var/lib/armorclaw/keystore.db`
+
+**Evidence:** EXCELLENT - All paths are consistent
+
+---
+
+## 6. Configuration Updates
+
+### setup-matrix.sh - update_config() (lines 456-498)
+
+**Backup mechanism:**
+```bash
+cp "$CONFIG_FILE" "$CONFIG_FILE.bak"
+```
+
+**Section replacement:**
+- Uses awk to replace `[matrix]` section
+- Preserves other sections unchanged
+- Appends if section doesn't exist
+
+**Evidence:** GOOD - Safe config updates with backup
+
+---
+
+## 7. Issues Identified
+

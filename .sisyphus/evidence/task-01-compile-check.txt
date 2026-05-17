@@ -1,0 +1,192 @@
+    Checking rust-vault v0.1.0 (/home/mink/src/armorclaw-omo/rust-vault)
+warning: unused import: `Placeholder`
+  --> src/blindfill/integration.rs:15:79
+   |
+15 | use crate::blindfill::placeholder::{parse_placeholders, replace_placeholders, Placeholder};
+   |                                                                               ^^^^^^^^^^^
+   |
+   = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+error[E0592]: duplicate definitions with name `new`
+   --> src/blindfill/cdp_interceptor.rs:29:5
+    |
+ 29 |     pub fn new() -> Self {
+    |     ^^^^^^^^^^^^^^^^^^^^ duplicate definitions for `new`
+...
+105 |     pub fn new() -> Self {
+    |     -------------------- other definition for `new`
+
+error[E0592]: duplicate definitions with name `enable_params`
+   --> src/blindfill/cdp_interceptor.rs:43:5
+    |
+ 43 |     pub fn enable_params() -> Value {
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ duplicate definitions for `enable_params`
+...
+119 |     pub fn enable_params() -> Value {
+    |     ------------------------------- other definition for `enable_params`
+
+error[E0592]: duplicate definitions with name `resolve_placeholders`
+   --> src/blindfill/cdp_interceptor.rs:80:5
+    |
+ 80 | /     pub fn resolve_placeholders(
+ 81 | |         &self,
+ 82 | |         json_value: &mut Value,
+ 83 | |         secrets: &HashMap<String, String>,
+ 84 | |     ) -> Result<(), PlaceholderParseError> {
+    | |__________________________________________^ duplicate definitions for `resolve_placeholders`
+...
+150 | /     pub fn resolve_placeholders(
+151 | |         &self,
+152 | |         json_value: &mut Value,
+153 | |         secrets: &HashMap<String, String>,
+154 | |     ) -> Result<(), PlaceholderParseError> {
+    | |__________________________________________- other definition for `resolve_placeholders`
+
+error[E0034]: multiple applicable items in scope
+   --> src/blindfill/cdp_interceptor.rs:91:22
+    |
+ 91 |                 self.resolve_placeholders(value, secrets)?;
+    |                      ^^^^^^^^^^^^^^^^^^^^ multiple `resolve_placeholders` found
+    |
+note: candidate #1 is defined in an impl for the type `CdpInterceptor`
+   --> src/blindfill/cdp_interceptor.rs:80:5
+    |
+ 80 | /     pub fn resolve_placeholders(
+ 81 | |         &self,
+ 82 | |         json_value: &mut Value,
+ 83 | |         secrets: &HashMap<String, String>,
+ 84 | |     ) -> Result<(), PlaceholderParseError> {
+    | |__________________________________________^
+note: candidate #2 is defined in an impl for the type `CdpInterceptor`
+   --> src/blindfill/cdp_interceptor.rs:150:5
+    |
+150 | /     pub fn resolve_placeholders(
+151 | |         &self,
+152 | |         json_value: &mut Value,
+153 | |         secrets: &HashMap<String, String>,
+154 | |     ) -> Result<(), PlaceholderParseError> {
+    | |__________________________________________^
+
+error[E0034]: multiple applicable items in scope
+   --> src/blindfill/cdp_interceptor.rs:95:22
+    |
+ 95 |                 self.resolve_placeholders(value, secrets)?;
+    |                      ^^^^^^^^^^^^^^^^^^^^ multiple `resolve_placeholders` found
+    |
+note: candidate #1 is defined in an impl for the type `CdpInterceptor`
+   --> src/blindfill/cdp_interceptor.rs:80:5
+    |
+ 80 | /     pub fn resolve_placeholders(
+ 81 | |         &self,
+ 82 | |         json_value: &mut Value,
+ 83 | |         secrets: &HashMap<String, String>,
+ 84 | |     ) -> Result<(), PlaceholderParseError> {
+    | |__________________________________________^
+note: candidate #2 is defined in an impl for the type `CdpInterceptor`
+   --> src/blindfill/cdp_interceptor.rs:150:5
+    |
+150 | /     pub fn resolve_placeholders(
+151 | |         &self,
+152 | |         json_value: &mut Value,
+153 | |         secrets: &HashMap<String, String>,
+154 | |     ) -> Result<(), PlaceholderParseError> {
+    | |__________________________________________^
+
+error[E0034]: multiple applicable items in scope
+   --> src/blindfill/cdp_interceptor.rs:161:22
+    |
+161 |                 self.resolve_placeholders(value, secrets)?;
+    |                      ^^^^^^^^^^^^^^^^^^^^ multiple `resolve_placeholders` found
+    |
+note: candidate #1 is defined in an impl for the type `CdpInterceptor`
+   --> src/blindfill/cdp_interceptor.rs:80:5
+    |
+ 80 | /     pub fn resolve_placeholders(
+ 81 | |         &self,
+ 82 | |         json_value: &mut Value,
+ 83 | |         secrets: &HashMap<String, String>,
+ 84 | |     ) -> Result<(), PlaceholderParseError> {
+    | |__________________________________________^
+note: candidate #2 is defined in an impl for the type `CdpInterceptor`
+   --> src/blindfill/cdp_interceptor.rs:150:5
+    |
+150 | /     pub fn resolve_placeholders(
+151 | |         &self,
+152 | |         json_value: &mut Value,
+153 | |         secrets: &HashMap<String, String>,
+154 | |     ) -> Result<(), PlaceholderParseError> {
+    | |__________________________________________^
+
+error[E0034]: multiple applicable items in scope
+   --> src/blindfill/cdp_interceptor.rs:165:22
+    |
+165 |                 self.resolve_placeholders(value, secrets)?;
+    |                      ^^^^^^^^^^^^^^^^^^^^ multiple `resolve_placeholders` found
+    |
+note: candidate #1 is defined in an impl for the type `CdpInterceptor`
+   --> src/blindfill/cdp_interceptor.rs:80:5
+    |
+ 80 | /     pub fn resolve_placeholders(
+ 81 | |         &self,
+ 82 | |         json_value: &mut Value,
+ 83 | |         secrets: &HashMap<String, String>,
+ 84 | |     ) -> Result<(), PlaceholderParseError> {
+    | |__________________________________________^
+note: candidate #2 is defined in an impl for the type `CdpInterceptor`
+   --> src/blindfill/cdp_interceptor.rs:150:5
+    |
+150 | /     pub fn resolve_placeholders(
+151 | |         &self,
+152 | |         json_value: &mut Value,
+153 | |         secrets: &HashMap<String, String>,
+154 | |     ) -> Result<(), PlaceholderParseError> {
+    | |__________________________________________^
+
+error[E0034]: multiple applicable items in scope
+   --> src/blindfill/cdp_interceptor.rs:175:15
+    |
+175 |         Self::new()
+    |               ^^^ multiple `new` found
+    |
+note: candidate #1 is defined in an impl for the type `CdpInterceptor`
+   --> src/blindfill/cdp_interceptor.rs:29:5
+    |
+ 29 |     pub fn new() -> Self {
+    |     ^^^^^^^^^^^^^^^^^^^^
+note: candidate #2 is defined in an impl for the type `CdpInterceptor`
+   --> src/blindfill/cdp_interceptor.rs:105:5
+    |
+105 |     pub fn new() -> Self {
+    |     ^^^^^^^^^^^^^^^^^^^^
+
+error[E0004]: non-exhaustive patterns: `PlaceholderParseError::InvalidHash(_)`, `PlaceholderParseError::EmptyFieldName` and `PlaceholderParseError::EmptyHash` not covered
+  --> src/error.rs:51:15
+   |
+51 |         match err {
+   |               ^^^ patterns `PlaceholderParseError::InvalidHash(_)`, `PlaceholderParseError::EmptyFieldName` and `PlaceholderParseError::EmptyHash` not covered
+   |
+note: `PlaceholderParseError` defined here
+  --> src/blindfill/placeholder.rs:25:10
+   |
+25 | pub enum PlaceholderParseError {
+   |          ^^^^^^^^^^^^^^^^^^^^^
+...
+42 |     InvalidHash(String),
+   |     ----------- not covered
+...
+45 |     EmptyFieldName,
+   |     -------------- not covered
+...
+48 |     EmptyHash,
+   |     --------- not covered
+   = note: the matched value is of type `PlaceholderParseError`
+help: ensure that all possible cases are being handled by adding a match arm with a wildcard pattern, a match arm with multiple or-patterns as shown, or multiple match arms
+   |
+62 ~             },
+63 +             PlaceholderParseError::InvalidHash(_) | PlaceholderParseError::EmptyFieldName | PlaceholderParseError::EmptyHash => todo!()
+   |
+
+Some errors have detailed explanations: E0004, E0034, E0592.
+For more information about an error, try `rustc --explain E0004`.
+warning: `rust-vault` (lib) generated 1 warning
+error: could not compile `rust-vault` (lib) due to 9 previous errors; 1 warning emitted

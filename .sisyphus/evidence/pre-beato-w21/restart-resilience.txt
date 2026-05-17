@@ -1,0 +1,33 @@
+=== W2.1: Bridge Restart Resilience Tests ===
+Date: 2026-05-15T21:44:09Z
+
+--- Pre-restart Matrix Status ---
+{"jsonrpc":"2.0","id":1,"error":{"code":-32601,"message":"method not found"}}
+
+--- Restarting bridge ---
+armorclaw
+Restart command sent
+
+--- Polling readiness (max 30s) ---
+Bridge ready after 5s (poll 1)
+Health: {"bridge_ready":true,"is_new_server":true,"provisioning_available":false,"server_name":"armorclaw.local","status":"ok","timestamp":"2026-05-15T21:44:17Z","version":"4.6.0"}
+
+--- Post-restart Matrix Status ---
+matrix.status: N/A, logged_in: N/A, connected: N/A
+
+--- Rapid restart (2x in 10s) ---
+armorclaw
+armorclaw
+Waiting 10s for stabilization...
+Rapid restart: PASS (bridge healthy after double restart)
+Health: {"bridge_ready":true,"is_new_server":true,"provisioning_available":false,"server_name":"armorclaw.local","status":"ok","timestamp":"2026-05-15T21:44:37Z","version":"4.6.0"}
+
+=== W2.1 COMPLETE ===
+
+--- Post-restart Matrix Status (corrected method) ---
+{"jsonrpc":"2.0","id":1,"result":{"enabled":true,"connected":true,"logged_in":true,"homeserver":"http://localhost:6167","user_id":"@bridge:5.183.11.149"}}
+
+W2.1 VERDICT: ALL CHECKS PASS
+- Health returns within 30s: PASS (5s)
+- Matrix reconnects after restart: PASS (logged_in: true, connected: true)
+- Rapid double-restart: PASS (bridge healthy after 2 restarts in 10s)

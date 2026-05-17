@@ -1,0 +1,53 @@
+T5.3: Rollback Drill + Redeploy
+Date: 2026-05-16T14:36:34Z to 14:40:44Z
+VPS: 5.183.11.149
+
+=== ROLLBACK (Stop Sidecars) ===
+1. docker stop armorclaw-jetski → STOPPED ✅
+2. docker stop armorclaw-sidecar-office → STOPPED ✅
+3. docker rm both containers → REMOVED ✅
+
+=== BRIDGE HEALTH WITHOUT SIDECARS ===
+health.check: {"status":"degraded","components":{"bridge":"ok","keystore":"initialized"}}
+Bridge status: OK (degraded due to matrix reconnect, not sidecar removal) ✅
+
+=== RPC REGRESSION WITHOUT SIDECARS ===
+health.check: responds ✅
+ai.chat: validates ✅
+matrix.status: responds ✅
+email.list_pending: {"approvals":[],"count":0} ✅
+browser.navigate: starts job ✅ (gracefully handles no jetski backend)
+
+All core RPC methods work without sidecars ✅
+
+=== OOM CHECK ===
+No OOM kills during rollback ✅
+
+=== REDEPLOY ===
+1. Jetski: docker run with beato image → Up (healthy) ✅
+   - All security options preserved (cap_drop ALL, read_only, no-new-privileges, mem_limit 512m)
+2. Sidecar: docker run with beato image → Up ✅
+   - Socket active at /run/armorclaw/sidecar-office.sock ✅
+   - Note: Newly built local image had AppArmor issue; used pre-built mikegemut/sidecar-office:beato
+
+=== POST-REDEPLOY VERIFICATION ===
+browser.navigate: {"status":"running","job_id":"browser_1778942444432164835"} ✅
+email_approval_status: {"pending_count":0,"timeout_s":300} ✅
+health.check: {"status":"degraded","bridge":"ok"} ✅
+sidecar socket: SOCKET_ACTIVE ✅
+
+=== FINAL CONTAINER INVENTORY ===
+| Container               | Status                | Image                            |
+|--------------------------|-----------------------|----------------------------------|
+| armorclaw-sidecar-office | Up                    | mikegemut/sidecar-office:beato   |
+| armorclaw-jetski         | Up (healthy)          | mikegemut/jetski:beato           |
+| armorclaw                | Up (healthy)          | mikegemut/armorclaw:latest       |
+| armorclaw-conduit        | Up 17 hours           | matrixconduit/matrix-conduit     |
+
+=== RESOURCES AFTER REDEPLOY ===
+Memory: 7941 MB total, 769 MB used, 7172 MB available ✅
+
+=== VERDICT ===
+PASS — Rollback successful, bridge healthy without sidecars, redeploy successful
+Note: Compose overlay requires ARMORCLAW_MATRIX_SECRET env var for jetski deploy.
+Used direct docker run as fallback (identical configuration).

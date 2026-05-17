@@ -1,0 +1,351 @@
+Test Output:
+=== RUN   TestAuditLogger_LogWorkflowCreation
+--- PASS: TestAuditLogger_LogWorkflowCreation (0.00s)
+=== RUN   TestAuditLogger_LogAgentCreation
+--- PASS: TestAuditLogger_LogAgentCreation (0.00s)
+=== RUN   TestAuditLogger_LogWorkflowStatusUpdate
+--- PASS: TestAuditLogger_LogWorkflowStatusUpdate (0.00s)
+=== RUN   TestAuditLogger_LogPIIRequest
+--- PASS: TestAuditLogger_LogPIIRequest (0.00s)
+=== RUN   TestNewBlindFillIntegration
+--- PASS: TestNewBlindFillIntegration (0.00s)
+=== RUN   TestResolveVariables_NoPIIRefs
+--- PASS: TestResolveVariables_NoPIIRefs (0.00s)
+=== RUN   TestResolveVariables_WithPIIRefs
+time=2026-03-14T17:56:40.129-06:00 level=INFO msg=pii_resolution_requested service=armorclaw component=bridge version=1.1.0 component=blindfill_integration workflow_id=wf_1 pii_refs_count=2 requested_by=user_1 pii_fields="[payment.card_number payment.cvv]"
+time=2026-03-14T17:56:40.129-06:00 level=INFO msg=pii_resolution_success service=armorclaw component=bridge version=1.1.0 component=blindfill_integration workflow_id=wf_1 request_id=req_861ba6f9727f634376fb0b558243191b fields_count=2
+time=2026-03-14T17:56:40.129-06:00 level=INFO msg="security event" service=armorclaw component=bridge version=1.1.0 component=test component=security event_type=pii_access_granted timestamp=2026-03-14T23:56:40Z category=security source_file=blindfill_integration_test.go source_line=142 request_id=req_861ba6f9727f634376fb0b558243191b skill_name="" approver=user_1 approved_fields="[payment.card_number payment.cvv]" workflow_id=wf_1
+--- PASS: TestResolveVariables_WithPIIRefs (0.00s)
+=== RUN   TestResolveVariables_PIIRequestDenied
+time=2026-03-14T17:56:40.129-06:00 level=INFO msg=pii_resolution_requested service=armorclaw component=bridge version=1.1.0 component=blindfill_integration workflow_id=wf_1 pii_refs_count=1 requested_by=user_1 pii_fields=[payment.card_number]
+time=2026-03-14T17:56:40.130-06:00 level=WARN msg=pii_request_denied service=armorclaw component=bridge version=1.1.0 component=blindfill_integration workflow_id=wf_1 request_id=req_936322570f771c8df2d0859dd2a05d1a
+--- PASS: TestResolveVariables_PIIRequestDenied (0.00s)
+=== RUN   TestDetectPIIRefs_FillAction
+--- PASS: TestDetectPIIRefs_FillAction (0.00s)
+=== RUN   TestDetectPIIRefs_NonFillAction
+--- PASS: TestDetectPIIRefs_NonFillAction (0.00s)
+=== RUN   TestDetectPIIRefs_NoValueRef
+--- PASS: TestDetectPIIRefs_NoValueRef (0.00s)
+=== RUN   TestExecuteStep_WithPIIApproval
+time=2026-03-14T17:56:40.131-06:00 level=INFO msg=pii_refs_detected_in_step service=armorclaw component=bridge version=1.1.0 component=blindfill_integration workflow_id=wf_1 step_id=step_1 pii_refs=[payment.card_number]
+time=2026-03-14T17:56:40.131-06:00 level=INFO msg=pii_access_granted_for_step service=armorclaw component=bridge version=1.1.0 component=blindfill_integration workflow_id=wf_1 step_id=step_1 request_id=req_9193fb08282bc813d26c3998df2a2c92 fields_count=1
+time=2026-03-14T17:56:40.131-06:00 level=INFO msg="security event" service=armorclaw component=bridge version=1.1.0 component=test component=security event_type=pii_access_granted timestamp=2026-03-14T23:56:40Z category=security source_file=blindfill_integration_test.go source_line=368 request_id=req_9193fb08282bc813d26c3998df2a2c92 skill_name="Fill card number" approver=user_1 approved_fields=[payment.card_number] workflow_id=wf_1
+--- PASS: TestExecuteStep_WithPIIApproval (0.00s)
+=== RUN   TestExecuteStep_PIIRequestDenied
+time=2026-03-14T17:56:40.131-06:00 level=INFO msg=pii_refs_detected_in_step service=armorclaw component=bridge version=1.1.0 component=blindfill_integration workflow_id=wf_1 step_id=step_1 pii_refs=[payment.card_number]
+time=2026-03-14T17:56:40.131-06:00 level=WARN msg=pii_request_denied service=armorclaw component=bridge version=1.1.0 component=blindfill_integration workflow_id=wf_1 step_id=step_1 request_id=req_d506a96d0f8bfd5b05c951892361bef3
+--- PASS: TestExecuteStep_PIIRequestDenied (0.00s)
+=== RUN   TestValidateResolution_ValidTimestamp
+--- PASS: TestValidateResolution_ValidTimestamp (0.00s)
+=== RUN   TestValidateResolution_ExpiredTimestamp
+--- PASS: TestValidateResolution_ExpiredTimestamp (0.00s)
+=== RUN   TestBrowserIntegration_Navigate
+--- PASS: TestBrowserIntegration_Navigate (0.00s)
+=== RUN   TestBrowserIntegration_FillWithPII
+--- PASS: TestBrowserIntegration_FillWithPII (0.00s)
+=== RUN   TestBrowserIntegration_Click
+--- PASS: TestBrowserIntegration_Click (0.00s)
+=== RUN   TestBrowserIntegration_Extract
+--- PASS: TestBrowserIntegration_Extract (0.00s)
+=== RUN   TestBrowserIntegration_ExecuteStep
+--- PASS: TestBrowserIntegration_ExecuteStep (0.00s)
+=== RUN   TestLiveIntegration_TrustedAutoAllow
+time=2026-03-14T17:56:40.132-06:00 level=INFO msg=trust_policy_created service=armorclaw component=bridge version=1.1.0 component=trusted_workflows policy_id=trust_policy_auto name="Auto-approve billing" created_by=@admin:example.com
+time=2026-03-14T17:56:40.132-06:00 level=INFO msg=trust_evaluation_completed service=armorclaw component=bridge version=1.1.0 component=trusted_workflows decision=allow policy_id=trust_policy_auto allowed_fields=1 denied_fields=0 initiator=@user:example.com
+--- PASS: TestLiveIntegration_TrustedAutoAllow (0.00s)
+=== RUN   TestLiveIntegration_NoPlaintextPIIInLogs
+time=2026-03-14T17:56:40.132-06:00 level=INFO msg=blindfill_execution_started service=armorclaw component=bridge version=1.1.0 component=blindfill_executor execution_id=594b9e7b-be1c-4381-b9cc-4aa7db0c7bbc template_id=template_pii_test initiator=@user:example.com
+--- PASS: TestLiveIntegration_NoPlaintextPIIInLogs (0.00s)
+=== RUN   TestLiveIntegration_DeniedFieldsCannotExecute
+time=2026-03-14T17:56:40.132-06:00 level=INFO msg=blindfill_execution_started service=armorclaw component=bridge version=1.1.0 component=blindfill_executor execution_id=e1747573-6f5d-41e6-8452-e2e269140b62 template_id=template_denied_test initiator=@user:example.com
+--- PASS: TestLiveIntegration_DeniedFieldsCannotExecute (0.00s)
+=== RUN   TestLiveIntegration_CommandHandlerWiring
+--- PASS: TestLiveIntegration_CommandHandlerWiring (0.00s)
+=== RUN   TestLiveIntegration_ApprovalTokenBinding
+time=2026-03-14T17:56:40.132-06:00 level=INFO msg=blindfill_execution_started service=armorclaw component=bridge version=1.1.0 component=blindfill_executor execution_id=857ab314-fabb-4a3f-91a6-5a98d9000e14 template_id=template_token_test initiator=@user:example.com
+--- PASS: TestLiveIntegration_ApprovalTokenBinding (0.00s)
+=== RUN   TestLiveIntegration_TrustPolicyRevocation
+time=2026-03-14T17:56:40.132-06:00 level=INFO msg=trust_policy_created service=armorclaw component=bridge version=1.1.0 component=trusted_workflows policy_id=trust_policy_revoked name="Revoked Policy" created_by=@admin:example.com
+time=2026-03-14T17:56:40.132-06:00 level=INFO msg=trust_policy_revoked service=armorclaw component=bridge version=1.1.0 component=trusted_workflows policy_id=trust_policy_revoked revoked_by=@admin:example.com reason="Security review"
+--- PASS: TestLiveIntegration_TrustPolicyRevocation (0.00s)
+=== RUN   TestLiveIntegration_TrustPolicyExpiration
+--- PASS: TestLiveIntegration_TrustPolicyExpiration (0.00s)
+=== RUN   TestLiveIntegration_AuditEventEmission
+time=2026-03-14T17:56:40.132-06:00 level=INFO msg=blindfill_execution_started service=armorclaw component=bridge version=1.1.0 component=blindfill_executor execution_id=44af28ba-4461-4abf-94e1-5934af49a123 template_id=template_event_test initiator=@user:example.com
+--- PASS: TestLiveIntegration_AuditEventEmission (0.00s)
+=== RUN   TestLiveIntegration_MatrixNotificationSent
+--- PASS: TestLiveIntegration_MatrixNotificationSent (0.00s)
+=== RUN   TestLiveIntegration_SecurityHeadersNoPIILeak
+time=2026-03-14T17:56:40.132-06:00 level=INFO msg=blindfill_execution_started service=armorclaw component=bridge version=1.1.0 component=blindfill_executor execution_id=7a7f7a7e-4cd4-476b-930a-ef7f1dd97c7c template_id=template_sec_header_test initiator=@user:example.com
+--- PASS: TestLiveIntegration_SecurityHeadersNoPIILeak (0.00s)
+=== RUN   TestLiveIntegration_PIIFieldNamingOnly
+--- PASS: TestLiveIntegration_PIIFieldNamingOnly (0.00s)
+=== RUN   TestNewDependencyValidator
+--- PASS: TestNewDependencyValidator (0.00s)
+=== RUN   TestValidateTemplate_NilTemplate
+--- PASS: TestValidateTemplate_NilTemplate (0.00s)
+=== RUN   TestValidateTemplate_EmptySteps
+--- PASS: TestValidateTemplate_EmptySteps (0.00s)
+=== RUN   TestValidateTemplate_ValidLinearWorkflow
+--- PASS: TestValidateTemplate_ValidLinearWorkflow (0.00s)
+=== RUN   TestValidateTemplate_CircularDependency
+--- PASS: TestValidateTemplate_CircularDependency (0.00s)
+=== RUN   TestValidateTemplate_MissingDependency
+--- PASS: TestValidateTemplate_MissingDependency (0.00s)
+=== RUN   TestValidateTemplate_DuplicateStepID
+--- PASS: TestValidateTemplate_DuplicateStepID (0.00s)
+=== RUN   TestValidateTemplate_EmptyStepID
+--- PASS: TestValidateTemplate_EmptyStepID (0.00s)
+=== RUN   TestValidateSteps
+--- PASS: TestValidateSteps (0.00s)
+=== RUN   TestGetExecutionOrder
+--- PASS: TestGetExecutionOrder (0.00s)
+=== RUN   TestGetExecutionOrder_Circular
+--- PASS: TestGetExecutionOrder_Circular (0.00s)
+=== RUN   TestGetDependencies
+--- PASS: TestGetDependencies (0.00s)
+=== RUN   TestGetDependencies_StepNotFound
+--- PASS: TestGetDependencies_StepNotFound (0.00s)
+=== RUN   TestGetDependents
+--- PASS: TestGetDependents (0.00s)
+=== RUN   TestGetDependents_StepNotFound
+--- PASS: TestGetDependents_StepNotFound (0.00s)
+=== RUN   TestHasCycle_WithCycle
+--- PASS: TestHasCycle_WithCycle (0.00s)
+=== RUN   TestHasCycle_NoCycle
+--- PASS: TestHasCycle_NoCycle (0.00s)
+=== RUN   TestDependencyValidator_ThreadSafety
+--- PASS: TestDependencyValidator_ThreadSafety (0.01s)
+=== RUN   TestDependencyError_Error
+=== RUN   TestDependencyError_Error/with_cycle_path
+=== RUN   TestDependencyError_Error/with_dependency
+=== RUN   TestDependencyError_Error/with_step_only
+--- PASS: TestDependencyError_Error (0.00s)
+    --- PASS: TestDependencyError_Error/with_cycle_path (0.00s)
+    --- PASS: TestDependencyError_Error/with_dependency (0.00s)
+    --- PASS: TestDependencyError_Error/with_step_only (0.00s)
+=== RUN   TestValidationResult_DependencyGraph
+--- PASS: TestValidationResult_DependencyGraph (0.00s)
+=== RUN   TestSchedulerConfig_Timezone
+--- PASS: TestSchedulerConfig_Timezone (0.00s)
+=== RUN   TestScheduler_TimezoneAndLocationFields
+--- PASS: TestScheduler_TimezoneAndLocationFields (0.00s)
+=== RUN   TestScheduler_TimezoneUTC
+--- PASS: TestScheduler_TimezoneUTC (0.00s)
+=== RUN   TestScheduler_TimezoneMultipleZones
+=== RUN   TestScheduler_TimezoneMultipleZones/UTC
+=== RUN   TestScheduler_TimezoneMultipleZones/America/New_York
+=== RUN   TestScheduler_TimezoneMultipleZones/America/Los_Angeles
+=== RUN   TestScheduler_TimezoneMultipleZones/Europe/London
+=== RUN   TestScheduler_TimezoneMultipleZones/Asia/Tokyo
+=== RUN   TestScheduler_TimezoneMultipleZones/Australia/Sydney
+--- PASS: TestScheduler_TimezoneMultipleZones (0.00s)
+    --- PASS: TestScheduler_TimezoneMultipleZones/UTC (0.00s)
+    --- PASS: TestScheduler_TimezoneMultipleZones/America/New_York (0.00s)
+    --- PASS: TestScheduler_TimezoneMultipleZones/America/Los_Angeles (0.00s)
+    --- PASS: TestScheduler_TimezoneMultipleZones/Europe/London (0.00s)
+    --- PASS: TestScheduler_TimezoneMultipleZones/Asia/Tokyo (0.00s)
+    --- PASS: TestScheduler_TimezoneMultipleZones/Australia/Sydney (0.00s)
+=== RUN   TestScheduler_TimezoneFieldExists
+--- PASS: TestScheduler_TimezoneFieldExists (0.00s)
+=== RUN   TestSchedulerConfig_TimezoneField
+--- PASS: TestSchedulerConfig_TimezoneField (0.00s)
+=== RUN   TestOrchestrator_StartWorkflow_Success
+--- PASS: TestOrchestrator_StartWorkflow_Success (0.00s)
+=== RUN   TestOrchestrator_StartWorkflow_AlreadyRunning
+--- PASS: TestOrchestrator_StartWorkflow_AlreadyRunning (0.00s)
+=== RUN   TestOrchestrator_StartWorkflow_NotFound
+--- PASS: TestOrchestrator_StartWorkflow_NotFound (0.00s)
+=== RUN   TestOrchestrator_ValidLifecycleTransition
+--- PASS: TestOrchestrator_ValidLifecycleTransition (0.00s)
+=== RUN   TestOrchestrator_InvalidLifecycleTransition_FromCompleted
+--- PASS: TestOrchestrator_InvalidLifecycleTransition_FromCompleted (0.00s)
+=== RUN   TestOrchestrator_InvalidLifecycleTransition_FromFailed
+--- PASS: TestOrchestrator_InvalidLifecycleTransition_FromFailed (0.00s)
+=== RUN   TestOrchestrator_CancelWorkflow
+--- PASS: TestOrchestrator_CancelWorkflow (0.00s)
+=== RUN   TestOrchestrator_FailWorkflow
+--- PASS: TestOrchestrator_FailWorkflow (0.00s)
+=== RUN   TestOrchestrator_CompleteWorkflow
+--- PASS: TestOrchestrator_CompleteWorkflow (0.00s)
+=== RUN   TestOrchestrator_ProgressEventEmission
+--- PASS: TestOrchestrator_ProgressEventEmission (0.00s)
+=== RUN   TestDependencyValidator_CircularDependencyRejection
+--- PASS: TestDependencyValidator_CircularDependencyRejection (0.00s)
+=== RUN   TestDependencyValidator_NoCircularDependency
+--- PASS: TestDependencyValidator_NoCircularDependency (0.00s)
+=== RUN   TestDependencyValidator_TopologicalExecutionOrder
+--- PASS: TestDependencyValidator_TopologicalExecutionOrder (0.00s)
+=== RUN   TestDependencyValidator_MissingDependency
+--- PASS: TestDependencyValidator_MissingDependency (0.00s)
+=== RUN   TestDependencyValidator_DuplicateStepID
+--- PASS: TestDependencyValidator_DuplicateStepID (0.00s)
+=== RUN   TestDependencyValidator_EmptyStepID
+--- PASS: TestDependencyValidator_EmptyStepID (0.00s)
+=== RUN   TestOrchestrator_ValidateTransition_PendingToRunning
+--- PASS: TestOrchestrator_ValidateTransition_PendingToRunning (0.00s)
+=== RUN   TestOrchestrator_ValidateTransition_PendingToCancelled
+--- PASS: TestOrchestrator_ValidateTransition_PendingToCancelled (0.00s)
+=== RUN   TestOrchestrator_ValidateTransition_RunningToCompleted
+--- PASS: TestOrchestrator_ValidateTransition_RunningToCompleted (0.00s)
+=== RUN   TestOrchestrator_ValidateTransition_RunningToFailed
+--- PASS: TestOrchestrator_ValidateTransition_RunningToFailed (0.00s)
+=== RUN   TestOrchestrator_ValidateTransition_RunningToCancelled
+--- PASS: TestOrchestrator_ValidateTransition_RunningToCancelled (0.00s)
+=== RUN   TestOrchestrator_ValidateTransition_InvalidFromCompleted
+--- PASS: TestOrchestrator_ValidateTransition_InvalidFromCompleted (0.00s)
+=== RUN   TestOrchestrator_ValidateTransition_InvalidFromFailed
+--- PASS: TestOrchestrator_ValidateTransition_InvalidFromFailed (0.00s)
+=== RUN   TestOrchestrator_ValidateTransition_InvalidFromCancelled
+--- PASS: TestOrchestrator_ValidateTransition_InvalidFromCancelled (0.00s)
+=== RUN   TestOrchestrator_ValidateTransition_PendingToCompleted_Invalid
+--- PASS: TestOrchestrator_ValidateTransition_PendingToCompleted_Invalid (0.00s)
+=== RUN   TestOrchestrator_GetWorkflow_Active
+--- PASS: TestOrchestrator_GetWorkflow_Active (0.00s)
+=== RUN   TestOrchestrator_GetWorkflow_FromStore
+--- PASS: TestOrchestrator_GetWorkflow_FromStore (0.00s)
+=== RUN   TestOrchestrator_GetWorkflow_NotFound
+--- PASS: TestOrchestrator_GetWorkflow_NotFound (0.00s)
+=== RUN   TestOrchestrator_AdvanceWorkflow_StepProgress
+--- PASS: TestOrchestrator_AdvanceWorkflow_StepProgress (0.00s)
+=== RUN   TestOrchestrator_AdvanceWorkflow_CompletesOnLastStep
+--- PASS: TestOrchestrator_AdvanceWorkflow_CompletesOnLastStep (0.00s)
+=== RUN   TestOrchestrator_AdvanceWorkflow_WrongStep
+--- PASS: TestOrchestrator_AdvanceWorkflow_WrongStep (0.00s)
+=== RUN   TestOrchestrator_Shutdown_CancelsActiveWorkflows
+--- PASS: TestOrchestrator_Shutdown_CancelsActiveWorkflows (0.00s)
+=== RUN   TestOrchestrator_IsRunning
+--- PASS: TestOrchestrator_IsRunning (0.00s)
+=== RUN   TestSecretaryCommandHandler_HandleCreateWorkflow
+--- PASS: TestSecretaryCommandHandler_HandleCreateWorkflow (0.00s)
+=== RUN   TestSecretaryCommandHandler_HandleListWorkflows
+--- PASS: TestSecretaryCommandHandler_HandleListWorkflows (0.00s)
+=== RUN   TestSecretaryCommandHandler_HandleWorkflowStatus
+--- PASS: TestSecretaryCommandHandler_HandleWorkflowStatus (0.00s)
+=== RUN   TestSecretaryCommandHandler_HandleCancelWorkflow
+--- PASS: TestSecretaryCommandHandler_HandleCancelWorkflow (0.00s)
+=== RUN   TestSecretaryCommandHandler_HandleListAgents
+--- PASS: TestSecretaryCommandHandler_HandleListAgents (0.00s)
+=== RUN   TestSecretaryCommandHandler_HandleDeleteAgent
+--- PASS: TestSecretaryCommandHandler_HandleDeleteAgent (0.00s)
+=== RUN   TestSecretaryCommandHandler_HandleListTemplates
+--- PASS: TestSecretaryCommandHandler_HandleListTemplates (0.00s)
+=== RUN   TestSecretaryCommandHandler_HandleLearnWebsite_NoService
+--- PASS: TestSecretaryCommandHandler_HandleLearnWebsite_NoService (0.00s)
+=== RUN   TestSecretaryCommandHandler_HandleLearnWebsite_WithService
+--- PASS: TestSecretaryCommandHandler_HandleLearnWebsite_WithService (0.00s)
+=== RUN   TestSecretaryCommandHandler_HandleRunBlindFill_NoService
+--- PASS: TestSecretaryCommandHandler_HandleRunBlindFill_NoService (0.00s)
+=== RUN   TestSecretaryCommandHandler_HandleRunBlindFill_WithService
+--- PASS: TestSecretaryCommandHandler_HandleRunBlindFill_WithService (0.00s)
+=== RUN   TestSecretaryCommandHandler_HandleListTrustPolicies_NoService
+--- PASS: TestSecretaryCommandHandler_HandleListTrustPolicies_NoService (0.00s)
+=== RUN   TestSecretaryCommandHandler_HandleListTrustPolicies_WithService
+--- PASS: TestSecretaryCommandHandler_HandleListTrustPolicies_WithService (0.00s)
+=== RUN   TestSecretaryCommandHandler_HandleCreateTrustPolicy_WithService
+--- PASS: TestSecretaryCommandHandler_HandleCreateTrustPolicy_WithService (0.00s)
+=== RUN   TestSecretaryCommandHandler_HandleRevokeTrustPolicy_WithService
+--- PASS: TestSecretaryCommandHandler_HandleRevokeTrustPolicy_WithService (0.00s)
+=== RUN   TestSecretaryCommandHandler_HandleReviewMapping
+--- PASS: TestSecretaryCommandHandler_HandleReviewMapping (0.00s)
+=== RUN   TestSecretaryCommandHandler_HandleConfirmMapping_NoService
+--- PASS: TestSecretaryCommandHandler_HandleConfirmMapping_NoService (0.00s)
+=== RUN   TestSecretaryCommandHandler_Help
+--- PASS: TestSecretaryCommandHandler_Help (0.00s)
+=== RUN   TestBlindFill_ValidateApprovalToken
+=== RUN   TestBlindFill_ValidateApprovalToken/valid_token_bound_to_execution
+=== RUN   TestBlindFill_ValidateApprovalToken/token_bound_to_different_execution
+=== RUN   TestBlindFill_ValidateApprovalToken/empty_token
+=== RUN   TestBlindFill_ValidateApprovalToken/malformed_token
+--- PASS: TestBlindFill_ValidateApprovalToken (0.00s)
+    --- PASS: TestBlindFill_ValidateApprovalToken/valid_token_bound_to_execution (0.00s)
+    --- PASS: TestBlindFill_ValidateApprovalToken/token_bound_to_different_execution (0.00s)
+    --- PASS: TestBlindFill_ValidateApprovalToken/empty_token (0.00s)
+    --- PASS: TestBlindFill_ValidateApprovalToken/malformed_token (0.00s)
+=== RUN   TestBlindFill_ValidatePIIValues
+=== RUN   TestBlindFill_ValidatePIIValues/allowed_field_passes
+=== RUN   TestBlindFill_ValidatePIIValues/denied_field_rejected
+=== RUN   TestBlindFill_ValidatePIIValues/denied_nested_field_rejected
+=== RUN   TestBlindFill_ValidatePIIValues/child_of_denied_field_rejected
+=== RUN   TestBlindFill_ValidatePIIValues/empty_pii_values_pass
+=== RUN   TestBlindFill_ValidatePIIValues/no_denied_fields_all_pass
+--- PASS: TestBlindFill_ValidatePIIValues (0.00s)
+    --- PASS: TestBlindFill_ValidatePIIValues/allowed_field_passes (0.00s)
+    --- PASS: TestBlindFill_ValidatePIIValues/denied_field_rejected (0.00s)
+    --- PASS: TestBlindFill_ValidatePIIValues/denied_nested_field_rejected (0.00s)
+    --- PASS: TestBlindFill_ValidatePIIValues/child_of_denied_field_rejected (0.00s)
+    --- PASS: TestBlindFill_ValidatePIIValues/empty_pii_values_pass (0.00s)
+    --- PASS: TestBlindFill_ValidatePIIValues/no_denied_fields_all_pass (0.00s)
+=== RUN   TestTrustedWorkflow_IsPolicyActive
+=== RUN   TestTrustedWorkflow_IsPolicyActive/inactive_policy
+=== RUN   TestTrustedWorkflow_IsPolicyActive/revoked_policy
+=== RUN   TestTrustedWorkflow_IsPolicyActive/expired_policy
+=== RUN   TestTrustedWorkflow_IsPolicyActive/max_executions_exceeded
+=== RUN   TestTrustedWorkflow_IsPolicyActive/requires_reconfirmation
+=== RUN   TestTrustedWorkflow_IsPolicyActive/valid_active_policy
+--- PASS: TestTrustedWorkflow_IsPolicyActive (0.00s)
+    --- PASS: TestTrustedWorkflow_IsPolicyActive/inactive_policy (0.00s)
+    --- PASS: TestTrustedWorkflow_IsPolicyActive/revoked_policy (0.00s)
+    --- PASS: TestTrustedWorkflow_IsPolicyActive/expired_policy (0.00s)
+    --- PASS: TestTrustedWorkflow_IsPolicyActive/max_executions_exceeded (0.00s)
+    --- PASS: TestTrustedWorkflow_IsPolicyActive/requires_reconfirmation (0.00s)
+    --- PASS: TestTrustedWorkflow_IsPolicyActive/valid_active_policy (0.00s)
+=== RUN   TestStudioIntegration_SpawnSecretaryAgent
+--- PASS: TestStudioIntegration_SpawnSecretaryAgent (0.00s)
+=== RUN   TestStudioIntegration_ListSecretaryAgents
+--- PASS: TestStudioIntegration_ListSecretaryAgents (0.00s)
+=== RUN   TestStudioIntegration_DeleteSecretaryAgent
+--- PASS: TestStudioIntegration_DeleteSecretaryAgent (0.00s)
+=== RUN   TestStudioIntegration_CreateWorkflowFromTemplate
+--- PASS: TestStudioIntegration_CreateWorkflowFromTemplate (0.00s)
+=== RUN   TestNewTemplateEngine
+--- PASS: TestNewTemplateEngine (0.00s)
+=== RUN   TestInstantiateTemplate_NilTemplate
+--- PASS: TestInstantiateTemplate_NilTemplate (0.00s)
+=== RUN   TestInstantiateTemplate_MissingRequiredVariable
+--- PASS: TestInstantiateTemplate_MissingRequiredVariable (0.00s)
+=== RUN   TestSubstituteString_SimpleVariable
+--- PASS: TestSubstituteString_SimpleVariable (0.00s)
+=== RUN   TestSubstituteString_WithDefault
+--- PASS: TestSubstituteString_WithDefault (0.00s)
+=== RUN   TestSubstituteString_NestedField
+--- PASS: TestSubstituteString_NestedField (0.00s)
+=== RUN   TestExtractNestedField
+--- PASS: TestExtractNestedField (0.00s)
+=== RUN   TestExtractVariableReferences
+--- PASS: TestExtractVariableReferences (0.00s)
+=== RUN   TestDetectCircularReferences
+--- PASS: TestDetectCircularReferences (0.00s)
+=== RUN   TestDetectCircularReferences_NoCycle
+--- PASS: TestDetectCircularReferences_NoCycle (0.00s)
+=== RUN   TestCollectPIIReferences
+--- PASS: TestCollectPIIReferences (0.00s)
+=== RUN   TestSubstituteValue
+--- PASS: TestSubstituteValue (0.00s)
+=== RUN   TestEvaluateConditions_NoConditions
+--- PASS: TestEvaluateConditions_NoConditions (0.00s)
+=== RUN   TestEvaluateConditions_AllConditionsPass
+--- PASS: TestEvaluateConditions_AllConditionsPass (0.00s)
+=== RUN   TestEvaluateConditions_SomeConditionsFail
+--- PASS: TestEvaluateConditions_SomeConditionsFail (0.00s)
+=== RUN   TestEvaluateConditions_OperatorEq
+--- PASS: TestEvaluateConditions_OperatorEq (0.00s)
+=== RUN   TestEvaluateConditions_OperatorNeq
+--- PASS: TestEvaluateConditions_OperatorNeq (0.00s)
+=== RUN   TestEvaluateConditions_OperatorIn
+--- PASS: TestEvaluateConditions_OperatorIn (0.00s)
+=== RUN   TestEvaluateConditions_OperatorNin
+--- PASS: TestEvaluateConditions_OperatorNin (0.00s)
+=== RUN   TestEvaluateConditions_OperatorContains
+--- PASS: TestEvaluateConditions_OperatorContains (0.00s)
+=== RUN   TestEvaluateConditions_StepTypeCondition
+--- PASS: TestEvaluateConditions_StepTypeCondition (0.00s)
+=== RUN   TestEvaluateConditions_VariableResolution
+--- PASS: TestEvaluateConditions_VariableResolution (0.00s)
+=== RUN   TestInstantiateTemplate_Success
+--- PASS: TestInstantiateTemplate_Success (0.00s)
+PASS
+ok  	github.com/armorclaw/bridge/pkg/secretary	(cached)
+
+Exit Code: 0
+Exit Code: 0

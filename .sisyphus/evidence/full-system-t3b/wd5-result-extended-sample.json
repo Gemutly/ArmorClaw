@@ -1,0 +1,19 @@
+{
+  "status": "success",
+  "output": "Extended task completed",
+  "duration_ms": 3200,
+  "_comments": ["Auto-executed", "PII-safe"],
+  "_blockers": [],
+  "_skill_candidates": [
+    {
+      "name": "form_fill_pattern",
+      "description": "Detected form fill pattern for checkout",
+      "pattern_type": "step_sequence",
+      "confidence": 0.72
+    }
+  ],
+  "_events_summary": {
+    "total": 12,
+    "types": {"step": 4, "progress": 5, "checkpoint": 2, "error": 1}
+  }
+}

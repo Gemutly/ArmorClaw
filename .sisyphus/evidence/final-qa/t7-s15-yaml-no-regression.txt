@@ -1,0 +1,4 @@
+=== RUN   TestYAMLv3Parser_S3
+--- PASS: TestYAMLv3Parser_S3 (0.00s)
+PASS
+ok  	github.com/armorclaw/bridge/internal/skills	0.003s

@@ -1,0 +1,53 @@
+
+=========================================
+ P0: Prerequisites (3 tests)
+=========================================
+  [PASS] SSH connectivity
+  [PASS] Bridge service active
+[INFO] Transport: socket
+  [PASS] Transport detection
+
+=========================================
+ P1: Create Invite (2 tests)
+=========================================
+  [PASS] invite.create returns code
+  [PASS] Captured invite_id and code
+  Created: id=inv_cc8295f1acb0cfb56fdb339b37cbbd67 code=yjZGpXxd6e7gVhhDuQBbIEoZ
+
+=========================================
+ P2: Pre-Restart Validation (2 tests)
+=========================================
+  [PASS] invite.validate (pre-restart) active
+  [PASS] invite.list (pre-restart) contains id
+
+=========================================
+ P3: Restart Bridge (1 test)
+=========================================
+  Restarting armorclaw-bridge...
+[INFO] Transport: socket
+  Bridge ready after 2s
+  [PASS] Bridge active after restart
+
+=========================================
+ P4: Post-Restart Validation (2 tests)
+=========================================
+  [PASS] invite.validate (post-restart) active
+  [PASS] invite.list (post-restart) contains id
+
+=========================================
+ P5: Revoke After Restart (2 tests)
+=========================================
+  [PASS] invite.revoke returns success
+  [PASS] invite.validate revoked code
+
+=========================================
+ Results
+=========================================
+  P0 Prerequisites:  3 passed, 0 failed
+  P1 Create:         2 passed, 0 failed
+  P2 Pre-restart:    2 passed, 0 failed
+  P3 Restart:        1 passed, 0 failed
+  P4 Post-restart:   2 passed, 0 failed
+  P5 Revoke:         2 passed, 0 failed
+
+  TOTAL: 12 / 12 passed

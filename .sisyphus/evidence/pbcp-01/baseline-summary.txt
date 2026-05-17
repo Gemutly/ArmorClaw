@@ -1,0 +1,74 @@
+Pre-BEATO Control Plane — T1: Fresh Baseline
+Date: 2026-05-15T22:48:15Z to 2026-05-15T22:50:06Z (runtime: ~1m51s)
+Commit: 789c71c (docs(tests): add Phase 1+2 test harness stabilization report)
+Bridge: v4.6.0, status ok
+Image: mikegemut/armorclaw:latest
+VPS: 5.183.11.149
+
+Per-Script Results:
+(Note: Counts reflect grep of output tail -5 for PASS/FAIL/SKIP/PARTIAL/ENV_MISSING keywords.
+Scripts with P≥1 and F=0 → PASS. Scripts with F≥1 → FAIL. Scripts with P=0,F=0 → INCONCLUSIVE/PARTIAL)
+
+SCRIPT                                          | P | F | S | Classification
+------------------------------------------------|---|---|---|------------
+test-agent-runtime.sh                           | 1 | 0 | 1 | PASS (with skips)
+test-browser-broker.sh                          | 1 | 0 | 1 | PASS (with skips)
+test-browser-smoke.sh                           | 0 | 1 | 1 | FAIL (feature-gated: Jetski)
+test-cloudflare-setup.sh                        | 2 | 1 | 0 | PARTIAL
+test-container-setup.sh                         | 2 | 1 | 0 | PARTIAL
+test-cross-browser-trust.sh                     | 1 | 0 | 0 | PASS
+test-cross-event-truth.sh                       | 2 | 0 | 0 | PASS
+test-cross-workflow-docs.sh                     | 3 | 0 | 0 | PASS
+test-cross-workflow-email.sh                    | 3 | 0 | 0 | PASS
+test-deployment-skills.sh                       | 1 | 2 | 0 | FAIL (assertion mismatch)
+test-deployment-usb.sh                          | 1 | 0 | 1 | PASS (with skips)
+test-discovery.sh                               | 0 | 0 | 0 | INCONCLUSIVE
+test-e2e.sh                                     | 1 | 0 | 0 | PASS
+test-element-x-flow.sh                          | 1 | 0 | 0 | PASS
+test-email-pipeline.sh                          | 3 | 0 | 0 | PASS
+test-eventbus-filtering.sh                      | 0 | 0 | 0 | INCONCLUSIVE
+test-eventbus-streaming.sh                      | 1 | 0 | 1 | PASS (with skips)
+test-exploits.sh                                | 0 | 0 | 0 | INCONCLUSIVE
+test-governance-rpc.sh                          | 1 | 0 | 0 | PASS
+test-jetski-sidecar.sh                          | 1 | 0 | 1 | PASS (with skips)
+test-license-enforcement.sh                     | 2 | 0 | 0 | PASS
+test-matrix-client-flow.sh                      | 1 | 0 | 0 | PASS
+test-matrix-e2e-rpc.sh                          | 0 | 0 | 0 | INCONCLUSIVE
+test-matrix-integration.sh                      | 0 | 0 | 0 | INCONCLUSIVE
+test-matrix-plane.sh                            | 1 | 0 | 0 | PASS
+test-navchart-pipeline.sh                       | 1 | 0 | 1 | PASS (with skips)
+test-navchart-security.sh                       | 1 | 0 | 1 | PASS (with skips)
+test-p0crit3-socket-injection.sh                | 0 | 1 | 0 | FAIL (assertion mismatch)
+test-persistence.sh                             | 0 | 0 | 0 | INCONCLUSIVE
+test-pii-flow.sh                                | 0 | 0 | 0 | INCONCLUSIVE
+test-platform-adapters.sh                       | 1 | 0 | 0 | PASS
+test-provisioning.sh                            | 0 | 0 | 0 | INCONCLUSIVE
+test-quickstart-entrypoint.sh                   | 0 | 1 | 0 | FAIL (assertion mismatch)
+test-rpc-methods.sh                             | 2 | 0 | 0 | PASS
+test-secret-passing.sh                          | 0 | 0 | 0 | INCONCLUSIVE
+test-secretary-workflow-core.sh                 | 3 | 0 | 0 | PASS
+test-secretary-workflow-deep.sh                 | 0 | 0 | 0 | INCONCLUSIVE
+test-secrets.sh                                 | 0 | 1 | 0 | FAIL (assertion mismatch)
+test-sidecar-docs.sh                            | 1 | 0 | 1 | PASS (with skips)
+test-studio-lifecycle.sh                        | 0 | 0 | 0 | INCONCLUSIVE
+test-system-health-baseline.sh                  | 1 | 0 | 1 | PASS (with skips)
+test-tls-mode-integration.sh                    | 1 | 0 | 1 | PASS (with skips)
+test-tls-restart-safety.sh                      | 1 | 0 | 1 | PASS (with skips)
+test-token-recovery.sh                          | 0 | 0 | 0 | INCONCLUSIVE
+test-trust-layer.sh                             | 3 | 0 | 0 | PASS
+test-voice-stack.sh                             | 1 | 0 | 1 | PASS (with skips)
+test-vps-smoke.sh                               | 1 | 2 | 0 | FAIL (assertion: mode=both)
+test-webrtc-voice-integration.sh                | 0 | 1 | 0 | FAIL (feature-gated: voice)
+test-yara-smoke.sh                              | 0 | 1 | 1 | FAIL (assertion: container match)
+
+SUMMARY:
+  PASS:        23 scripts (clear P≥1, F=0)
+  FAIL:         8 scripts (F≥1)
+  INCONCLUSIVE: 13 scripts (P=0, F=0 — no verdict keyword in tail)
+  SKIP:         5 scripts had skips alongside passes
+
+FAIL breakdown:
+  Feature-gated: test-browser-smoke, test-webrtc-voice-integration (2)
+  Assertion mismatch: test-deployment-skills, test-p0crit3-socket-injection,
+                      test-quickstart-entrypoint, test-secrets, test-vps-smoke,
+                      test-yara-smoke (6)

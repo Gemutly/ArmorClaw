@@ -1,0 +1,100 @@
+SKILL.md Frontmatter Validation — Task 3
+============================================
+Date: 2026-04-17
+Method: Manual extraction and analysis from 10 representative SKILL.md files
+
+Sampled Skills: weather, github, slack, discord, notion, obsidian, 1password, coding-agent, skill-creator, calendar (bridge)
+
+Results:
+=========
+
+1. weather/SKILL.md
+   YAML Syntax: VALID
+   Has 'name': YES — "weather"
+   Has 'description': YES — complete with triggers and non-triggers
+   Extra fields: homepage, metadata (with openclaw block)
+   Frontmatter format: Single-line inline JSON for metadata
+   Notes: Uses inline `{ "openclaw": {...} }` style for metadata
+
+2. github/SKILL.md
+   YAML Syntax: VALID
+   Has 'name': YES — "github"
+   Has 'description': YES — comprehensive with numbered triggers
+   Extra fields: metadata (with openclaw block including install array)
+   Frontmatter format: Multi-line JSON-style YAML for metadata
+   Notes: Install array has both brew and apt specs
+
+3. slack/SKILL.md
+   YAML Syntax: VALID
+   Has 'name': YES — "slack"
+   Has 'description': YES — clear trigger description
+   Extra fields: metadata (openclaw with config requires)
+   Frontmatter format: Inline JSON
+   Notes: Requires config path "channels.slack"
+
+4. discord/SKILL.md
+   YAML syntax: VALID
+   Has 'name': YES — "discord"
+   Has 'description': YES — short but functional
+   Extra fields: metadata, allowed-tools
+   Frontmatter format: Inline JSON for metadata, array for allowed-tools
+   Notes: Only skill sampled with `allowed-tools` field
+
+5. notion/SKILL.md
+   YAML Syntax: VALID
+   Has 'name': YES — "notion"
+   Has 'description': YES
+   Extra fields: homepage, metadata (with primaryEnv)
+   Frontmatter format: Multi-line YAML
+   Notes: Has primaryEnv: NOTION_API_KEY
+
+6. obsidian/SKILL.md
+   YAML Syntax: VALID
+   Has 'name': YES — "obsidian"
+   Has 'description': YES
+   Extra fields: homepage, metadata (with install array)
+   Frontmatter format: Multi-line YAML
+   Notes: Brew-only install spec
+
+7. 1password/SKILL.md
+   YAML Syntax: VALID
+   Has 'name': YES — "1password"
+   Has 'description': YES — clear with "Use when..." trigger pattern
+   Extra fields: homepage, metadata (with install array)
+   Frontmatter format: Multi-line YAML
+   Notes: Name contains digit — valid per naming rules
+
+8. coding-agent/SKILL.md
+   YAML Syntax: VALID
+   Has 'name': YES — "coding-agent"
+   Has 'description': YES — very comprehensive with numbered triggers
+   Extra fields: metadata (with anyBins requirement)
+   Frontmatter format: Multi-line YAML
+   Notes: Uses `anyBins` (OR logic) vs `bins` (AND logic)
+
+9. skill-creator/SKILL.md
+   YAML Syntax: VALID
+   Has 'name': YES — "skill-creator"
+   Has 'description': YES — meta-skill description
+   Extra fields: NONE — minimal frontmatter
+   Frontmatter format: Simple key-value
+   Notes: Only name + description, no metadata block
+
+10. bridge/internal/skills/browser/SKILL.md (NOT SAMPLED — bridge side)
+    (Bridge uses Go parser, not frontmatter.ts)
+
+Summary:
+--------
+All 10 sampled files: VALID YAML syntax
+All 10: Have required 'name' field
+All 10: Have required 'description' field
+Common extra fields: metadata (8/10), homepage (4/10), allowed-tools (1/10)
+metadata.openclaw structure varies but consistently contains:
+  - emoji (always present when metadata exists)
+  - requires: { bins | config | env | anyBins }
+  - install: array of install specs (when applicable)
+  - primaryEnv: string (when env required)
+
+FINDING: quick_validate.py only allows: name, description, license, allowed-tools, metadata
+FINDING: Actual SKILL.md files also use: homepage
+FINDING: homepage is NOT in the validator's allowed set — this is an INCONSISTENCY

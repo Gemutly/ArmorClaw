@@ -1,0 +1,65 @@
+# Task 4: File Reference Validity
+
+Generated: 2026-04-17
+
+## Deployment Skills (T1)
+
+| File | Exists | Notes |
+|------|--------|-------|
+| .skills/deploy.yaml | OK | Lines 150,157,163,166,219,271,277,280 referenced |
+| .skills/status.yaml | OK | Line 150 referenced |
+| .skills/cloudflare.yaml | OK | Lines 187,250,339 referenced |
+| .skills/provision.yaml | OK | Lines 10,42,48 referenced |
+
+## Bridge Go Skills (T2)
+
+| File | Exists | Notes |
+|------|--------|-------|
+| bridge/internal/skills/executor.go | OK | Lines 80,126,132,266-274,277-293,296-307,362-363 referenced |
+| bridge/internal/skills/policy.go | OK | Lines 93-96 referenced |
+| bridge/internal/skills/ssrf.go | OK | Lines 13-29,59,88-107,113-129 referenced |
+| bridge/internal/skills/registry.go | OK | Lines 69,232,352-396 referenced |
+| bridge/internal/skills/router.go | OK | Full file analysis |
+| bridge/internal/skills/schema.go | OK | Lines 64-100 referenced |
+| bridge/internal/skills/allowlist.go | OK | Inventory |
+| bridge/internal/skills/web_search.go | OK | Inventory |
+| bridge/internal/skills/web_extract.go | OK | Lines 160-180,185-186,430-431 referenced |
+| bridge/internal/skills/email_send.go | OK | Lines 229-242,287-341 referenced |
+| bridge/internal/skills/slack_message.go | OK | Lines 380-383,433-512 referenced |
+| bridge/internal/skills/calendar.go | OK | Lines 388-394 referenced |
+| bridge/internal/skills/webdav.go | OK | Lines 158-469,179-181 referenced |
+| bridge/internal/skills/file_read.go | OK | Lines 326-365,338-339 referenced |
+| bridge/internal/skills/data_analyze.go | OK | Inventory |
+| bridge/pkg/skills/learned_store.go | OK | Lines 34,244-252 referenced |
+| bridge/pkg/skills/extractor.go | OK | Full file analysis |
+| bridge/pkg/rpc/methods_skills.go | OK | Lines 16-78,320-370 referenced |
+
+## OpenClaw Container (T3)
+
+| File | Exists | Notes |
+|------|--------|-------|
+| container/openclaw/skills/__init__.py | OK | Inventory |
+| container/openclaw/skills/ssl_skill_handler.py | OK | 157 lines |
+| container/openclaw/skills/ssl_tunnel_setup.py | OK | Lines 64-66,89,163-165,192 referenced |
+| container/openclaw-src/src/agents/skills/workspace.ts | OK | Lines 260,337-388,369-388,427-441 referenced |
+| container/openclaw-src/src/agents/skills/frontmatter.ts | OK | 117 lines |
+| container/openclaw-src/src/agents/skills/config.ts | OK | 112 lines |
+| container/openclaw-src/src/agents/skills/types.ts | OK | 89 lines |
+| container/openclaw-src/skills/skill-creator/scripts/quick_validate.py | OK | Line 40 referenced. NOTE: T3 document referenced wrong path (skills/ vs container/openclaw-src/skills/) |
+| container/openclaw-src/skills/skill-creator/scripts/package_skill.py | OK | 118 lines. Same path correction as above. |
+| container/openclaw-src/skills/skill-creator/scripts/init_skill.py | OK | 378 lines. Same path correction as above. |
+
+## Previous Review
+
+| File | Exists | Notes |
+|------|--------|-------|
+| DEPLOYMENT_SKILLS_REVIEW.md | OK | 474 lines, 12 action items |
+
+## Summary
+
+- Total unique files referenced: 32
+- Files verified OK: 32
+- Files MISSING: 0
+- Path corrections needed from source documents: 3 (skill-creator scripts referenced from wrong base path in T3)
+
+All file references are valid. T3 referenced skill-creator scripts as `skills/skill-creator/` instead of `container/openclaw-src/skills/skill-creator/` — corrected in synthesis.

@@ -1,0 +1,296 @@
+# Installer Validation: Idempotency / Rerun Safety
+# Generated: 2026-03-13
+# Status: STATIC ANALYSIS
+
+## 1. Lockfile Protection
+
+### installer-v5.sh (lines 336-340)
+```bash
+exec 200>"$LOCKFILE"
+flock -n 200 || {
+    echo "ERROR: installer already running" >&2
+    exit 1
+}
+```
+
+**Analysis:**
+- Lockfile at `/tmp/armorclaw-install.lock`
+- Non-blocking flock (`-n`) prevents waiting
+- Clear error message if already running
+- Lock released on exit via trap cleanup
+
+**Evidence Quality: GOOD**
+- Prevents parallel installations
+- Non-blocking prevents hanging
+- Proper cleanup
+
+---
+
+### setup-quick.sh (lines 64-69)
+```bash
+exec 200>"$LOCKFILE"
+if ! flock -n 200; then
+    echo -e "${RED}ERROR:${NC} Another instance of setup-quick.sh is already running."
+    exit 1
+fi
+```
+
+**Analysis:**
+- Separate lockfile at `/tmp/armorclaw-quick.lock`
+- Same protection pattern as installer-v5.sh
+
+---
+
+### setup-matrix.sh (lines 49-53)
+```bash
+exec 200>"$LOCKFILE"
+if ! flock -n 200; then
+    echo -e "${RED}ERROR:${NC} Another instance of setup-matrix.sh is already running."
+    exit 1
+fi
+```
+
+**Analysis:**
+- Separate lockfile at `/tmp/armorclaw-matrix-setup.lock`
+
+---
+
+## 2. Existing Installation Detection
+
+### setup-quick.sh - Bridge Detection (lines 809-817)
+```bash
+if [[ -x "$INSTALL_DIR/armorclaw-bridge" ]]; then
+    print_done "Bridge already installed at $INSTALL_DIR/armorclaw-bridge"
+    if ! $NON_INTERACTIVE && prompt_yes_no "Reinstall bridge?" "n"; then
+        $SUDO rm -f "$INSTALL_DIR/armorclaw-bridge"
+    else
+        return 0
+    fi
+fi
+```
+
+**Analysis:**
+- Detects existing bridge binary
+- Asks before reinstalling (interactive mode)
+- Skips reinstall in non-interactive mode
+- Safe: doesn't overwrite without confirmation
+
+---
+
+### quickstart-entrypoint.sh - Bootstrap Flag (lines 89-92)
+```bash
+if [ -f "$INIT_FLAG" ]; then
+    log "Configuration already bootstrapped, starting services..."
+    exec /opt/armorclaw/container-setup.sh "$@"
+fi
+```
+
+**Analysis:**
+- Uses `$DATA_DIR/.bootstrapped` flag file
+- Skips bootstrap if already done
+- Idempotent: safe to restart container
+
+---
+
+### quickstart-entrypoint.sh - Conduit Detection (lines 160-254)
+```bash
+# First: detect container created from Conduit image
+CONDUIT_CONTAINER=$(docker ps -a \
+    --filter "ancestor=matrixconduit/matrix-conduit" \
+    --format "{{.Names}}" | head -n1)
+
+# Fallback: detect container exposing port 6167
+if [ -z "$CONDUIT_CONTAINER" ]; then
+    ...
+fi
+
+if [ -n "$CONDUIT_CONTAINER" ]; then
+    log "Existing Conduit: $CONDUIT_CONTAINER"
+    USE_EXISTING_CONDUIT=true
+    ...
+fi
+```
+
+**Analysis:**
+- Detects existing Conduit by image name
+- Falls back to port detection
+- Reuses existing container instead of creating duplicate
+- Starts stopped container if found
+
+**Evidence Quality: EXCELLENT**
+- Multi-level detection (image + port)
+- No duplicate containers created
+- Graceful reuse of existing resources
+
+---
+
+### setup-matrix.sh - Conduit Detection (lines 288-315)
+Same pattern as quickstart-entrypoint.sh
+
+---
+
+## 3. Data Migration Safety
+
+### quickstart-entrypoint.sh (lines 110-115)
+```bash
+# Migration: Handle older installs that used /var/lib/matrix-conduit
+if [ -d /var/lib/matrix-conduit ] && [ ! -d /var/lib/conduit ]; then
+    log "Migrating existing Matrix data from /var/lib/matrix-conduit"
+    mv /var/lib/matrix-conduit /var/lib/conduit
+    log_success "Migration complete"
+fi
+```
+
+**Analysis:**
+- Migrates from old path to new path
+- Only migrates if new path doesn't exist
+- Preserves existing data
+- One-time migration (idempotent)
+
+---
+
+### setup-matrix.sh (lines 261-266)
+Same migration pattern
+
+---
+
+## 4. Server Name Conflict Handling
+
+### quickstart-entrypoint.sh (lines 210-242)
+```bash
+EXISTING_SERVER_NAME=$(docker exec "$CONDUIT_CONTAINER" cat /etc/conduit.toml 2>/dev/null | ...)
+
+if [ -n "$EXISTING_SERVER_NAME" ]; then
+    log "Found existing server name in database: $EXISTING_SERVER_NAME"
+    
+    if [ "$SERVER_NAME_USER_PROVIDED" = true ] && [ "$ARMORCLAW_SERVER_NAME" != "$EXISTING_SERVER_NAME" ]; then
+        log_warn "Provided server name ($ARMORCLAW_SERVER_NAME) differs from existing database ($EXISTING_SERVER_NAME)"
+        log_warn "Conduit cannot reuse database after changing server name"
+        
+        # Delete the old database to start fresh with new server name
+        log "Deleting existing database to apply new server name..."
+        docker rm -f "$CONDUIT_CONTAINER" >/dev/null 2>&1 || true
+        docker volume rm armorclaw-conduit-data >/dev/null 2>&1 || true
+        ...
+    else
+        # Use existing server name from database
+        ARMORCLAW_SERVER_NAME="$EXISTING_SERVER_NAME"
+        ...
+    fi
+fi
+```
+
+**Analysis:**
+- Reads server_name from existing Conduit config
+- Warns if user provides different server name
+- Option 1: Delete and recreate with new name (user explicitly requested)
+- Option 2: Use existing name to preserve database
+
+**Evidence Quality: EXCELLENT**
+- Prevents database corruption from server name mismatch
+- User is warned before destructive operation
+- Smart default: preserve existing data unless explicitly overridden
+
+---
+
+## 5. Configuration Updates (Idempotent)
+
+### setup-quick.sh (lines 905-1002)
+- Creates config file only if it doesn't exist
+- Sets ownership and permissions
+- Ensures error store path exists
+
+### setup-quick.sh - Keystore (lines 1012-1025)
+```bash
+if [[ -f "$keystore_db" ]]; then
+    print_done "Keystore already exists"
+    return 0
+fi
+```
+
+**Analysis:**
+- Skips if keystore already exists
+- Idempotent: won't destroy existing data
+
+---
+
+## 6. Service Restart Safety
+
+### setup-matrix.sh (lines 577-598)
+```bash
+if systemctl is-active armorclaw-bridge &>/dev/null; then
+    systemctl restart armorclaw-bridge
+    print_success "Bridge restarted"
+    ...
+fi
+```
+
+**Analysis:**
+- Only restarts if already running
+- Doesn't start if stopped (leaves that decision to user)
+- Waits for socket availability after restart
+
+---
+
+## Summary: Idempotency Validation
+
+| Mechanism | File | Status |
+|-----------|------|--------|
+| Lockfile protection | installer-v5.sh | ✅ PASS |
+| Lockfile protection | setup-quick.sh | ✅ PASS |
+| Lockfile protection | setup-matrix.sh | ✅ PASS |
+| Existing binary detection | setup-quick.sh | ✅ PASS |
+| Bootstrap flag | quickstart-entrypoint.sh | ✅ PASS |
+| Conduit reuse | quickstart-entrypoint.sh | ✅ PASS |
+| Conduit reuse | setup-matrix.sh | ✅ PASS |
+| Data migration | quickstart-entrypoint.sh | ✅ PASS |
+| Data migration | setup-matrix.sh | ✅ PASS |
+| Server name conflict | quickstart-entrypoint.sh | ✅ PASS |
+| Config preservation | setup-quick.sh | ✅ PASS |
+| Keystore preservation | setup-quick.sh | ✅ PASS |
+| Service restart | setup-matrix.sh | ✅ PASS |
+
+**VERDICT: PASS - All scripts are safe to re-run**
+
+---
+
+## 7. Identified Issues
+
+### Issue 1: Lockfile Location in /tmp
+
+**Severity:** LOW
+**Location:** installer-v5.sh:106, setup-quick.sh:53, setup-matrix.sh:39
+
+**Analysis:**
+- Lockfiles created in `/tmp/` which is cleared on reboot
+- If installer crashes and system reboots, stale lock won't exist
+- However: `/tmp/` is standard location for temporary locks
+- flock automatically releases lock on process exit
+
+**Recommendation:** Acceptable - flock semantics handle process termination
+
+### Issue 2: No Cleanup of Partial State on Failure
+**Severity:** MEDIUM
+**Location:** All setup scripts
+
+**Analysis:**
+- If installation fails mid-way, partial state may remain
+- Example: Bridge installed but service not created
+- However: Scripts are designed to be re-run safely
+
+**Recommendation:** Consider adding rollback-on-failure for critical steps
+
+---
+
+## 8. Test Coverage
+
+### tests/integration/test-installer-hardening.sh
+- Test 1: Lockfile functionality ✅
+- Tests that flock prevents parallel execution
+
+**Gap:** No integration test for idempotent re-run scenarios
+
+**Recommendation:** Add tests for:
+1. Re-run after successful installation
+2. Re-run after failed installation
+3. Conduit container reuse

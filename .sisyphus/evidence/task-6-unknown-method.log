@@ -1,0 +1,5 @@
+=== RUN   TestUnknownMethod
+    rpc_to_mcp_test.go:121: ✓ Unknown method returns error without panic
+--- PASS: TestUnknownMethod (0.00s)
+PASS
+ok  	github.com/armorclaw/bridge/pkg/translator	0.004s

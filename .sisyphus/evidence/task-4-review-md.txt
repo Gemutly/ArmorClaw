@@ -1,0 +1,25 @@
+=== review.md Verification Evidence ===
+Date: 2026-04-18T02:10:35-06:00
+
+--- test -f review.md ---
+PASS
+
+--- grep NetworkMode ---
+### NetworkMode: none (absolute)
+All agent containers run with `NetworkMode: none`. No container networking, no exceptions. This is a non-negotiable security constraint. Do not add IPC channels, bind-mounted event files, or any mechanism that would require network access for containers.
+Warm dispatch (`warmDispatch()` in `TaskScheduler`) is architecturally illegal under `NetworkMode: none`. Containers cannot receive inbound connections, so warm dispatch can never work. Deprecated and scheduled for removal in v0.7.0.
+- **Warm dispatch** — Deprecated in v0.7.0. NetworkMode: none makes it architecturally illegal. Dead code removal in progress.
+
+--- grep WebSocket/crash-only ---
+### Crash-only WebSocket design
+`EventBus` wiring (`bridge/pkg/eventbus/eventbus.go:146`) uses `log.Fatalf` when WebSocket initialization fails. This is intentional. The bridge must crash rather than run in a degraded state where events are silently lost. Do not add graceful fallback or retry logic to this path without CTO approval.
+- WebSocket `bridge/pkg/websocket/websocket.go` is a 74-line stub — EventBus cannot publish to clients
+
+--- grep Deprecation ---
+## Deprecation Notices
+
+--- grep v070-master-plan ---
+See `.sisyphus/plans/v070-master-plan.md` for the full task breakdown.
+v0.7.0 master plan: `.sisyphus/plans/v070-master-plan.md`
+
+=== All checks passed ===

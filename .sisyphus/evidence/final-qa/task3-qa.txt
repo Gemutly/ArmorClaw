@@ -1,0 +1,16 @@
+=== TASK 3 QA: VPS smoke test transport checks ===
+Date: 2026-04-25
+
+--- Scenario 3.1: grep -c 'detect_transport\|rpc_socket\|check_socat' → ≥3 ---
+RESULT: PASS
+Count: 10
+
+--- Scenario 3.2: grep -c 'check_socat\|socat not available\|\[SKIP\]' → ≥1 ---
+RESULT: PASS
+Count: 10
+
+--- Scenario 3.3: grep -c 'Transport tested\|TRANSPORT_MODE' → ≥2 ---
+RESULT: PASS
+Count: 9
+
+Task 3 Score: 3/3 pass

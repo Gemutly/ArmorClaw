@@ -1,0 +1,21 @@
+=== Evidence: Bridge has no chown for HMAC ===
+Date: 2026-05-16T13:46:00-06:00
+
+grep for chown in bridge Go files (excluding tests):
+bridge/pkg/secretary/result.go:37://	The state directory is chown'd to UID 10001 (the container user) by
+bridge/pkg/studio/factory.go:155:	// Bridge runs as root, so we chown the directory to 10001:10001 after creation.
+bridge/pkg/studio/factory.go:159:	// Chown to container UID so the container can write result.json and other state files.
+bridge/pkg/studio/factory.go:160:	// Ignore errors — non-root Bridge (dev mode) won't have permission to chown, but
+bridge/pkg/studio/factory.go:162:	_ = os.Chown(stateDir, 10001, 10001)
+bridge/pkg/sidecar/java_client.go:39:	if err := os.Chown(dir, 10001, 10001); err != nil {
+bridge/pkg/sidecar/java_client.go:40:		// Chown may fail in non-root environments (dev), log but don't fail
+bridge/pkg/sidecar/java_client.go:41:		slog.Warn("failed to chown java socket dir (non-root?)", "error", err)
+
+grep for office-hmac in bridge Go files:
+(no matches - clean)
+
+grep for os.Chown specifically:
+bridge/pkg/studio/factory.go:162:	_ = os.Chown(stateDir, 10001, 10001)
+bridge/pkg/sidecar/java_client.go:39:	if err := os.Chown(dir, 10001, 10001); err != nil {
+
+=== Conclusion: Bridge never calls os.Chown for HMAC provisioning ===

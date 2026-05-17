@@ -1,0 +1,52 @@
+Task 6: Cold-Start Intent Handling in MainActivity
+====================================================
+
+MODIFIED: applications/ArmorChat/app/src/main/java/app/armorclaw/MainActivity.kt
+
+## What was added
+
+1. **Cold-start deep link detection** (onCreate):
+   - `intent?.data` checked before `setContent` — if the app was launched via deep link,
+     the URI is parsed via `DeepLinkHandler.handle(uri)` and stored in `pendingDeepLink`
+
+2. **Warm-resume deep link handling** (onNewIntent):
+   - `override fun onNewIntent(intent: Intent)` extracts `intent.data`, parses via
+     `DeepLinkHandler.handle(uri)`, stores result in `pendingDeepLink`
+   - Requires `launchMode="singleTop"` in manifest (Task 7)
+
+3. **Composable-side processing** (two LaunchedEffects):
+   - `LaunchedEffect(pendingDeepLink.value)`: Consumes pending deep link. If current route
+     is a setup route, queues in `queuedDeepLink`; otherwise navigates immediately.
+   - `LaunchedEffect(currentRoute)`: Flushes queued deep link when user leaves setup routes.
+
+4. **Setup route queuing**:
+   - SETUP_ROUTES set: Bonding, SecurityConfig, HardeningPassword, HardeningDevice,
+     HardeningBiometrics, KeyBackup
+   - Deep links received during setup are stored in `queuedDeepLink` and auto-executed
+     when the user navigates to a non-setup route.
+
+5. **navigateToRoute helper**:
+   - `popUpTo(startDestination)` with `saveState`, `launchSingleTop`, `restoreState`
+   - Prevents duplicate back stacks
+
+## Verification grep results
+
+- `grep "override fun onNewIntent" MainActivity.kt` → MATCH (line 78)
+- `grep "LaunchedEffect" MainActivity.kt` → MATCH (lines 11, 53, 65)
+- `grep "getIntent" MainActivity.kt` → not present; cold-start uses `intent?.data` directly
+  (equivalent to `getIntent()` — `intent` property in Activity returns launch intent)
+- `grep "DeepLinkHandler.handle" MainActivity.kt` → MATCH (lines 42, 81)
+
+## Edge cases handled
+
+- Null URI (no deep link): `intent?.data?.let` short-circuits → no-op
+- Unrecognized URI: `DeepLinkHandler.handle()` returns null → `?.let` skips → no-op
+- Valid URI during normal operation: navigates immediately
+- Valid URI during setup: queued in `queuedDeepLink`, auto-flushed on setup completion
+- Multiple deep links during setup: last one wins (queued state overwritten)
+
+## Files NOT modified
+
+- DeepLinkHandler.kt (unchanged, read-only dependency)
+- Route.kt (unchanged)
+- ArmorClawNavHost.kt (unchanged)

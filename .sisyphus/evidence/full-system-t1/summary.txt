@@ -1,0 +1,18 @@
+=== T1 EventBus Streaming — Event Summary ===
+
+WebSocket URL: wss://5.183.11.149:8080/ws
+Device ID: test-harness-t1
+WS enabled: true
+
+Evidence files:
+total 56
+drwxrwxr-x  2 mikmin mikmin  4096 Apr 30 09:22 .
+drwxr-xr-x 32 mikmin mikmin 20480 Apr 30 09:10 ..
+-rw-rw-r--  1 mikmin mikmin    57 Apr 30 09:36 e0-prerequisites.txt
+-rw-rw-r--  1 mikmin mikmin    83 Apr 30 09:36 e1-heartbeat.txt
+-rw-rw-r--  1 mikmin mikmin    83 Apr 30 09:36 e2-register.txt
+-rw-rw-r--  1 mikmin mikmin   312 Apr 30 09:36 e3-fanout.txt
+-rw-rw-r--  1 mikmin mikmin    83 Apr 30 09:36 e4-filtering.txt
+-rw-rw-r--  1 mikmin mikmin   128 Apr 30 09:36 e5-no-subscriber.txt
+-rw-rw-r--  1 mikmin mikmin   268 Apr 30 09:37 e6-reconnect.txt
+-rw-rw-r--  1 mikmin mikmin   152 Apr 30 09:37 summary.txt

@@ -1,0 +1,71 @@
+{
+  "test_suite": "SSH Connectivity",
+  "timestamp": "2026-04-03T22:21:14Z",
+  "vps_ip": "5.183.11.149",
+  "vps_user": "root",
+  "tests": [
+    {
+      "name": "SSH Key Validation",
+      "status": "PASS",
+      "message": "Key file exists and is readable"
+    },
+    {
+      "name": "SSH Key Permissions",
+      "status": "PASS",
+      "message": "Key has correct permissions (600)"
+    },
+    {
+      "name": "SSH Key Content",
+      "status": "PASS",
+      "message": "Key file is not empty"
+    },
+    {
+      "name": "SSH Key Format",
+      "status": "PASS",
+      "message": "Key has valid format"
+    },
+    {
+      "name": "SSH Client",
+      "status": "PASS",
+      "message": "SSH client is available"
+    },
+    {
+      "name": "SSH Connection",
+      "status": "PASS",
+      "message": "SSH connection established successfully"
+    },
+    {
+      "name": "SSH Version",
+      "status": "PASS",
+      "message": "SSH version: Ubuntu-4ubuntu0.13,"
+    },
+    {
+      "name": "SSH Connection with Retry",
+      "status": "PASS",
+      "message": "Connection established with retry logic"
+    },
+    {
+      "name": "SSH Timeout Handling",
+      "status": "PASS",
+      "message": "Connection established within timeout"
+    },
+    {
+      "name": "SSH Key Authentication",
+      "status": "PASS",
+      "message": "Key-based authentication working"
+    },
+    {
+      "name": "SSH Remote Command",
+      "status": "PASS",
+      "message": "Remote command executed successfully"
+    },
+    {
+      "name": "SSH Connection Stability",
+      "status": "PASS",
+      "message": "All 3 connections successful"
+    }
+  ],
+  "total_tests": 12,
+  "passed": 12,
+  "failed": 0
+}

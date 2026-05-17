@@ -1,0 +1,12 @@
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "result": {
+    "denied_at": "2026-04-30T02:23:40Z",
+    "denied_by": "trust-test-user",
+    "deny_reason": "Security policy violation: test denial",
+    "message": "PII request denied. Agent task cancelled.",
+    "request_id": "pii_e12e881b8de6d3dc35bef45e",
+    "status": "denied"
+  }
+}

@@ -1,0 +1,37 @@
+Task 6 Evidence: Layer 3, Layer 4, and Cross-cutting Concerns sections appended to SKILLS_REVIEW.md
+Date: 2026-04-18
+
+SKILLS_REVIEW.md line count: 515 (291 original + 224 appended)
+Under 800 line limit: YES
+
+Section headers found at:
+  Line 291: ## Layer 3: OpenClaw TypeScript Skills
+  Line 409: ## Layer 4: Container Python Runtime Skills
+  Line 461: ## Cross-cutting Concerns
+
+Layer 3 subsections:
+  - Overview (summary table)
+  - Skill Inventory (52+6+2=60 SKILL.md files)
+  - TS Infrastructure Architecture (16 files)
+  - Skill Discovery Precedence (7 levels)
+  - Parser Comparison: Go vs TS (table)
+  - Frontmatter Validation Gap (T4)
+  - Security Scanning (LINE RULES, SOURCE RULES)
+  - Findings (S3, T4)
+  - Test Coverage Assessment (31 files, 4,093 lines)
+
+Layer 4 subsections:
+  - Overview (3 files, 560 lines)
+  - Runtime Skills Registry
+  - SSL Implementations (3 skills)
+  - Findings (S17, S18, T3)
+  - Test Coverage Assessment (0%)
+
+Cross-cutting Concerns subsections:
+  - Parser Inconsistency (S3 cross-reference)
+  - Mock vs Real Skill Coverage (all layers)
+  - Test Coverage Summary (master table)
+  - Previous Review Delta (1 resolved, 11 carried)
+
+Finding IDs referenced: S3, S17, S18, T3, T4
+Severity emojis used: 🔴 🟡 ❌ ✅ ⚠️

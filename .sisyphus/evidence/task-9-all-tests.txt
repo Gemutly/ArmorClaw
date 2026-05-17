@@ -1,0 +1,37 @@
+=== Matrix Adapter Tests ===
+=== RUN   TestProcessSyncResult
+=== RUN   TestProcessSyncResult/nil_error_resets_backoff
+=== RUN   TestProcessSyncResult/generic_error_first_failure_continues
+=== RUN   TestProcessSyncResult/third_failure_triggers_relogin
+=== RUN   TestProcessSyncResult/ErrTokenInvalidated_triggers_immediate_relogin
+=== RUN   TestProcessSyncResult/success_after_failures_resets_everything
+=== RUN   TestProcessSyncResult/backoff_caps_at_syncMaxBackoff
+--- PASS: TestProcessSyncResult (0.00s)
+    --- PASS: TestProcessSyncResult/nil_error_resets_backoff (0.00s)
+    --- PASS: TestProcessSyncResult/generic_error_first_failure_continues (0.00s)
+    --- PASS: TestProcessSyncResult/third_failure_triggers_relogin (0.00s)
+    --- PASS: TestProcessSyncResult/ErrTokenInvalidated_triggers_immediate_relogin (0.00s)
+    --- PASS: TestProcessSyncResult/success_after_failures_resets_everything (0.00s)
+    --- PASS: TestProcessSyncResult/backoff_caps_at_syncMaxBackoff (0.00s)
+=== RUN   TestExtractHTTPStatus
+=== RUN   TestExtractHTTPStatus/nil_error_returns_0
+=== RUN   TestExtractHTTPStatus/plain_error_returns_0
+=== RUN   TestExtractHTTPStatus/TracedError_with_status_502
+=== RUN   TestExtractHTTPStatus/TracedError_with_status_429
+=== RUN   TestExtractHTTPStatus/TracedError_with_nil_Inputs_returns_0
+--- PASS: TestExtractHTTPStatus (0.00s)
+    --- PASS: TestExtractHTTPStatus/nil_error_returns_0 (0.00s)
+    --- PASS: TestExtractHTTPStatus/plain_error_returns_0 (0.00s)
+    --- PASS: TestExtractHTTPStatus/TracedError_with_status_502 (0.00s)
+    --- PASS: TestExtractHTTPStatus/TracedError_with_status_429 (0.00s)
+    --- PASS: TestExtractHTTPStatus/TracedError_with_nil_Inputs_returns_0 (0.00s)
+=== RUN   TestGetStatus
+--- PASS: TestGetStatus (0.00s)
+PASS
+ok  	github.com/armorclaw/bridge/internal/adapter	(cached)
+
+=== Systemd Tests ===
+=== RUN   TestNotifyWithoutSystemd
+--- PASS: TestNotifyWithoutSystemd (0.00s)
+PASS
+ok  	github.com/armorclaw/bridge/pkg/systemd	(cached)

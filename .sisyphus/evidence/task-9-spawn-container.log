@@ -1,0 +1,31 @@
+Task 9 - ToolSidecar Provisioner
+Scenario: Spawn ToolSidecar container on demand
+
+Test: TestSpawnToolSidecar
+Status: PASS
+Description: Verifies that a ToolSidecar container can be spawned with correct security constraints
+
+Expected Behavior:
+- Container created with network_mode: "none" (isolated)
+- Container created with readonly_rootfs: true (no persistent storage)
+- Container created with cap_drop: ["ALL"]
+- Container created with security_opt: ["no-new-privileges:true"]
+- Container created with tmpfs mount at /tmp/secrets
+- Container created with memory limit: 256MB
+- Container created with pids_limit: 100
+- Skill package mounted as read-only volume at /opt/skills
+
+Verification:
+✓ TestSpawnToolSidecar creates container
+✓ Security constraints verified in mock create function
+✓ Container tracked in active ToolSidecars list
+✓ ToolSidecar has correct metadata (skill_name, session_id, status)
+
+Implementation Details:
+- Uses Docker SDK for Go to manage container lifecycle
+- Configures host config with all security constraints
+- Applies resource limits via ResourceGovernor
+- Tracks active containers in memory map
+- Supports skill package loading with checksum validation
+
+Result: PASSED - Container spawning works correctly with all security constraints

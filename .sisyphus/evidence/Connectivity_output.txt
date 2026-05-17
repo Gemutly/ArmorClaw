@@ -1,0 +1,38 @@
+=========================================
+SSH Connectivity Tests
+=========================================
+VPS IP: 5.183.11.149
+VPS User: root
+SSH Key: /home/mink/.ssh/openclaw_win
+=========================================
+Test 1: SSH key file exists and readable... [0;32m[PASS][0m SSH Key Validation: Key file exists and is readable
+Test 2: SSH key has correct permissions (0600 or 0400)... [0;32m[PASS][0m SSH Key Permissions: Key has correct permissions (600)
+Test 3: SSH key is not empty... [0;32m[PASS][0m SSH Key Content: Key file is not empty
+Test 4: SSH key format is valid... [0;32m[PASS][0m SSH Key Format: Key has valid format
+Test 5: SSH client is available... [0;32m[PASS][0m SSH Client: SSH client is available
+Test 6: SSH can establish connection (10s timeout)... SSH connection successful
+[0;32m[PASS][0m SSH Connection: SSH connection established successfully
+Test 7: SSH version check... [0;32m[PASS][0m SSH Version: SSH version: Ubuntu-4ubuntu0.13,
+Test 8: SSH connection with retry logic (3 retries, exponential backoff)... SSH connection successful
+[0;32m[PASS][0m SSH Connection with Retry: Connection established with retry logic
+Test 9: SSH connection timeout handling (5s timeout)... [0;32m[PASS][0m SSH Timeout Handling: Connection established within timeout
+Test 10: SSH key authentication only (BatchMode)... Key auth successful
+[0;32m[PASS][0m SSH Key Authentication: Key-based authentication working
+Test 11: SSH remote command execution (uptime)... [0;32m[PASS][0m SSH Remote Command: Remote command executed successfully
+Test 12: SSH connection stability (3 quick connections)... [0;32m[PASS][0m SSH Connection Stability: All 3 connections successful
+
+[0;36mCollecting network diagnostics...[0m
+[0;36mNetwork diagnostics saved to /home/mink/src/armorclaw-omo/.sisyphus/evidence/task-2-network-diagnostics.txt[0m
+
+=========================================
+Test Summary
+=========================================
+Total Tests: 12
+[0;32mPassed: 12[0m
+[0;31mFailed: 0[0m
+[0;36mJSON results saved to /home/mink/src/armorclaw-omo/.sisyphus/evidence/task-2-connectivity-results.json[0m
+[0;36mConsole output saved to /home/mink/src/armorclaw-omo/.sisyphus/evidence/task-2-connectivity-success.txt[0m
+
+=========================================
+Connectivity Tests Complete
+=========================================

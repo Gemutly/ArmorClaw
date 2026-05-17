@@ -633,7 +633,7 @@ Max Concurrent: 3 (Wave 2)
   - Files: `bridge/pkg/rpc/browser.go`, `bridge/pkg/rpc/server.go`
   - Pre-commit: `cd bridge && go test ./pkg/rpc/... -count=1`
 
-- [ ] 6. Extend Browser Smoke Coverage to All 14 Methods
+- [x] 6. Extend Browser Smoke Coverage to All 14 Methods
 
   **What to do**:
   - Extend `tests/test-browser-smoke.sh` to cover all 14 browser RPC methods:
@@ -705,7 +705,7 @@ Max Concurrent: 3 (Wave 2)
   - Files: `tests/test-browser-smoke.sh`
   - Pre-commit: `bash -n tests/test-browser-smoke.sh`
 
-- [ ] 7-V. Verify Matrix Client is Operational (ALREADY DONE — Confirm Only)
+- [x] 7-V. Verify Matrix Client is Operational (ALREADY DONE — Confirm Only)
 
   **What to do**:
   - Confirm the Matrix client code is complete and functional:
@@ -767,7 +767,7 @@ Max Concurrent: 3 (Wave 2)
 
   **Commit**: NO — Verify only
 
-- [ ] 8. Revalidate Email Outbox Lifecycle After Auth Enforcement
+- [x] 8. Revalidate Email Outbox Lifecycle After Auth Enforcement
 
   **What to do**:
   - After T1 (auth wiring) is complete, revalidate the email queue/outbox lifecycle:
@@ -850,7 +850,7 @@ Max Concurrent: 3 (Wave 2)
   - Message: `test(email): revalidate outbox lifecycle after auth enforcement` or `fix(email): update email handlers for auth compatibility`
   - Files: `tests/test-email-pipeline.sh` (if harness needs token updates)
 
-- [ ] 9-V. Verify Healthchecks are Comprehensive (ALREADY DONE — Confirm Only)
+- [x] 9-V. Verify Healthchecks are Comprehensive (ALREADY DONE — Confirm Only)
 
   **What to do**:
   - Confirm healthchecks are comprehensive across all compose files:
@@ -909,7 +909,7 @@ Max Concurrent: 3 (Wave 2)
 
   **Commit**: NO — Verify only
 
-- [ ] 10. AppArmor Risk Acceptance with Compensating Controls
+- [x] 10. AppArmor Risk Acceptance with Compensating Controls
 
   **What to do**:
   - Create a risk acceptance document at `.sisyphus/evidence/task-10-apparmor-risk.md` stating:

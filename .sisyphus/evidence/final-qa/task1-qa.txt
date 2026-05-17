@@ -1,0 +1,17 @@
+=== TASK 1 QA: discovery mode in test-governance-rpc.sh ===
+Date: 2026-04-25
+
+--- Scenario 1.1: grep -A1 '[discovery]' → should show enabled = false ---
+RESULT: PASS
+Output:
+  [discovery]
+  enabled = false
+
+--- Scenario 1.2: git diff exactly 2 lines added ---
+RESULT: FAIL (3 lines added, not 2)
+Output: The diff adds a blank line + [discovery] + enabled = false (3 lines total)
+  +
+  +[discovery]
+  +enabled = false
+
+Task 1 Score: 1/2 pass

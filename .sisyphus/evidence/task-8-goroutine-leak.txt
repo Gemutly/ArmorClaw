@@ -1,0 +1,47 @@
+Task 8: Clean Up EventBus sendToSubscriber Dead Goroutine
+=========================================================
+
+VERIFICATION DATE: 2026-04-18
+STATUS: ALREADY FIXED (Task 5 fix confirmed complete)
+
+FINDINGS
+--------
+
+1. `_ = data` DISCARD - REMOVED
+   - grep "_ = data" bridge/pkg/eventbus/eventbus.go returns EMPTY
+   - Replaced with proper broadcast: b.websocketServer.Broadcast(data) (line 443)
+
+2. sendToSubscriber DATA FLOW - CORRECT
+   - Lines 442-448: Checks b.websocketServer != nil before broadcasting
+   - Marshals event to JSON, sends via WebSocket adapter
+   - Logs security event on broadcast failure
+   - No data is discarded
+
+3. GOROUTINE LEAK - NO ISSUE
+   - sendToSubscriber (line 388) is ONLY called from handleWebSocketMessage
+   - handleWebSocketMessage is ONLY wired as MessageHandler when WebSocketEnabled=true (line 126)
+   - When WebSocketEnabled=false: no WebSocket server created (lines 120-133), so no connections,
+     no message handler calls, no sendToSubscriber goroutines spawned
+   - The goroutine exits cleanly on sub.ctx.Done() or b.ctx.Done()
+
+4. TESTS - ALL PASS
+   - go test ./pkg/eventbus/... -count=1 → PASS (0.007s)
+   - All subtests pass: error constructors, registry, chaining, timestamps
+
+CODE ANALYSIS
+-------------
+
+sendToSubscriber (lines 412-458):
+  - Properly exits on context cancellation (sub.ctx.Done, b.ctx.Done)
+  - Properly exits on channel close (!ok check)
+  - Marshals event data to JSON
+  - Only broadcasts when websocketServer != nil
+  - Handles errors via security logging
+  - Updates LastActivity timestamp
+
+Spawn path (line 388):
+  - Only in handleWebSocketMessage, on "subscribe" action
+  - Only reachable via WebSocket connection
+  - WebSocket server only exists when WebSocketEnabled=true
+
+CONCLUSION: No changes needed. Task 5 fix is complete and correct.

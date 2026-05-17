@@ -1,0 +1,3 @@
+bridge/pkg/voice/stt_service.go:1
+bridge/pkg/voice/tts_service.go:1
+bridge/pkg/voice/vad_service.go:1

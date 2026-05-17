@@ -1,0 +1,7 @@
+=== E5: No-Subscriber Behavior ===
+RPC response: {
+  "jsonrpc": "2.0",
+  "id": 99,
+  "result": []
+}
+Bridge status after: active

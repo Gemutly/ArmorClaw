@@ -1,0 +1,21 @@
+{
+  "classification": "unknown",
+  "recommendation": "fresh-install",
+  "detected": {
+    "systemd_bridge": true,
+    "docker_conduit": true,
+    "docker_quickstart": true,
+    "has_env": false,
+    "docker_compose": true,
+    "conduit_image": "matrixconduit/matrix-conduit:latest",
+    "quickstart_image": "",
+    "ports_occupied": {
+      "6167": true,
+      "8443": true,
+      "8080": false,
+      "8448": true,
+      "5000": false
+    }
+  },
+  "timestamp": "2026-05-14T00:42:10Z"
+}

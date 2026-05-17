@@ -1,0 +1,22 @@
+T0.4: HTTPS transport support for shared test libraries
+Date: 2026-05-15
+
+=== bash -n syntax validation ===
+transport.sh:   PASS
+load_env.sh:    PASS
+restart_bridge.sh: PASS
+
+=== transport.sh changes ===
+- Added BRIDGE_PORT, BRIDGE_HTTPS_URL, BRIDGE_HTTPS_MODE, BRIDGE_CURL_INSECURE exports
+- detect_transport(): step 5 tries HTTPS first (curl -ksSf), step 6 falls back to HTTP
+- When HTTPS succeeds: BRIDGE_HTTP_URL overridden to HTTPS URL, BRIDGE_CURL_INSECURE="-k"
+- rpc_call() and rpc_call_auth(): curl calls now include ${BRIDGE_CURL_INSECURE} flag
+- Function signatures unchanged: rpc_call, rpc_call_auth, detect_transport, require_bridge, optional_bridge
+
+=== load_env.sh changes ===
+- check_bridge_running(): tries curl -ksSf HTTPS first, falls back to HTTP
+
+=== restart_bridge.sh changes ===
+- _bridge_is_local(): tries HTTPS first, falls back to HTTP
+- Local health polling: tries HTTPS first, falls back to HTTP
+- Remote health polling (ssh_vps): tries HTTPS first, falls back to HTTP

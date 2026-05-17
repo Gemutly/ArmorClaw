@@ -1,0 +1,17 @@
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "result": {
+    "enabled": false,
+    "status": "not_configured",
+    "tls": {
+      "mode": "none",
+      "health": "ok",
+      "fingerprint_sha256": "d36b6d3cad22d23921badec8eb3206991e6f6779d336c4bfe269a379674bc3c3",
+      "trust_type": "self_signed",
+      "expires_at": 1809047777,
+      "san_includes_public_ip": true,
+      "cert_source": "shared_cert"
+    }
+  }
+}

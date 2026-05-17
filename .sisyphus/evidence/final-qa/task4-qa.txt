@@ -1,0 +1,13 @@
+=== TASK 4 QA: SetBroadcaster in bridge main.go ===
+Date: 2026-04-25
+
+--- Scenario 4.1: grep -n 'SetBroadcaster' → exactly 1 match, line > 2650 ---
+RESULT: PASS
+Output: 2668:eventBus.SetBroadcaster(httpsServer)
+Line 2668 > 2650 ✓, exactly 1 match ✓
+
+--- Scenario 4.2: grep -c 'WebSocketEnabled.*HTTP.Enabled' → ≥1 ---
+RESULT: PASS
+Count: 1
+
+Task 4 Score: 2/2 pass

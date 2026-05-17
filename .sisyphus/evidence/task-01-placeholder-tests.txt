@@ -1,0 +1,122 @@
+warning: unused import: `Placeholder`
+  --> src/blindfill/integration.rs:15:79
+   |
+15 | use crate::blindfill::placeholder::{parse_placeholders, replace_placeholders, Placeholder};
+   |                                                                               ^^^^^^^^^^^
+   |
+   = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: `rust-vault` (lib test) generated 1 warning (run `cargo fix --lib -p rust-vault --tests` to apply 1 suggestion)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.14s
+     Running unittests src/lib.rs (target/debug/deps/rust_vault-e51ff27e19ca0f67)
+
+running 33 tests
+test blindfill::cdp_interceptor::tests::test_enable_params_structure ... ok
+test blindfill::cdp_interceptor::tests::test_old_secret_format_rejected ... ok
+test blindfill::cdp_interceptor::tests::test_resolve_placeholders_nested_object ... FAILED
+test blindfill::cdp_interceptor::tests::test_resolve_placeholders_multiple_fields ... FAILED
+test blindfill::cdp_interceptor::tests::test_resolve_placeholders_simple_string ... FAILED
+test blindfill::placeholder::tests::test_error_empty_field ... ok
+test blindfill::placeholder::tests::test_error_hash_invalid_chars ... ok
+test blindfill::placeholder::tests::test_error_empty_hash ... ok
+test blindfill::placeholder::tests::test_error_conditional ... ok
+test blindfill::placeholder::tests::test_error_hash_uppercase ... ok
+test blindfill::placeholder::tests::test_error_loop ... ok
+test blindfill::placeholder::tests::test_error_missing_hash ... FAILED
+test blindfill::placeholder::tests::test_error_missing_vault_prefix ... ok
+test blindfill::placeholder::tests::test_error_nested_placeholder ... FAILED
+test blindfill::placeholder::tests::test_parse_multiple_placeholders ... FAILED
+test blindfill::placeholder::tests::test_parse_no_placeholders ... ok
+test blindfill::placeholder::tests::test_error_secret_prefix_rejected ... ok
+test blindfill::placeholder::tests::test_parse_valid_placeholder ... FAILED
+test blindfill::placeholder::tests::test_placeholder_to_string ... ok
+test blindfill::placeholder::tests::test_replace_missing_secret ... FAILED
+test blindfill::placeholder::tests::test_replace_placeholders ... FAILED
+test db::vault::tests::test_zeroizing_string_drops_zeroized ... ok
+test grpc::middleware::auth::tests::test_extract_cert_info_with_metadata ... ok
+test grpc::middleware::auth::tests::test_mtls_interceptor_creation ... ok
+test grpc::middleware::auth::tests::test_validate_expired_cert ... ok
+test grpc::middleware::auth::tests::test_validate_unallowed_cn ... ok
+test grpc::middleware::auth::tests::test_extract_cert_info_missing_cn ... ok
+test grpc::middleware::auth::tests::test_validate_future_cert ... ok
+test grpc::middleware::auth::tests::test_validate_allowed_cn ... ok
+test blindfill::integration::tests::test_old_secret_format_rejected ... ok
+test blindfill::integration::tests::test_process_request_no_placeholders ... ok
+test blindfill::integration::tests::test_extract_placeholders_for_agent_context ... FAILED
+test blindfill::integration::tests::test_process_request_with_placeholders ... FAILED
+
+failures:
+
+---- blindfill::cdp_interceptor::tests::test_resolve_placeholders_nested_object stdout ----
+
+thread 'blindfill::cdp_interceptor::tests::test_resolve_placeholders_nested_object' (8503) panicked at src/blindfill/cdp_interceptor.rs:151:9:
+assertion failed: result.is_ok()
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+---- blindfill::cdp_interceptor::tests::test_resolve_placeholders_multiple_fields stdout ----
+
+thread 'blindfill::cdp_interceptor::tests::test_resolve_placeholders_multiple_fields' (8502) panicked at src/blindfill/cdp_interceptor.rs:168:9:
+assertion failed: result.is_ok()
+
+---- blindfill::cdp_interceptor::tests::test_resolve_placeholders_simple_string stdout ----
+
+thread 'blindfill::cdp_interceptor::tests::test_resolve_placeholders_simple_string' (8504) panicked at src/blindfill/cdp_interceptor.rs:131:9:
+assertion failed: result.is_ok()
+
+---- blindfill::placeholder::tests::test_error_missing_hash stdout ----
+
+thread 'blindfill::placeholder::tests::test_error_missing_hash' (8515) panicked at src/blindfill/placeholder.rs:364:17:
+assertion failed: msg.contains("must be in format {{VAULT:field:hash}}")
+
+---- blindfill::placeholder::tests::test_error_nested_placeholder stdout ----
+
+thread 'blindfill::placeholder::tests::test_error_nested_placeholder' (8517) panicked at src/blindfill/placeholder.rs:423:18:
+Expected NestedPlaceholder error
+
+---- blindfill::placeholder::tests::test_parse_multiple_placeholders stdout ----
+
+thread 'blindfill::placeholder::tests::test_parse_multiple_placeholders' (8519) panicked at src/blindfill/placeholder.rs:314:9:
+assertion failed: result.is_ok()
+
+---- blindfill::placeholder::tests::test_parse_valid_placeholder stdout ----
+
+thread 'blindfill::placeholder::tests::test_parse_valid_placeholder' (8521) panicked at src/blindfill/placeholder.rs:304:9:
+assertion failed: result.is_ok()
+
+---- blindfill::placeholder::tests::test_replace_missing_secret stdout ----
+
+thread 'blindfill::placeholder::tests::test_replace_missing_secret' (8523) panicked at src/blindfill/placeholder.rs:465:54:
+called `Result::unwrap()` on an `Err` value: InvalidHash("hash must be lowercase hexadecimal, found: a1b2c3")
+
+---- blindfill::placeholder::tests::test_replace_placeholders stdout ----
+
+thread 'blindfill::placeholder::tests::test_replace_placeholders' (8524) panicked at src/blindfill/placeholder.rs:454:54:
+called `Result::unwrap()` on an `Err` value: InvalidHash("hash must be lowercase hexadecimal, found: a1b2c3")
+
+---- blindfill::integration::tests::test_extract_placeholders_for_agent_context stdout ----
+
+thread 'blindfill::integration::tests::test_extract_placeholders_for_agent_context' (8505) panicked at src/blindfill/integration.rs:176:66:
+called `Result::unwrap()` on an `Err` value: InvalidPlaceholderFormat("hash must be lowercase hexadecimal, found: a1b2c3")
+
+---- blindfill::integration::tests::test_process_request_with_placeholders stdout ----
+
+thread 'blindfill::integration::tests::test_process_request_with_placeholders' (8508) panicked at src/blindfill/integration.rs:127:61:
+called `Result::unwrap()` on an `Err` value: InvalidPlaceholderFormat("hash must be lowercase hexadecimal, found: a1b2c3")
+
+
+failures:
+    blindfill::cdp_interceptor::tests::test_resolve_placeholders_multiple_fields
+    blindfill::cdp_interceptor::tests::test_resolve_placeholders_nested_object
+    blindfill::cdp_interceptor::tests::test_resolve_placeholders_simple_string
+    blindfill::integration::tests::test_extract_placeholders_for_agent_context
+    blindfill::integration::tests::test_process_request_with_placeholders
+    blindfill::placeholder::tests::test_error_missing_hash
+    blindfill::placeholder::tests::test_error_nested_placeholder
+    blindfill::placeholder::tests::test_parse_multiple_placeholders
+    blindfill::placeholder::tests::test_parse_valid_placeholder
+    blindfill::placeholder::tests::test_replace_missing_secret
+    blindfill::placeholder::tests::test_replace_placeholders
+
+test result: FAILED. 22 passed; 11 failed; 0 ignored; 0 measured; 0 filtered out; finished in 9.66s
+
+error: test failed, to rerun pass `--lib`

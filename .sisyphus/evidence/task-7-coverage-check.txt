@@ -1,0 +1,67 @@
+=== Bridge Go Skills Test Coverage Check ===
+Date: 2026-04-17
+
+## Source Files (15 files, 6372 lines)
+
+   143 bridge/internal/skills/allowlist.go
+   589 bridge/internal/skills/calendar.go
+   958 bridge/internal/skills/data_analyze.go
+   480 bridge/internal/skills/email_send.go
+   579 bridge/internal/skills/executor.go
+   420 bridge/internal/skills/file_read.go
+   174 bridge/internal/skills/policy.go
+   546 bridge/internal/skills/registry.go
+   168 bridge/internal/skills/router.go
+   224 bridge/internal/skills/schema.go
+   582 bridge/internal/skills/slack_message.go
+   203 bridge/internal/skills/ssrf.go
+   469 bridge/internal/skills/webdav.go
+   506 bridge/internal/skills/web_extract.go
+   331 bridge/internal/skills/web_search.go
+  6372 total
+
+## Existing Test Files
+
+NONE FOUND — zero test files in bridge/internal/skills/
+
+## Adjacent Package Tests (bridge/pkg/skills/) — Style Reference
+
+  234 bridge/pkg/skills/extractor_test.go
+  458 bridge/pkg/skills/learned_store_test.go
+  692 total
+
+## Findings Coverage in Test Plan
+
+S1  (CRITICAL) containsDangerousChars false positives  → executor_test.go
+S2  (CRITICAL) Allow-by-default policy                 → executor_test.go
+S3  (CRITICAL) Hand-rolled YAML parser                 → registry_test.go
+S6  (HIGH)     No IPv6 private range blocking           → ssrf_test.go
+S7  (HIGH)     extractHost doesn't strip userinfo       → ssrf_test.go
+S8  (HIGH)     Missing policy for email.send            → policy_test.go
+S9  (HIGH)     WebDAV no timeout                        → webdav_test.go
+S10 (HIGH)     WebDAV Basic Auth over non-TLS            → webdav_test.go
+S11 (MEDIUM)   DNS rebinding TOCTOU                      → ssrf_test.go
+S12 (MEDIUM)   Zero timeout = immediate expiry           → executor_test.go
+S13 (MEDIUM)   Wrong context for timeout detection       → executor_test.go
+S14 (MEDIUM)   Env var name leaked in error               → slack_message_test.go
+S15 (MEDIUM)   Mock-password hardcoded                    → email_send_test.go
+S19 (LOW)      filterSensitiveFields misses variants      → executor_test.go
+S20 (LOW)      Symlink bypass in file_read               → file_read_test.go
+S21 (LOW)      No LimitReader in web_extract             → web_extract_test.go
+T1  (HIGH)     Zero tests for 6372 lines                 → All 15 test files
+T2  (HIGH)     Allowlist remove not wired in RPC          → allowlist_test.go
+T5  (MEDIUM)   Custom contains() vs strings.Contains     → executor_test.go
+F1  (HIGH)     No default SkillGate                       → executor_test.go
+F2  (HIGH)     Calendar overlap normalizes to midnight     → calendar_test.go
+F3  (HIGH)     extractParametersFromBody returns empty    → registry_test.go
+F4  (MEDIUM)   Router missing domains                     → router_test.go
+F5  (MEDIUM)   Schema only handles 4 skills               → schema_test.go
+F6  (MEDIUM)   file_read rejects absolute paths           → file_read_test.go
+F11 (LOW)      MaxConcurrent/RateLimit never enforced      → policy_test.go
+
+## Summary
+Findings covered: 25/25 (100%)
+Test files planned: 15
+Estimated test functions: ~95
+Estimated test cases: ~290
+Estimated test lines: ~4,800

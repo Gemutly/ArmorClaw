@@ -1,0 +1,86 @@
+=== RUN   TestIntegrationFullPipeline
+2026/03/25 20:57:05 INFO voice pipeline started
+2026/03/25 20:57:05 INFO vad detection completed latency=942.6µs speech_detected=true confidence=0.95 threshold=0.7 audio_size=4
+2026/03/25 20:57:05 INFO vad detection completed latency=358µs speech_detected=false confidence=0.95 threshold=0.7 audio_size=1
+2026/03/25 20:57:05 INFO transcription completed latency=620.7µs audio_duration=2.5s word_count=2 confidence=0.95
+2026/03/25 20:57:05 INFO transcription received text="Hello world"
+2026/03/25 20:57:05 INFO synthesis completed latency=786.7µs audio_duration=1.5s text_length=11 audio_size=28
+2026/03/25 20:57:05 INFO synthesis completed audio_size=28 duration=1.5s
+2026/03/25 20:57:06 INFO voice pipeline stopped
+--- PASS: TestIntegrationFullPipeline (0.57s)
+=== RUN   TestIntegrationSTTFailure
+2026/03/25 20:57:06 INFO voice pipeline started
+2026/03/25 20:57:06 INFO vad detection completed latency=555.1µs speech_detected=true confidence=0.95 threshold=0.7 audio_size=4
+2026/03/25 20:57:06 INFO vad detection completed latency=412.6µs speech_detected=false confidence=0.95 threshold=0.7 audio_size=1
+2026/03/25 20:57:09 WARN STT transcription failed error="whisper service returned status 500"
+2026/03/25 20:57:10 INFO voice pipeline stopped
+--- PASS: TestIntegrationSTTFailure (4.05s)
+=== RUN   TestIntegrationTTSFailure
+2026/03/25 20:57:10 INFO voice pipeline started
+2026/03/25 20:57:10 INFO vad detection completed latency=631.1µs speech_detected=true confidence=0.95 threshold=0.7 audio_size=4
+2026/03/25 20:57:10 INFO vad detection completed latency=391µs speech_detected=false confidence=0.95 threshold=0.7 audio_size=1
+2026/03/25 20:57:10 INFO transcription completed latency=662.7µs audio_duration=2.5s word_count=2 confidence=0.95
+2026/03/25 20:57:10 INFO transcription received text="Hello world"
+2026/03/25 20:57:13 WARN TTS synthesis failed error="piper service returned status 500"
+2026/03/25 20:57:14 INFO voice pipeline stopped
+--- PASS: TestIntegrationTTSFailure (4.05s)
+=== RUN   TestIntegrationVADFailure
+2026/03/25 20:57:14 INFO voice pipeline started
+2026/03/25 20:57:15 WARN VAD detection failed, assuming speech error="context canceled"
+2026/03/25 20:57:15 INFO voice pipeline stopped
+--- PASS: TestIntegrationVADFailure (0.50s)
+=== RUN   TestIntegrationHITLPause
+2026/03/25 20:57:15 INFO voice pipeline started
+2026/03/25 20:57:15 INFO vad detection completed latency=1.739ms speech_detected=true confidence=0.95 threshold=0.7 audio_size=4
+2026/03/25 20:57:15 INFO vad detection completed latency=1.0707ms speech_detected=false confidence=0.95 threshold=0.7 audio_size=1
+2026/03/25 20:57:15 INFO transcription completed latency=1.9655ms audio_duration=2.5s word_count=2 confidence=0.95
+2026/03/25 20:57:15 INFO transcription received text="transfer money"
+2026/03/25 20:57:15 INFO synthesis completed latency=2.0872ms audio_duration=1s text_length=14 audio_size=10
+2026/03/25 20:57:15 INFO synthesis completed audio_size=10 duration=1s
+2026/03/25 20:57:15 INFO voice pipeline paused
+2026/03/25 20:57:15 INFO voice pipeline resumed
+2026/03/25 20:57:15 INFO voice pipeline stopped
+--- PASS: TestIntegrationHITLPause (0.50s)
+=== RUN   TestIntegrationErrorRecovery
+2026/03/25 20:57:15 INFO voice pipeline started
+2026/03/25 20:57:18 INFO vad detection completed latency=3.099948512s speech_detected=false confidence=0.95 threshold=0.7 audio_size=4
+2026/03/25 20:57:21 INFO transcription completed latency=3.12201521s audio_duration=2.5s word_count=2 confidence=0.95
+2026/03/25 20:57:21 INFO transcription received text="Hello world"
+2026/03/25 20:57:22 INFO synthesis completed latency=1.046577603s audio_duration=1s text_length=11 audio_size=10
+2026/03/25 20:57:22 INFO synthesis completed audio_size=10 duration=1s
+2026/03/25 20:57:22 INFO vad detection completed latency=699.7µs speech_detected=false confidence=0.95 threshold=0.7 audio_size=1
+2026/03/25 20:57:22 INFO transcription completed latency=783.4µs audio_duration=2.5s word_count=2 confidence=0.95
+2026/03/25 20:57:22 INFO transcription received text="Hello world"
+2026/03/25 20:57:22 INFO synthesis completed latency=615.8µs audio_duration=1s text_length=11 audio_size=10
+2026/03/25 20:57:22 INFO synthesis completed audio_size=10 duration=1s
+2026/03/25 20:57:25 INFO voice pipeline stopped
+--- PASS: TestIntegrationErrorRecovery (10.10s)
+=== RUN   TestIntegrationFullPipelineWithHITL
+2026/03/25 20:57:25 INFO voice pipeline started
+2026/03/25 20:57:25 INFO vad detection completed latency=776.9µs speech_detected=true confidence=0.95 threshold=0.7 audio_size=4
+2026/03/25 20:57:25 INFO vad detection completed latency=365µs speech_detected=false confidence=0.95 threshold=0.7 audio_size=1
+2026/03/25 20:57:25 INFO transcription completed latency=371.1µs audio_duration=2.5s word_count=2 confidence=0.95
+2026/03/25 20:57:25 INFO transcription received text="transfer money"
+2026/03/25 20:57:25 INFO synthesis completed latency=1.3042ms audio_duration=2s text_length=14 audio_size=32
+2026/03/25 20:57:25 INFO synthesis completed audio_size=32 duration=2s
+    integration_test.go:870: Expected approval request to be notified
+2026/03/25 20:57:26 INFO voice pipeline stopped
+--- FAIL: TestIntegrationFullPipelineWithHITL (0.60s)
+panic: runtime error: invalid memory address or nil pointer dereference [recovered, repanicked]
+[signal SIGSEGV: segmentation violation code=0x1 addr=0x18 pc=0xb539de]
+
+goroutine 149 [running]:
+testing.tRunner.func1.2({0xd18d20, 0x14726d0})
+	/home/mink/go/go-1.26.1/src/testing/testing.go:1974 +0x232
+testing.tRunner.func1()
+	/home/mink/go/go-1.26.1/src/testing/testing.go:1977 +0x349
+panic({0xd18d20?, 0x14726d0?})
+	/home/mink/go/go-1.26.1/src/runtime/panic.go:860 +0x13a
+github.com/armorclaw/bridge/pkg/voice.TestIntegrationFullPipelineWithHITL(0xd25705146c8)
+	/home/mink/src/armorclaw-omo/bridge/pkg/voice/integration_test.go:874 +0x67e
+testing.tRunner(0xd25705146c8, 0xe1bda0)
+	/home/mink/go/go-1.26.1/src/testing/testing.go:2036 +0xea
+created by testing.(*T).Run in goroutine 1
+	/home/mink/go/go-1.26.1/src/testing/testing.go:2101 +0x4c5
+FAIL	github.com/armorclaw/bridge/pkg/voice	20.389s
+FAIL

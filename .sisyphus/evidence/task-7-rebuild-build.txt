@@ -1,0 +1,200 @@
+#0 building with "default" instance using docker driver
+
+#1 [internal] load build definition from Dockerfile.quickstart
+#1 transferring dockerfile: 9.14kB done
+#1 DONE 0.0s
+
+#2 [internal] load metadata for docker.io/library/golang:1.25-bookworm
+#2 DONE 0.1s
+
+#3 [internal] load metadata for docker.io/library/docker:cli
+#3 DONE 0.1s
+
+#4 [internal] load metadata for docker.io/library/debian:bookworm-slim
+#4 DONE 0.1s
+
+#5 [internal] load .dockerignore
+#5 transferring context: 3.65kB done
+#5 DONE 0.0s
+
+#6 [internal] load build context
+#6 DONE 0.0s
+
+#7 FROM docker.io/library/docker:cli@sha256:51e23845f5caff1e688a2fae003b0c69d635c9200ad544731db1593731df1d3a
+#7 resolve docker.io/library/docker:cli@sha256:51e23845f5caff1e688a2fae003b0c69d635c9200ad544731db1593731df1d3a 0.1s done
+#7 DONE 0.1s
+
+#8 [agent-builder 1/5] FROM docker.io/library/debian:bookworm-slim@sha256:67b30a61dc87758f0caf819646104f29ecbda97d920aaf5edc834128ac8493d3
+#8 resolve docker.io/library/debian:bookworm-slim@sha256:67b30a61dc87758f0caf819646104f29ecbda97d920aaf5edc834128ac8493d3
+#8 resolve docker.io/library/debian:bookworm-slim@sha256:67b30a61dc87758f0caf819646104f29ecbda97d920aaf5edc834128ac8493d3 0.1s done
+#8 DONE 0.1s
+
+#9 [bridge-builder  1/11] FROM docker.io/library/golang:1.25-bookworm@sha256:298734aec230b5f3e8cee450ce6d7eccc39f1797ba548ee90d57e9803030c6c3
+#9 resolve docker.io/library/golang:1.25-bookworm@sha256:298734aec230b5f3e8cee450ce6d7eccc39f1797ba548ee90d57e9803030c6c3 0.1s done
+#9 DONE 0.1s
+
+#6 [internal] load build context
+#6 transferring context: 811.63kB 0.5s done
+#6 DONE 0.6s
+
+#10 [stage-2 13/37] COPY --from=agent-builder /usr/bin/npx /usr/bin/npx
+#10 CACHED
+
+#11 [stage-2 25/37] COPY --from=bridge-builder /usr/local/go /usr/local/go
+#11 CACHED
+
+#12 [stage-2 20/37] COPY deploy/quickstart-entrypoint.sh /opt/armorclaw/
+#12 CACHED
+
+#13 [bridge-builder  4/11] COPY bridge/go.mod bridge/go.sum /src/bridge/
+#13 CACHED
+
+#14 [bridge-builder  7/11] COPY jetski/ /src/jetski/
+#14 CACHED
+
+#15 [stage-2 17/37] COPY deploy/health-check.sh /opt/armorclaw/
+#15 CACHED
+
+#16 [stage-2  9/37] COPY --from=agent-builder /opt/venv /opt/venv
+#16 CACHED
+
+#17 [stage-2 16/37] COPY deploy/container-setup.sh /opt/armorclaw/
+#17 CACHED
+
+#18 [bridge-builder  5/11] WORKDIR /src/bridge
+#18 CACHED
+
+#19 [bridge-builder  6/11] RUN go mod download
+#19 CACHED
+
+#20 [stage-2 11/37] COPY --from=agent-builder /usr/bin/node /usr/bin/node
+#20 CACHED
+
+#21 [stage-2 35/37] RUN cat > /opt/armorclaw/entrypoint-wrapper.sh << 'EOF'
+#21 CACHED
+
+#22 [stage-2  6/37] RUN chmod +x /opt/armorclaw/armorclaw-bridge  && ln -sf /opt/armorclaw/armorclaw-bridge /usr/local/bin/armorclaw-bridge
+#22 CACHED
+
+#23 [agent-builder 4/5] RUN python3 -m venv /opt/venv
+#23 CACHED
+
+#24 [bridge-builder  9/11] WORKDIR /src/bridge
+#24 CACHED
+
+#25 [stage-2 21/37] COPY deploy/rename-admin.sh /opt/armorclaw/
+#25 CACHED
+
+#26 [stage-2 24/37] COPY --from=bridge-builder /usr/local/go/bin/go /usr/local/bin/go
+#26 CACHED
+
+#27 [stage-2 29/37] COPY bridge/configs/yara_rules.yar /opt/armorclaw/configs/yara_rules.yar
+#27 CACHED
+
+#28 [stage-2 32/37] COPY docker-compose.matrix.yml /opt/armorclaw/
+#28 CACHED
+
+#29 [stage-2 15/37] COPY container/openclaw/ /opt/armorclaw/agent/openclaw/
+#29 CACHED
+
+#30 [stage-2  5/37] COPY --from=bridge-builder /out/armorclaw-bridge /opt/armorclaw/armorclaw-bridge
+#30 CACHED
+
+#31 [stage-2  8/37] RUN mkdir -p /opt/armorclaw              /etc/armorclaw              /var/lib/armorclaw              /var/lib/conduit              /run/armorclaw              /var/log/armorclaw      && chown -R armorclaw:armorclaw /opt/armorclaw /etc/armorclaw /var/lib/armorclaw /run/armorclaw /var/log/armorclaw
+#31 CACHED
+
+#32 [bridge-builder 10/11] RUN echo '' >> go.mod && echo 'replace github.com/armorclaw/jetski => ../jetski' >> go.mod && go mod tidy
+#32 CACHED
+
+#33 [stage-2 14/37] COPY container/opt/openclaw/* /opt/armorclaw/agent/
+#33 CACHED
+
+#34 [stage-2 28/37] COPY configs/ /opt/armorclaw/configs/
+#34 CACHED
+
+#35 [stage-2  2/37] COPY --from=docker:cli /usr/local/bin/docker /usr/local/bin/docker
+#35 CACHED
+
+#36 [bridge-builder  3/11] WORKDIR /src
+#36 CACHED
+
+#37 [stage-2 19/37] COPY deploy/view-setup-log.sh /opt/armorclaw/
+#37 CACHED
+
+#38 [agent-builder 3/5] RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - &&     apt-get install -y --no-install-recommends nodejs &&     rm -rf /var/lib/apt/lists/*
+#38 CACHED
+
+#39 [stage-2 27/37] RUN chmod +x /opt/armorclaw/generate-keystore-key.sh &&     chmod +x /opt/armorclaw/*.sh &&     ln -sf /opt/armorclaw/view-setup-log.sh /usr/local/bin/view-setup-log &&     ln -sf /opt/armorclaw/rename-admin.sh /usr/local/bin/rename-admin
+#39 CACHED
+
+#40 [stage-2 30/37] COPY docker-compose.yml /opt/armorclaw/
+#40 CACHED
+
+#41 [stage-2  4/37] RUN curl -fsSL "https://github.com/docker/compose/releases/download/v2.24.0/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose &&     chmod +x /usr/local/bin/docker-compose &&     mkdir -p /usr/lib/docker/cli-plugins &&     ln -sf /usr/local/bin/docker-compose /usr/lib/docker/cli-plugins/docker-compose
+#41 CACHED
+
+#42 [stage-2 33/37] COPY docker-compose.bridge.yml /opt/armorclaw/
+#42 CACHED
+
+#43 [bridge-builder  2/11] RUN echo "deb http://deb.debian.org/debian bookworm-backports main" > /etc/apt/sources.list.d/bookworm-backports.list &&     apt-get update && apt-get install -y --no-install-recommends     build-essential     pkg-config     libsqlcipher-dev     libolm-dev     libyara-dev/bookworm-backports     ca-certificates  && rm -rf /var/lib/apt/lists/*
+#43 CACHED
+
+#44 [stage-2 18/37] COPY deploy/create-matrix-admin.sh /opt/armorclaw/
+#44 CACHED
+
+#45 [stage-2 22/37] COPY deploy/bootstrap-admin.py /opt/armorclaw/bootstrap-admin.py
+#45 CACHED
+
+#46 [stage-2  3/37] RUN echo "deb http://deb.debian.org/debian bookworm-backports main" > /etc/apt/sources.list.d/bookworm-backports.list &&     apt-get update && apt-get install -y --no-install-recommends     bash     curl     jq     socat     python3     python3-venv     python3-pip     libsqlcipher0     libyara10/bookworm-backports     libolm3     ca-certificates     procps     openssl     gnupg     ncurses-base     ncurses-term     qrencode     && rm -rf /var/lib/apt/lists/*
+#46 CACHED
+
+#47 [stage-2 23/37] COPY deploy/setup-quick.sh /opt/armorclaw/quickstart.sh
+#47 CACHED
+
+#48 [agent-builder 2/5] RUN apt-get update && apt-get install -y --no-install-recommends     ca-certificates curl build-essential     python3 python3-pip python3-venv     && rm -rf /var/lib/apt/lists/*
+#48 CACHED
+
+#49 [bridge-builder 11/11] RUN ARCH=$(dpkg-architecture -qDEB_HOST_ARCH 2>/dev/null || echo 'amd64') &&     LIBDIR=$(dpkg-architecture -qDEB_HOST_MULTIARCH 2>/dev/null || echo 'x86_64-linux-gnu') &&     echo "Building bridge for $ARCH (lib: $LIBDIR)" &&     GOARCH=$ARCH CGO_LDFLAGS="-L/usr/lib/$LIBDIR -lsqlcipher -lyara" go build -trimpath -ldflags="-s -w" -o /out/armorclaw-bridge ./cmd/bridge &&     echo "Build complete for $ARCH"
+#49 CACHED
+
+#50 [stage-2 26/37] RUN cat > /opt/armorclaw/generate-keystore-key.sh << 'EOF'
+#50 CACHED
+
+#51 [bridge-builder  8/11] COPY bridge/ /src/bridge/
+#51 CACHED
+
+#52 [stage-2 34/37] COPY .env.template /opt/armorclaw/.env.template
+#52 CACHED
+
+#53 [stage-2  7/37] RUN groupadd -g 10001 armorclaw &&     useradd -u 10001 -g armorclaw -m -s /bin/bash armorclaw
+#53 CACHED
+
+#54 [stage-2 12/37] COPY --from=agent-builder /usr/bin/npm /usr/bin/npm
+#54 CACHED
+
+#55 [stage-2 31/37] COPY docker-compose-full.yml /opt/armorclaw/
+#55 CACHED
+
+#56 [stage-2 10/37] COPY --from=agent-builder /usr/lib/node_modules /usr/lib/node_modules
+#56 CACHED
+
+#57 [agent-builder 5/5] RUN pip install --no-cache-dir --upgrade pip &&     pip install --no-cache-dir aiohttp websockets python-dotenv toml requests
+#57 CACHED
+
+#58 [stage-2 36/37] RUN chmod +x /opt/armorclaw/entrypoint-wrapper.sh
+#58 CACHED
+
+#59 [stage-2 37/37] WORKDIR /opt/armorclaw
+#59 DONE 0.1s
+
+#60 exporting to image
+#60 exporting layers
+#60 exporting layers 0.2s done
+#60 exporting manifest sha256:f15944bb38590a19dc6e6b289b1e2be3a3845e6c748937e6efaa122a4a64e1e6 0.0s done
+#60 exporting config sha256:1d583311ee8bcd045bfc7c43809ead3dda77a034d5443affab3717a3514c82aa 0.0s done
+#60 exporting attestation manifest sha256:c142a13746f22b4ecac64f1ca694a287062c4e3d80390889d685a82273b973c7 0.1s done
+#60 exporting manifest list sha256:57fee9a39a11e4a16277e323e09398282671c7338b995336bc28a9c9c5bb649d
+#60 exporting manifest list sha256:57fee9a39a11e4a16277e323e09398282671c7338b995336bc28a9c9c5bb649d 0.0s done
+#60 naming to docker.io/mikegemut/armorclaw:latest done
+#60 unpacking to docker.io/mikegemut/armorclaw:latest 0.0s done
+#60 DONE 0.4s

@@ -1,0 +1,1 @@
+{"jsonrpc":"2.0","id":1,"result":{"id":"wf_1777547216102","template_id":"tpl_1777547215825","name":"harness-t3b-1777547213-1019709-wd1-pii-gate","description":"T3b PII-gated workflow template","status":"pending","variables":null,"agent_ids":[],"created_by":"rpc","room_id":"","started_at":-62135596800000}}

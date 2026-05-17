@@ -1,0 +1,18 @@
+TASK 7: AndroidManifest Intent Filters for Deep Link Routing
+DATE: 2026-04-18
+
+CHANGES MADE:
+1. Changed android:launchMode from "singleTask" to "singleTop" on MainActivity (line 50)
+2. Added intent-filter for armorclaw://room/ deep links (lines 76-82)
+3. Added intent-filter for armorclaw://email/approve/ deep links (lines 84-90)
+
+VERIFICATION:
+- singleTop: CONFIRMED (line 50: android:launchMode="singleTop")
+- armorclaw://room: CONFIRMED (line 81: android:scheme="armorclaw" android:host="room")
+- armorclaw://email/approve: CONFIRMED (line 89: android:scheme="armorclaw" android:host="email" android:pathPrefix="/approve")
+- Existing armorclaw://config filter: UNTOUCHED (line 63-64)
+- Existing https://armorclaw.app/config filter: UNTOUCHED (line 72-73)
+- Existing matrix: scheme filter: UNTOUCHED (line 98)
+
+NOTE: grep "armorclaw://room" returns no match because scheme and host are separate XML attributes.
+The URI pattern armorclaw://room is functionally correct via android:scheme="armorclaw" + android:host="room".

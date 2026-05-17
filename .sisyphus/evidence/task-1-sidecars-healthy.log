@@ -1,0 +1,74 @@
+# QA Scenario: Happy path — services start correctly
+
+## Status: PARTIAL (Docker Compose not available in environment)
+
+## Date: 2025-03-25
+
+## Environment Check
+- Docker: Available (but WSL integration not configured)
+- Docker Compose: NOT AVAILABLE in this WSL environment
+- Recommendation: Activate WSL integration in Docker Desktop settings
+
+## Steps Completed:
+1. ✓ Created docker-compose.voice.yml with three services:
+   - Whisper ASR (port 9001)
+   - Piper TTS (port 9002)
+   - Silero VAD (port 9003)
+
+2. ✓ YAML Syntax Validation: PASSED
+   - Used Python yaml.safe_load to validate syntax
+   - Output: "✓ YAML syntax is valid"
+
+3. ⚠ Docker Compose Tests: SKIPPED
+   - Reason: Docker Compose not available in WSL environment
+   - Error: "The command 'docker-compose' could not be found in this WSL 2 distro"
+   - Suggestion: Activate WSL integration in Docker Desktop settings
+
+## Expected Steps (When Docker Compose is available):
+1. cd /home/mink/src/armorclaw-omo/deploy/ai && docker compose -f docker-compose.voice.yml up -d
+2. Wait 10 seconds for all services to be healthy
+3. curl http://localhost:9001/health → expect 200 OK
+4. curl http://localhost:9002/health → expect 200 OK
+5. curl http://localhost:9003/health → expect 200 OK
+
+## Configuration Details:
+- Version: 3.8
+- Network: armorclaw-net (bridge)
+- Restart Policy: unless-stopped (all services)
+- Health Checks: nc-based (netcat) for all services
+
+### Whisper ASR Service:
+- Image: ahmetoner/whisper-asr-webservice:latest
+- Port: 9001:9000
+- Memory Limit: 2G
+- CPU Limit: 2.0
+- Health Check: nc -z localhost 9000
+- Start Period: 40s
+
+### Piper TTS Service:
+- Image: rhasspy/piper:latest
+- Port: 9002:5000
+- Memory Limit: 1G
+- CPU Limit: 1.0
+- Health Check: nc -z localhost 5000
+- Start Period: 20s
+
+### Silero VAD Service:
+- Image: pbz1vke/silero-vad-server:latest
+- Port: 9003:5001
+- Memory Limit: 512M
+- CPU Limit: 0.5
+- Health Check: nc -z localhost 5001
+- Start Period: 15s
+
+## Verification Status:
+- [x] File created: deploy/ai/docker-compose.voice.yml
+- [x] YAML syntax validated
+- [ ] Services can start (requires Docker Compose)
+- [ ] Health checks pass (requires Docker Compose)
+
+## Notes:
+- The compose file follows the pattern from docker-compose.ai.yml
+- All services use the same network (armorclaw-net)
+- Resource limits are configured for each service based on expected load
+- Health checks use netcat (nc) for portability

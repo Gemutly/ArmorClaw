@@ -1,0 +1,66 @@
+Task 2: DeepLinkHandler Implementation — Evidence
+=====================================================
+Date: 2026-04-18
+Environment: No Android SDK / Gradle / Kotlin LSP available — manual static verification only.
+
+FILES VERIFIED
+--------------
+
+1. Route.kt (ALREADY MODIFIED — pre-existing)
+   Path: applications/ArmorChat/app/src/main/java/app/armorclaw/navigation/Route.kt
+   Contains:
+     - data class Room(val roomId: String) : Route("room/$roomId")       [line 12]
+     - data class EmailApproval(val approvalId: String) : Route("email/approve/$approvalId")  [line 13]
+
+2. ArmorClawNavHost.kt (ALREADY MODIFIED — pre-existing)
+   Path: applications/ArmorChat/app/src/main/java/app/armorclaw/navigation/ArmorClawNavHost.kt
+   Contains:
+     - composable("room/{roomId}") with NavType.StringType argument  [lines 139-148]
+     - composable("email/approve/{approvalId}") with NavType.StringType argument  [lines 150-159]
+   Both use PlaceholderScreen with extracted arguments — follows existing pattern.
+
+3. DeepLinkHandler.kt (UPDATED — added explicit config guard)
+   Path: applications/ArmorChat/app/src/main/java/app/armorclaw/navigation/DeepLinkHandler.kt
+   handle(uri: Uri): Route? logic:
+     a. Returns null if uri.scheme != "armorclaw"
+     b. Returns null if uri.host == "config" (SignedConfigParser owns this)
+     c. "room" host → parses pathSegments[0] as roomId → Route.Room
+     d. "email" host → checks pathSegments[0] == "approve", pathSegments[1] as approvalId → Route.EmailApproval
+     e. All other hosts → null
+     f. Empty/blank segments → null (no crash)
+
+4. DeepLinkHandlerTest.kt (PRE-EXISTING — 10 test cases)
+   Path: applications/ArmorChat/app/src/test/java/app/armorclaw/navigation/DeepLinkHandlerTest.kt
+   Test coverage:
+     ✅ armorclaw://room/!abc123:matrix.example.com → Route.Room (roomId="!abc123:matrix.example.com")
+     ✅ armorclaw://room/my-room-id → Route.Room
+     ✅ armorclaw://room/ → null (empty roomId)
+     ✅ armorclaw://email/approve/appr-xyz-789 → Route.EmailApproval
+     ✅ armorclaw://email/something/appr-123 → null (wrong first segment)
+     ✅ armorclaw://email/approve/ → null (empty approvalId)
+     ✅ armorclaw://email → null (no segments)
+     ✅ armorclaw://config?d=eyJ2ZXJzaW9uIjoxfQ== → null (explicitly skipped)
+     ✅ https://armorclaw.example.com/room/abc → null (wrong scheme)
+     ✅ armorclaw://unknown/path → null (unknown host)
+     ✅ Uri.EMPTY → null
+
+VERIFICATION MATRIX (from task spec)
+------------------------------------
+✅ DeepLinkHandler parses armorclaw://room/!abc:server → Route.Room("!abc:server")
+✅ DeepLinkHandler parses armorclaw://email/approve/approval_123 → Route.EmailApproval("approval_123")
+✅ DeepLinkHandler returns null for armorclaw://config?d=...
+✅ armorclaw://room/ → null (empty roomId)
+✅ armorclaw://email/approve/ → null (empty approvalId)
+✅ https://example.com → null (wrong scheme)
+
+CHANGE SUMMARY
+--------------
+- DeepLinkHandler.kt: Added explicit `if (uri.host == "config") return null` guard
+  (previously relied on implicit `else -> null` fallthrough in when block)
+
+NOTE
+----
+Tests use android.net.Uri which requires Robolectric or Android instrumentation.
+No Robolectric dependency was found in build.gradle.kts — tests may need
+`testImplementation("org.robolectric:robolectric:4.11")` and @RunWith annotation
+to run as JVM unit tests. This is outside the scope of this task.

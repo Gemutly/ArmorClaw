@@ -1,0 +1,66 @@
+=========================================
+ VPS Lifecycle Report
+ 2026-05-14 00:55:06 UTC
+=========================================
+
+Topology:        unknown
+Deploy Mode:     fresh-install
+Verdict:         blocked
+
+─── Deploy Results ─────────────────────
+  Fresh Deploy:       not-run
+  Existing Install:   not-run
+  Matrix Bootstrap:   not-run
+
+─── Feature Groups ─────────────────────
+  ████░░░░ A-Matrix  [FAIL]
+              6/6 test(s) failed in A-Matrix
+  ░░░░░░░░ B-Studio  [SKIP]
+              All 1 test(s) skipped in B-Studio
+  ░░░░░░░░ C-Secretary  [SKIP]
+              All 1 test(s) skipped in C-Secretary
+  ░░░░░░░░ D-Trust  [SKIP]
+              All 1 test(s) skipped in D-Trust
+  ──────── E-Email  [NOT RUN]
+              No evidence found for E-Email
+  ──────── F-Sidecar  [NOT RUN]
+              No evidence found for F-Sidecar
+  ████░░░░ G-Browser  [FAIL]
+              3/3 test(s) failed in G-Browser
+  ████░░░░ H-Events  [FAIL]
+              2/2 test(s) failed in H-Events
+  ──────── I-Flags  [NOT RUN]
+              No evidence found for I-Flags
+
+─── Blockers ───────────────────────────
+  [HIGH] deploy: Deploy was not executed — no deployment attempted
+
+─── Evidence Index ─────────────────────
+  1. /home/mikmin/.LocalCode/armorclaw-omo/.sisyphus/evidence/armorclaw/group-a-agent-list.json
+  2. /home/mikmin/.LocalCode/armorclaw-omo/.sisyphus/evidence/armorclaw/group-a-help.json
+  3. /home/mikmin/.LocalCode/armorclaw-omo/.sisyphus/evidence/armorclaw/group-a-login.json
+  4. /home/mikmin/.LocalCode/armorclaw-omo/.sisyphus/evidence/armorclaw/group-a-secretary-status.json
+  5. /home/mikmin/.LocalCode/armorclaw-omo/.sisyphus/evidence/armorclaw/group-a-send-receive.json
+  6. /home/mikmin/.LocalCode/armorclaw-omo/.sisyphus/evidence/armorclaw/group-a-status.json
+  7. /home/mikmin/.LocalCode/armorclaw-omo/.sisyphus/evidence/armorclaw/group-a-agent-list.json
+  8. /home/mikmin/.LocalCode/armorclaw-omo/.sisyphus/evidence/armorclaw/group-b-summary.json
+  9. /home/mikmin/.LocalCode/armorclaw-omo/.sisyphus/evidence/armorclaw/group-b-summary.json
+  10. /home/mikmin/.LocalCode/armorclaw-omo/.sisyphus/evidence/armorclaw/group-c-summary.json
+  11. /home/mikmin/.LocalCode/armorclaw-omo/.sisyphus/evidence/armorclaw/group-c-summary.json
+  12. /home/mikmin/.LocalCode/armorclaw-omo/.sisyphus/evidence/armorclaw/group-d-summary.json
+  13. /home/mikmin/.LocalCode/armorclaw-omo/.sisyphus/evidence/armorclaw/group-d-summary.json
+  14. /home/mikmin/.LocalCode/armorclaw-omo/.sisyphus/evidence/armorclaw/group-g-browser-availability.json
+  15. /home/mikmin/.LocalCode/armorclaw-omo/.sisyphus/evidence/armorclaw/group-g-browser-navigate.json
+  16. /home/mikmin/.LocalCode/armorclaw-omo/.sisyphus/evidence/armorclaw/group-g-browser-status.json
+  17. /home/mikmin/.LocalCode/armorclaw-omo/.sisyphus/evidence/armorclaw/group-g-browser-availability.json
+  18. /home/mikmin/.LocalCode/armorclaw-omo/.sisyphus/evidence/armorclaw/group-h-event-capture.json
+  19. /home/mikmin/.LocalCode/armorclaw-omo/.sisyphus/evidence/armorclaw/group-h-event-emission.json
+  20. /home/mikmin/.LocalCode/armorclaw-omo/.sisyphus/evidence/armorclaw/group-h-event-capture.json
+  21. /home/mikmin/.LocalCode/armorclaw-omo/.sisyphus/evidence/armorclaw/admin-state.json
+  22. /home/mikmin/.LocalCode/armorclaw-omo/.sisyphus/evidence/armorclaw/topology.json
+  23. /home/mikmin/.LocalCode/armorclaw-omo/.sisyphus/evidence/armorclaw/validate-results.json
+
+=========================================
+ Verdict: blocked
+ Report:  /home/mikmin/.LocalCode/armorclaw-omo/.sisyphus/evidence/armorclaw/report.json
+=========================================

@@ -1,0 +1,51 @@
+=== Task 8: Email Queue Persistence ===
+Date: 2026-05-16
+
+## Outbox Store Details
+
+Database: SQLite (plain, not SQLCipher)
+Path: /var/lib/armorclaw/email-outbox.db
+Schema: email_outbox table with indexes on status, workflow_id, next_attempt_at
+
+## Schema (from bridge/pkg/email/outbox.go)
+
+```sql
+CREATE TABLE IF NOT EXISTS email_outbox (
+    id TEXT PRIMARY KEY,
+    workflow_id TEXT NOT NULL,
+    message_id TEXT,
+    status TEXT NOT NULL,
+    attempt_count INTEGER NOT NULL DEFAULT 0,
+    next_attempt_at INTEGER,
+    last_error_code TEXT,
+    recipient_hash TEXT NOT NULL,
+    subject_hash TEXT,
+    created_at INTEGER NOT NULL,
+    updated_at INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_outbox_status ON email_outbox(status);
+CREATE INDEX IF NOT EXISTS idx_outbox_workflow ON email_outbox(workflow_id);
+CREATE INDEX IF NOT EXISTS idx_outbox_next_attempt ON email_outbox(next_attempt_at) WHERE status = 'retry_wait'
+```
+
+## Store Status After Configuration
+
+Bridge log confirms: "Email outbox store initialized: /var/lib/armorclaw/email-outbox.db"
+
+Queue is empty (total: 0) as expected - no emails have been enqueued.
+The store persists across bridge restarts (SQLite file on disk).
+
+## RPC Methods Using the Store
+
+1. email.queue_status → GetQueueStats() - returns {by_status: {}, total: 0}
+2. email.list → ListByStatus() - returns {emails: null}  
+3. email.get → GetByID() - validates email_id, returns entry or "not found"
+4. email.retry → Retry() - resets attempt_count, sets status to 'queued'
+5. email_approval.go → Enqueue() - adds entries during approval flow
+
+## Graceful Degradation
+
+If outbox store init fails:
+- Bridge still starts (no fatal)
+- Warning logged: "email outbox store init failed (...), email RPCs will return 'not configured'"
+- All email RPCs return "email outbox store not configured" error (same as before fix)

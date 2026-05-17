@@ -1,0 +1,13 @@
+T2: Add External IP to Certificate SANs
+Date: 2026-04-29
+Status: PASS
+
+Changes:
+1. bridge/pkg/setup/ssl.go — Added PublicIP field to SSLConfig struct
+2. bridge/pkg/setup/ssl.go — Added PublicIP to IP SANs in GenerateSelfSignedCert()
+3. bridge/pkg/http/server.go — Added getConfiguredExternalIP() helper (checks ARMORCLAW_PUBLIC_IP env var, then hostname-as-IP)
+4. bridge/pkg/http/server.go — Updated generateSelfSignedCert() to include external IP in SANs
+5. bridge/pkg/setup/ssl_test.go — Added TestPublicIPInSAN and TestCertGenerationWithoutPublicIP
+
+Build: go build ./pkg/http/... ./pkg/setup/... — PASS
+Tests: go test ./pkg/setup/... — 11/11 PASS

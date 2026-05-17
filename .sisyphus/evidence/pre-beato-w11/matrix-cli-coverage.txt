@@ -1,0 +1,107 @@
+================================================================
+  W1.1: Matrix CLI Coverage — Evidence File
+  Date: 2026-05-15
+================================================================
+
+## 1. Bridge User Login
+  Command: POST /_matrix/client/v3/login
+  Status: 200 OK
+  Response:
+    {
+      "user_id": "@bridge:5.183.11.149",
+      "access_token": "***REDACTED***",
+      "home_server": "5.183.11.149",
+      "device_id": "7CHajPqIZU"
+    }
+  PASS: Login returns access_token
+
+----------------------------------------------------------------
+
+## 2. Matrix Sync Endpoint
+  Command: GET /_matrix/client/v3/sync?timeout=0
+  Status: 200 OK
+  Response contains:
+    - next_batch: "300"
+    - rooms.join: 3 rooms (Admin Room, 2x Governance rooms)
+    - All rooms have valid timeline events and state
+  PASS: Sync returns next_batch and room data
+
+----------------------------------------------------------------
+
+## 3. Bridge RPC — matrix.status
+  Command: POST /api (JSON-RPC) method="matrix.status"
+  Status: 200 OK
+  Response:
+    {
+      "jsonrpc": "2.0",
+      "id": 1,
+      "result": {
+        "enabled": true,
+        "connected": true,
+        "logged_in": true,
+        "homeserver": "http://localhost:6167",
+        "user_id": "@bridge:5.183.11.149"
+      }
+    }
+  PASS: matrix.status shows logged_in = true
+
+----------------------------------------------------------------
+
+## 4. Create Test Room
+  Command: POST /_matrix/client/v3/createRoom
+  Body: {"name":"w11-test-room","visibility":"private"}
+  Status: 200 OK
+  Response:
+    {
+      "room_id": "!cIaIqG1iks1VeTGvraNegbIwoG00kNnomTY4Wy8R4ks"
+    }
+  PASS: Room created successfully
+
+----------------------------------------------------------------
+
+## 5. Send Message to Room
+  Command: PUT /_matrix/client/v3/rooms/{room_id}/send/m.room.message/{txn_id}
+  Body: {"msgtype":"m.text","body":"Hello from ArmorClaw W11 test"}
+  Status: 200 OK
+  Response:
+    {
+      "event_id": "$SQ6XffgD7HS9UwORSaburau5kulJdQDMfVODcxhchF4"
+    }
+  PASS: Message sent successfully
+
+----------------------------------------------------------------
+
+## 6. Verify Message Received (via /messages)
+  Command: GET /_matrix/client/v3/rooms/{room_id}/messages?dir=b&limit=5
+  Status: 200 OK
+  Retrieved message:
+    EVENT_ID: $SQ6XffgD7HS9UwORSaburau5kulJdQDMfVODcxhchF4
+    BODY: Hello from ArmorClaw W11 test
+    SENDER: @bridge:5.183.11.149
+  PASS: Message retrieved successfully from room history
+
+----------------------------------------------------------------
+
+## Summary
+
+| Check                                   | Result |
+|-----------------------------------------|--------|
+| Bridge user login returns access_token  | PASS   |
+| Sync endpoint returns next_batch        | PASS   |
+| matrix.status shows logged_in           | PASS   |
+| Room creation works                     | PASS   |
+| Message sending works                   | PASS   |
+| Message receiving/retrieval works       | PASS   |
+
+ALL CHECKS PASSED — Matrix CLI Coverage complete.
+
+----------------------------------------------------------------
+
+## Notes
+- RPC method name is "matrix.status" (not "status" or "bridge.status")
+- Room IDs with '!' must be URL-encoded as %21 in curl paths
+- Bridge also responds to "bridge.status" for bridge-level info
+- 3 pre-existing rooms visible in sync: Admin Room + 2 Governance rooms
+- Message retrieval confirmed via /messages endpoint (sync was using cached batch)
+
+================================================================

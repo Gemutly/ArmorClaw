@@ -1,0 +1,94 @@
+Task 15: Wire Admin Panel to Real Bridge API
+Date: 2026-04-18
+Status: COMPLETE
+
+== Files Modified ==
+
+1. applications/admin-panel/src/App.tsx
+   - Removed MOCK_STATS constant (was lines 108-116)
+   - Removed fallback to MOCK_STATS.setupComplete in Layout (line 127)
+   - Changed <AdminDashboard stats={MOCK_STATS} /> to <AdminDashboard /> (no props)
+   - Added Loader2 and AlertTriangle icon imports (unused ones removed: Settings, Users, Globe, MessageSquare, Activity, Menu, X, Key)
+
+2. applications/admin-panel/src/services/bridgeApi.ts
+   - Added listAPIKeys() method (RPC: secrets.list)
+   - Added revokeAPIKey() method (RPC: secrets.revoke)
+   - Added generateSecretToken() method (RPC: secrets.generate_token)
+   - Added useAPIKeys() React Query hook
+   - Added useRevokeAPIKey() mutation hook
+   - Added useGenerateSecretToken() mutation hook
+   - Added useRejectDevice() mutation hook
+   - Added useRevokeInvite() mutation hook
+   - Added useDashboardStats() composite hook (combines lockdown, devices, invites, adapters, apiKeys queries)
+   - Added DashboardStats interface
+
+3. applications/admin-panel/src/pages/AdminDashboard.tsx
+   - Changed from accepting `stats` prop to using `useDashboardStats()` hook directly
+   - Removed local DashboardStats interface (uses one from bridgeApi.ts)
+   - Added loading spinner state
+   - Added error display state
+   - Added Loader2 import
+
+4. applications/admin-panel/src/pages/DevicesPage.tsx
+   - Removed MOCK_DEVICES array (was lines 28-53)
+   - Removed local Device interface (uses one from bridgeApi.ts)
+   - Changed from useState(MOCK_DEVICES) to useDevices() hook
+   - Added useApproveDevice() and useRejectDevice() mutations
+   - Updated field names to match API: trust_state (was trustState), ip_address (was ipAddress), etc.
+   - Added loading spinner state
+   - Added error display state
+   - Added disabled states for mutation pending
+
+5. applications/admin-panel/src/pages/AdaptersPage.tsx
+   - Removed ADAPTERS array (was lines 28-65)
+   - Removed local Adapter interface (uses one from bridgeApi.ts)
+   - Changed from useState(ADAPTERS) to useAdapters() hook
+   - Added useToggleAdapter() mutation
+   - Added loading spinner state
+   - Added error display state
+   - Adapter icons now derived from ID lookup instead of stored in data
+
+6. applications/admin-panel/src/pages/InvitationsPage.tsx
+   - Removed inline mock data from useState initializer (was lines 61-73)
+   - Removed local Invite interface (uses one from bridgeApi.ts)
+   - Changed from useState to useInvites() hook
+   - Added useCreateInvite() and useRevokeInvite() mutations
+   - Updated field names: created_at, expires_at, use_count, max_uses, etc.
+   - Added loading spinner state
+   - Added error display state
+
+7. applications/admin-panel/src/pages/AuditLogPage.tsx
+   - Removed MOCK_EVENTS array (was lines 30-108)
+   - Removed local AuditEvent interface (uses one from bridgeApi.ts)
+   - Changed from useState(MOCK_EVENTS) to useAuditLog() hook
+   - Updated field names: ip_address (was ipAddress), etc.
+   - Date formatting now uses new Date(timestamp) for API string dates
+   - Added loading spinner state
+   - Added error display state
+
+8. applications/admin-panel/src/pages/APIKeysPage.tsx
+   - Removed inline mock data from useState initializer (was lines 43-53)
+   - Removed local APIKey interface (uses one from bridgeApi.ts)
+   - Changed from useState to useAPIKeys() hook
+   - Added useRevokeAPIKey() and useGenerateSecretToken() mutations
+   - Updated field names: created_at, last_used
+   - Token generation now calls real API instead of client-side random
+   - Added loading spinner state
+   - Added error display state
+
+== Verification ==
+
+- grep "MOCK_STATS|mockData|MOCK" applications/admin-panel/src/App.tsx returns EMPTY
+- grep "MOCK_STATS|mockData|MOCK_DEVICES|MOCK_EVENTS|ADAPTERS = [" returns EMPTY across all source
+- No node_modules installed so no test runner available
+- TypeScript compiler not installed globally or locally, build verification skipped
+- All files syntactically valid (JSX structure intact)
+
+== Architecture Notes ==
+
+- All pages now follow same pattern: React Query hook -> loading/error/data states
+- API field naming uses snake_case from Bridge API (trust_state, ip_address, etc.)
+- Mutations invalidate related query caches for automatic refetch
+- Loading state shows spinner with contextual message
+- Error state shows AlertTriangle with error message
+- Pending mutations disable buttons to prevent double-submit

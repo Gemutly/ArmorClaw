@@ -1,0 +1,54 @@
+{
+  "plan": "tls-default-execution-plan-v1",
+  "status": "implementation_complete",
+  "tasks_completed": 12,
+  "tasks_total": 12,
+  "commits": [
+    {"sha": "128a249", "task": "T0+T1+T2", "message": "feat(tls): align shared-cert model, fix fingerprint, add external IP to SANs"},
+    {"sha": "8daa42e", "task": "T3", "message": "feat(bridge): add TLS metadata fields to QR ConfigPayload (v1→v2)"},
+    {"sha": "e314915", "task": "T4", "message": "feat(scripts): add TLS wrapper library + public-ip SAN support"},
+    {"sha": "80b0ea3", "task": "T5", "message": "feat(bridge): add TLS metadata to bridge.status RPC and /discover endpoint"},
+    {"sha": "3f412de", "task": "T6", "message": "feat(scripts): TLS awareness in Plan A discovery + deploy scripts"},
+    {"sha": "42b352c", "task": "T7", "message": "feat(scripts): TLS outputs in provisioning script + checkpoints"},
+    {"sha": "4069296", "task": "T8", "message": "feat(bridge): add tls_mode to /.well-known com.armorclaw namespace"},
+    {"sha": "9333df2", "task": "T9+T10", "message": "test(tls): add restart-safety + TLS-mode integration test scripts"}
+  ],
+  "files_modified": [
+    "bridge/pkg/http/server.go",
+    "bridge/pkg/qr/public.go",
+    "bridge/pkg/rpc/server.go",
+    "bridge/pkg/rpc/bridge_handlers.go",
+    "bridge/pkg/setup/ssl.go",
+    "bridge/pkg/setup/ssl_test.go",
+    "bridge/pkg/config/config.go",
+    "bridge/cmd/bridge/main.go",
+    "deploy/scripts/generate-certs.sh",
+    "scripts/lib/tls.sh",
+    "scripts/a0_discover.sh",
+    "scripts/a1_deploy.sh",
+    "scripts/a2_provision.sh",
+    "tests/test-tls-restart-safety.sh",
+    "tests/test-tls-mode-integration.sh",
+    "doc/testing.md"
+  ],
+  "tls_mode_derivation": {
+    "native": "none (no external TLS surface)",
+    "sentinel_self_signed": "private (trust confirmation needed)",
+    "sentinel_ca": "public (CA-handled trust)"
+  },
+  "qr_versioning": {
+    "v1_default": "No TLS fields (backward compatible)",
+    "v2_flagged": "ARMORCLAW_QR_VERSION=2 — includes tls_mode, tls_fingerprint_sha256"
+  },
+  "test_coverage": {
+    "unit_tests": "11/11 pass in pkg/setup, all pass in pkg/qr",
+    "integration_scripts": [
+      "test-tls-restart-safety.sh (4 scenarios)",
+      "test-tls-mode-integration.sh (9 always-on + 1 conditional v2)"
+    ],
+    "note": "Integration tests require live VPS — not executed in this session due to SSH auth timeout"
+  },
+  "pending": [
+    "F1-F5: Final Verification Wave"
+  ]
+}

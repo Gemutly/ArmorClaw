@@ -1,0 +1,18 @@
+T3: Extend QR ConfigPayload with TLS Fields + Versioning
+Date: 2026-04-29
+Status: PASS
+
+Changes:
+1. bridge/pkg/qr/public.go — Added 4 TLS fields to ConfigPayload: TLSMode, TLSFingerprintSHA256, TLSTrustHint, CertExpiresAt (all omitempty)
+2. bridge/pkg/qr/public.go — Updated signConfig() with version routing: v1 uses original signing basis, v2 includes tls_mode and tls_fingerprint_sha256
+3. bridge/pkg/qr/public.go — Updated GenerateConfigQR() and GenerateConfigURL() to populate TLS fields only when ARMORCLAW_QR_VERSION=2
+4. bridge/pkg/qr/public.go — Added SetTLSInfo() and SetWsURL() methods to QRManager
+5. bridge/pkg/qr/public.go — WsURL changed from always-set to conditional (omitempty)
+6. bridge/pkg/http/server.go — Added updateQRTLSInfo() method that injects TLS metadata into QR manager after cert loading
+7. bridge/pkg/qr/public.go — Added os import for env var check
+
+QR v1 default: version=1, no TLS fields, WsURL conditional
+QR v2 flagged: version=2, TLS fields populated, tls_mode and tls_fingerprint_sha256 signed
+
+Build: go build ./pkg/http/... ./pkg/qr/... — PASS
+Tests: go test ./pkg/qr/... — ALL PASS

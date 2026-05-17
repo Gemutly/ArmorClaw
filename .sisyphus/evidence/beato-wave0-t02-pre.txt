@@ -1,0 +1,17 @@
+=== MEMORY ===
+               total        used        free      shared  buff/cache   available
+Mem:           7.8Gi       778Mi       280Mi       1.3Mi       7.0Gi       7.0Gi
+Swap:             0B          0B          0B
+=== DISK ===
+Filesystem      Size  Used Avail Use% Mounted on
+/dev/sda1        96G   21G   75G  22% /
+=== LOAD ===
+ 09:26:53 up 15 days, 16:27,  2 users,  load average: 0.00, 0.00, 0.00
+=== DOCKER STATS ===
+CONTAINER ID   NAME                CPU %     MEM USAGE / LIMIT     MEM %     NET I/O           BLOCK I/O        PIDS
+40506aca30c8   armorclaw           0.06%     49.58MiB / 7.756GiB   0.62%     8.08kB / 289kB    28.7kB / 152MB   33
+14bc3c7e8f0e   armorclaw-conduit   0.01%     45.79MiB / 7.756GiB   0.58%     1.26MB / 1.52MB   406kB / 60.5MB   4
+=== CONTAINERS ===
+NAMES               STATUS                       PORTS
+armorclaw           Up About an hour (healthy)   5000/tcp, 6167/tcp, 0.0.0.0:8443->8443/tcp, [::]:8443->8443/tcp
+armorclaw-conduit   Up 12 hours                  0.0.0.0:6167->6167/tcp, [::]:6167->6167/tcp

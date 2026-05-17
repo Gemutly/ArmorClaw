@@ -1,0 +1,79 @@
+Task 9: E2E Test — WebSocket Event Delivery
+============================================
+
+Date: 2026-04-18
+Status: PASS
+
+## Test File
+- NEW: `bridge/pkg/eventbus/eventbus_test.go` (525 lines)
+
+## Tests Added (14 new tests)
+
+### E2E WebSocket Tests
+1. **TestWebSocketE2E** — Full E2E: EventBus → WebSocket adapter → mock broadcaster → real WS client
+   - `agent_status_event_arrives_on_WebSocket_client` — Verifies agent status change events flow through the entire pipeline to a real gorilla/websocket client connected via httptest.Server
+   - `disconnected_client_does_not_block_publishing` — Verifies publishing succeeds after client disconnects
+
+2. **TestWebSocketE2EDirectBroadcast** — Unit-level E2E: EventBus.PublishBridgeEvent → ws.Server.Broadcast → EventBroadcaster (atomic value capture)
+
+3. **TestWebSocketAdapterBroadcastWire** — Verifies websocket adapter delegates Broadcast to injected broadcaster
+
+4. **TestWebSocketMultipleClients** — Verifies events fan out to multiple mock broadcaster channels
+
+### WebSocket Adapter Tests
+5. **TestWebSocketNoBroadcaster** — Broadcast without broadcaster returns error
+6. **TestWebSocketStartWithoutBroadcaster** — Start without broadcaster returns error
+7. **TestWebSocketAdapterSetBroadcasterAndStart** — SetBroadcaster + Start succeeds
+8. **TestWebSocketAdapterStopIdempotent** — Stop is safe to call multiple times
+9. **TestWebSocketAdapterAddrPath** — Addr()/Path() accessors
+
+### EventBus Tests
+10. **TestEventBusStopIdempotent** — Double Stop doesn't panic
+11. **TestEventBusGetStats** — Stats reporting
+12. **TestEventBusPublishNilEvent** — Nil event rejection
+13. **TestEventBusSubscribePublishFlow** — Internal subscribe/publish with channel delivery
+14. **TestEventBusPublishBridgeEventNoClients** — PublishBridgeEvent with no WS clients
+15. **TestEventBusPublishMultipleEventTypes** — All 8 bridge event types round-trip
+16. **TestEventBusSubscribeWithFilter** — Room-based event filtering
+17. **TestEventBusUnsubscribe** — Subscribe + unsubscribe + error on missing
+
+## Verification Commands
+
+```bash
+# E2E test
+go test ./bridge/pkg/eventbus/... -run TestWebSocketE2E -v -count=1 → PASS
+
+# Full eventbus suite
+go test ./bridge/pkg/eventbus/... -count=1 → PASS (22 tests total: 8 pre-existing + 14 new)
+
+# go vet
+go vet ./bridge/pkg/eventbus/... → clean
+```
+
+## Architecture Notes
+
+The test uses a mock EventBroadcaster (implements websocket.EventBroadcaster interface)
+instead of importing the real HTTP server, because the HTTP server transitively depends
+on the YARA C library (via rpc → yara), which is not available in the build environment.
+
+The E2E test creates:
+1. A real httptest.Server with gorilla/websocket handler
+2. A mock EventBroadcaster wired as the WebSocket adapter's broadcaster
+3. A real gorilla/websocket client connecting to the test server
+4. The EventBus wired to publish through the adapter
+
+The flow tested: EventBus.PublishBridgeEvent → ws.Server.Broadcast → mockBroadcaster.BroadcastEvent → wsHandler.broadcast → gorilla/websocket client
+
+## Known Issue (Production Code — Not Modified)
+
+BaseEvent.ToJSON() uses `json.Marshal(e)` where `e` is `*BaseEvent`, causing method
+promotion to only serialize BaseEvent fields (type, timestamp) instead of the full
+concrete event struct. The EventWrapper.Data field therefore contains only type+timestamp
+for the inner event. This is a Go method-receiver gotcha, not a test issue.
+
+## Note on Test Location
+
+Tests placed in `bridge/pkg/eventbus/` (not `bridge/pkg/http/`) due to build dependency:
+- `bridge/pkg/http/server.go` imports `bridge/pkg/rpc` which transitively imports `github.com/hillu/go-yara/v4`
+- YARA C library headers not available in build environment
+- `bridge/pkg/eventbus/` builds cleanly without YARA

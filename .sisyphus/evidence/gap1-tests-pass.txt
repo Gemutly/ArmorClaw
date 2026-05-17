@@ -1,0 +1,22 @@
+=== RUN   TestEvaluateConditions_NoConditions
+--- PASS: TestEvaluateConditions_NoConditions (0.00s)
+=== RUN   TestEvaluateConditions_AllConditionsPass
+--- PASS: TestEvaluateConditions_AllConditionsPass (0.00s)
+=== RUN   TestEvaluateConditions_SomeConditionsFail
+--- PASS: TestEvaluateConditions_SomeConditionsFail (0.00s)
+=== RUN   TestEvaluateConditions_OperatorEq
+--- PASS: TestEvaluateConditions_OperatorEq (0.00s)
+=== RUN   TestEvaluateConditions_OperatorNeq
+--- PASS: TestEvaluateConditions_OperatorNeq (0.00s)
+=== RUN   TestEvaluateConditions_OperatorIn
+--- PASS: TestEvaluateConditions_OperatorIn (0.00s)
+=== RUN   TestEvaluateConditions_OperatorNin
+--- PASS: TestEvaluateConditions_OperatorNin (0.00s)
+=== RUN   TestEvaluateConditions_OperatorContains
+--- PASS: TestEvaluateConditions_OperatorContains (0.00s)
+=== RUN   TestEvaluateConditions_StepTypeCondition
+--- PASS: TestEvaluateConditions_StepTypeCondition (0.00s)
+=== RUN   TestEvaluateConditions_VariableResolution
+--- PASS: TestEvaluateConditions_VariableResolution (0.00s)
+PASS
+ok  	github.com/armorclaw/bridge/pkg/secretary	(cached)

@@ -1,0 +1,18 @@
+Pre-BEATO Control Plane — T2: VPS Convergence Verification
+Date: 2026-05-15T22:47Z
+
+Local HEAD:   789c71c docs(tests): add Phase 1+2 test harness stabilization report
+VPS HEAD:     789c71c062eb2d90147e940b7f7b06da1a3fb5c5
+Match:        YES
+
+VPS unstaged (stashed):
+  M configs/conduit.toml (local config override, expected)
+  ?? configs/config.toml (local file, not tracked)
+  ?? data/ (local data dir, not tracked)
+  ?? keystore/ (local keystore, not tracked)
+
+Action taken: git stash + git pull origin main (fast-forward 06ff150..789c71c)
+Bridge version: v4.6.0
+Bridge health: ok
+Container image: mikegemut/armorclaw:latest
+VPS IP: 5.183.11.149

@@ -1,0 +1,10 @@
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "result": {
+    "fields_count": 1,
+    "message": "PII request fulfilled. Variables delivered to agent.",
+    "request_id": "pii_6b867201a996bd424d281b3e",
+    "status": "fulfilled"
+  }
+}

@@ -1,0 +1,54 @@
+Task 8 Evidence: Deployment + OpenClaw + Container Test Plan
+============================================================
+Date: 2026-04-17
+Status: COMPLETE — plan written, no test code generated
+
+Files Created:
+  .sisyphus/notepads/skills-review/task8-deployment-openclaw-test-plan.md (131 lines)
+
+Source Files Read (12):
+  .skills/deploy.yaml          (280 lines — 9 params, 7 steps, 5 platforms)
+  .skills/status.yaml          (210 lines — 5 params, 9 steps, 3 platforms)
+  .skills/cloudflare.yaml      (339 lines — 5 params, 4 steps, 5 platforms)
+  .skills/provision.yaml       (87 lines  — 3 params, 3 steps, 3 platforms)
+  tests/test-deployment-skills.sh (279 lines — structural tests only)
+  container/openclaw/skills/ssl_skill_handler.py (157 lines)
+  container/openclaw/skills/ssl_tunnel_setup.py   (368 lines, 3 classes)
+  container/openclaw-src/src/agents/skills.e2e.test.ts (299 lines)
+  tests/integration/test-installer-hardening.sh (180 lines)
+  .sisyphus/notepads/skills-review/task4-synthesized-findings.md (179 lines)
+  .sisyphus/notepads/skills-review/task1-deployment-findings.md  (206 lines)
+  .sisyphus/notepads/skills-review/task3-openclaw-container-findings.md (369 lines)
+
+Findings Covered by Test Plan:
+  S4  (HIGH)   — curl|bash pinned to tag test
+  S5  (HIGH)   — return 0 outside function test
+  S16 (MEDIUM) — sudo behind confirm + quoted vars test
+  S17 (MEDIUM) — shell=True subprocess test
+  S18 (MEDIUM) — pkill scope test
+  S22 (LOW)    — hardcoded IP test
+  P1  (MEDIUM) — deploy platform claims test
+  P2  (MEDIUM) — status platform claims test
+  P3  (MEDIUM) — cloudflare platform claims test
+  P4  (MEDIUM) — provision platform claims test
+  P6  (LOW)    — SKILL.md version consistency test
+  T3  (MEDIUM) — Python runtime test gap
+  T4  (MEDIUM) — homepage validator test
+  T6  (LOW)    — YAML functional test gap
+Total: 14 findings covered (out of 46 total; remainder require Go test plan)
+
+Test Plan Sections:
+  1. Overview (3 layers, gap summary table)
+  2. Deployment YAML Tests (4 skills × 4-5 tests each + error scenarios = 21 tests)
+  3. Cross-Platform Validation (2 automated scanner tests)
+  4. OpenClaw Frontmatter Conformance (~237 test cases across 60 files)
+  5. Container Python Tests (16 pytest cases, 3 skill classes + safety)
+  6. Previous Review Validation (6 regression tests)
+  7. Execution Summary (4 test files, ~282 total test cases)
+  8. Dependencies (no VPS/Docker required)
+
+Existing Test Files:
+  Generated NO new test files (plan only)
+  Modified NO existing files
+
+Line Count: 131 lines (within 80-100 target for content tables, structure overhead adds ~30)

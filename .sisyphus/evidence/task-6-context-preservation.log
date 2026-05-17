@@ -1,0 +1,11 @@
+=== RUN   TestContextPreservation
+    rpc_to_mcp_test.go:67: ✓ All context fields preserved: session_id=session-abc, user_id=user-xyz, tool_name=browser_tool, agent_id=agent-123
+--- PASS: TestContextPreservation (0.00s)
+=== RUN   TestContextPreservationNoExistingParams
+    rpc_to_mcp_test.go:213: ✓ Context preserved even with no existing params
+--- PASS: TestContextPreservationNoExistingParams (0.00s)
+=== RUN   TestContextPreservationNilContext
+    rpc_to_mcp_test.go:238: ✓ Translate with nil context works
+--- PASS: TestContextPreservationNilContext (0.00s)
+PASS
+ok  	github.com/armorclaw/bridge/pkg/translator	0.007s

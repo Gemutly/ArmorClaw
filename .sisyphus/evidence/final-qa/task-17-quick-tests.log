@@ -1,0 +1,76 @@
+=== RUN   TestNewBudgetTracker
+--- PASS: TestNewBudgetTracker (0.00s)
+=== RUN   TestStartSession
+time=2026-03-25T22:59:24.635-06:00 level=INFO msg="security event" service=armorclaw component=bridge version=1.1.0 component=voice_budget component=security event_type=voice_session_started timestamp=2026-03-26T04:59:24Z category=security source_file=budget_test.go source_line=29 event_type=voice_session_started session_id=test-session call_id=call-123 room_id=room-456 token_limit=50000 duration_limit=10m0s
+--- PASS: TestStartSession (0.00s)
+=== RUN   TestRecordTokenUsage
+time=2026-03-25T22:59:24.636-06:00 level=INFO msg="security event" service=armorclaw component=bridge version=1.1.0 component=voice_budget component=security event_type=voice_session_started timestamp=2026-03-26T04:59:24Z category=security source_file=budget_test.go source_line=53 event_type=voice_session_started session_id=test-session call_id=call-123 room_id=room-456 token_limit=1000 duration_limit=10m0s
+--- PASS: TestRecordTokenUsage (0.00s)
+=== RUN   TestTokenLimitWarning
+time=2026-03-25T22:59:24.636-06:00 level=INFO msg="security event" service=armorclaw component=bridge version=1.1.0 component=voice_budget component=security event_type=voice_session_started timestamp=2026-03-26T04:59:24Z category=security source_file=budget_test.go source_line=99 event_type=voice_session_started session_id=test-session call_id=call-123 room_id=room-456 token_limit=1000 duration_limit=10m0s
+time=2026-03-25T22:59:24.636-06:00 level=INFO msg="security event" service=armorclaw component=bridge version=1.1.0 component=voice_budget component=security event_type=voice_budget_warning timestamp=2026-03-26T04:59:24Z category=security source_file=budget_test.go source_line=105 event_type=voice_budget_warning session_id=test-session call_id=call-123 usage_percent=80.10000000000001 tokens_used=801 tokens_remaining=199
+--- PASS: TestTokenLimitWarning (0.00s)
+=== RUN   TestTokenLimitExceeded
+time=2026-03-25T22:59:24.636-06:00 level=INFO msg="security event" service=armorclaw component=bridge version=1.1.0 component=voice_budget component=security event_type=voice_session_started timestamp=2026-03-26T04:59:24Z category=security source_file=budget_test.go source_line=125 event_type=voice_session_started session_id=test-session call_id=call-123 room_id=room-456 token_limit=1000 duration_limit=10m0s
+time=2026-03-25T22:59:24.636-06:00 level=INFO msg="security event" service=armorclaw component=bridge version=1.1.0 component=voice_budget component=security event_type=voice_session_ended timestamp=2026-03-26T04:59:24Z category=security source_file=asm_amd64.s source_line=1771 event_type=voice_session_ended session_id=test-session call_id=call-123 duration=125.4µs input_tokens=500 output_tokens=501
+--- PASS: TestTokenLimitExceeded (0.10s)
+=== RUN   TestDurationLimit
+time=2026-03-25T22:59:24.737-06:00 level=INFO msg="security event" service=armorclaw component=bridge version=1.1.0 component=voice_budget component=security event_type=voice_session_started timestamp=2026-03-26T04:59:24Z category=security source_file=budget_test.go source_line=152 event_type=voice_session_started session_id=test-session call_id=call-123 room_id=room-456 token_limit=100000 duration_limit=100ms
+--- PASS: TestDurationLimit (0.15s)
+time=2026-03-25T22:59:24.887-06:00 level=INFO msg="security event" service=armorclaw component=bridge version=1.1.0 component=voice_budget component=security event_type=voice_session_ended timestamp=2026-03-26T04:59:24Z category=security source_file=asm_amd64.s source_line=1771 event_type=voice_session_ended session_id=test-session call_id=call-123 duration=150.5296ms input_tokens=0 output_tokens=0
+=== RUN   TestEndSession
+time=2026-03-25T22:59:24.887-06:00 level=INFO msg="security event" service=armorclaw component=bridge version=1.1.0 component=voice_budget component=security event_type=voice_session_started timestamp=2026-03-26T04:59:24Z category=security source_file=budget_test.go source_line=172 event_type=voice_session_started session_id=test-session call_id=call-123 room_id=room-456 token_limit=100000 duration_limit=10m0s
+time=2026-03-25T22:59:24.887-06:00 level=INFO msg="security event" service=armorclaw component=bridge version=1.1.0 component=voice_budget component=security event_type=voice_session_ended timestamp=2026-03-26T04:59:24Z category=security source_file=budget_test.go source_line=181 event_type=voice_session_ended session_id=test-session call_id=call-123 duration=68.6µs input_tokens=100 output_tokens=200
+--- PASS: TestEndSession (0.00s)
+=== RUN   TestGetAllSessions
+time=2026-03-25T22:59:24.888-06:00 level=INFO msg="security event" service=armorclaw component=bridge version=1.1.0 component=voice_budget component=security event_type=voice_session_started timestamp=2026-03-26T04:59:24Z category=security source_file=budget_test.go source_line=205 event_type=voice_session_started session_id=session-1 call_id=call-1 room_id=room-1 token_limit=100000 duration_limit=10m0s
+time=2026-03-25T22:59:24.888-06:00 level=INFO msg="security event" service=armorclaw component=bridge version=1.1.0 component=voice_budget component=security event_type=voice_session_started timestamp=2026-03-26T04:59:24Z category=security source_file=budget_test.go source_line=206 event_type=voice_session_started session_id=session-2 call_id=call-2 room_id=room-2 token_limit=100000 duration_limit=10m0s
+time=2026-03-25T22:59:24.888-06:00 level=INFO msg="security event" service=armorclaw component=bridge version=1.1.0 component=voice_budget component=security event_type=voice_session_started timestamp=2026-03-26T04:59:24Z category=security source_file=budget_test.go source_line=207 event_type=voice_session_started session_id=session-3 call_id=call-3 room_id=room-3 token_limit=100000 duration_limit=10m0s
+time=2026-03-25T22:59:24.888-06:00 level=INFO msg="security event" service=armorclaw component=bridge version=1.1.0 component=voice_budget component=security event_type=voice_session_ended timestamp=2026-03-26T04:59:24Z category=security source_file=budget_test.go source_line=210 event_type=voice_session_ended session_id=session-2 call_id=call-2 duration=23.3µs input_tokens=0 output_tokens=0
+--- PASS: TestGetAllSessions (0.00s)
+=== RUN   TestVoiceBudgetGetStats
+time=2026-03-25T22:59:24.888-06:00 level=INFO msg="security event" service=armorclaw component=bridge version=1.1.0 component=voice_budget component=security event_type=voice_session_started timestamp=2026-03-26T04:59:24Z category=security source_file=budget_test.go source_line=224 event_type=voice_session_started session_id=session-1 call_id=call-1 room_id=room-1 token_limit=100000 duration_limit=10m0s
+time=2026-03-25T22:59:24.888-06:00 level=INFO msg="security event" service=armorclaw component=bridge version=1.1.0 component=voice_budget component=security event_type=voice_session_started timestamp=2026-03-26T04:59:24Z category=security source_file=budget_test.go source_line=228 event_type=voice_session_started session_id=session-2 call_id=call-2 room_id=room-2 token_limit=100000 duration_limit=10m0s
+--- PASS: TestVoiceBudgetGetStats (0.00s)
+=== RUN   TestEnforceLimits
+time=2026-03-25T22:59:24.888-06:00 level=INFO msg="security event" service=armorclaw component=bridge version=1.1.0 component=voice_budget component=security event_type=voice_session_started timestamp=2026-03-26T04:59:24Z category=security source_file=budget_test.go source_line=250 event_type=voice_session_started session_id=test-session call_id=call-123 room_id=room-456 token_limit=100 duration_limit=1h0m0s
+time=2026-03-25T22:59:24.888-06:00 level=INFO msg="security event" service=armorclaw component=bridge version=1.1.0 component=voice_budget component=security event_type=voice_budget_enforced timestamp=2026-03-26T04:59:24Z category=security source_file=hashtriemap.go source_line=512 event_type=voice_budget_enforced session_id=test-session call_id=call-123 reason=token_limit_exceeded tokens_used=101 token_limit=100
+time=2026-03-25T22:59:24.888-06:00 level=INFO msg="security event" service=armorclaw component=bridge version=1.1.0 component=voice_budget component=security event_type=voice_session_ended timestamp=2026-03-26T04:59:24Z category=security source_file=asm_amd64.s source_line=1771 event_type=voice_session_ended session_id=test-session call_id=call-123 duration=190.5µs input_tokens=50 output_tokens=51
+time=2026-03-25T22:59:24.888-06:00 level=INFO msg="security event" service=armorclaw component=bridge version=1.1.0 component=voice_budget component=security event_type=voice_session_ended timestamp=2026-03-26T04:59:24Z category=security source_file=asm_amd64.s source_line=1771 event_type=voice_session_ended session_id=test-session call_id=call-123 duration=214.1µs input_tokens=50 output_tokens=51
+--- PASS: TestEnforceLimits (0.10s)
+=== RUN   TestSessionStateString
+=== RUN   TestSessionStateString/unknown
+=== RUN   TestSessionStateString/active
+=== RUN   TestSessionStateString/ended
+--- PASS: TestSessionStateString (0.00s)
+    --- PASS: TestSessionStateString/unknown (0.00s)
+    --- PASS: TestSessionStateString/active (0.00s)
+    --- PASS: TestSessionStateString/ended (0.00s)
+=== RUN   TestStop
+time=2026-03-25T22:59:24.989-06:00 level=INFO msg="security event" service=armorclaw component=bridge version=1.1.0 component=voice_budget component=security event_type=voice_session_started timestamp=2026-03-26T04:59:24Z category=security source_file=budget_test.go source_line=296 event_type=voice_session_started session_id=session-1 call_id=call-1 room_id=room-1 token_limit=100000 duration_limit=10m0s
+time=2026-03-25T22:59:24.989-06:00 level=INFO msg="security event" service=armorclaw component=bridge version=1.1.0 component=voice_budget component=security event_type=voice_session_started timestamp=2026-03-26T04:59:24Z category=security source_file=budget_test.go source_line=297 event_type=voice_session_started session_id=session-2 call_id=call-2 room_id=room-2 token_limit=100000 duration_limit=10m0s
+time=2026-03-25T22:59:24.989-06:00 level=INFO msg="security event" service=armorclaw component=bridge version=1.1.0 component=voice_budget component=security event_type=voice_session_ended timestamp=2026-03-26T04:59:24Z category=security source_file=budget.go source_line=395 event_type=voice_session_ended session_id=session-1 call_id=call-1 duration=90µs input_tokens=0 output_tokens=0
+time=2026-03-25T22:59:24.989-06:00 level=INFO msg="security event" service=armorclaw component=bridge version=1.1.0 component=voice_budget component=security event_type=voice_session_ended timestamp=2026-03-26T04:59:24Z category=security source_file=budget.go source_line=395 event_type=voice_session_ended session_id=session-2 call_id=call-2 duration=67.4µs input_tokens=0 output_tokens=0
+--- PASS: TestStop (0.00s)
+=== RUN   TestApprovalRequestIsExpired
+--- PASS: TestApprovalRequestIsExpired (0.00s)
+=== RUN   TestInterlockStateString
+--- PASS: TestInterlockStateString (0.00s)
+=== RUN   TestPipelineState_String
+=== RUN   TestPipelineState_String/idle
+=== RUN   TestPipelineState_String/listening
+=== RUN   TestPipelineState_String/processing
+=== RUN   TestPipelineState_String/speaking
+=== RUN   TestPipelineState_String/paused
+=== RUN   TestPipelineState_String/unknown
+--- PASS: TestPipelineState_String (0.00s)
+    --- PASS: TestPipelineState_String/idle (0.00s)
+    --- PASS: TestPipelineState_String/listening (0.00s)
+    --- PASS: TestPipelineState_String/processing (0.00s)
+    --- PASS: TestPipelineState_String/speaking (0.00s)
+    --- PASS: TestPipelineState_String/paused (0.00s)
+    --- PASS: TestPipelineState_String/unknown (0.00s)
+=== RUN   TestPipelineStateValues
+--- PASS: TestPipelineStateValues (0.00s)
+PASS
+ok  	github.com/armorclaw/bridge/pkg/voice	0.363s

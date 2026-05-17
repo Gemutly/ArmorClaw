@@ -1,0 +1,22 @@
+Testing domain parsing logic...
+
+Test 1: subdomain.example.com
+  Subdomain: subdomain
+  Base domain: example.com
+  ✓ PASS
+
+Test 2: test.example.com
+  Subdomain: test
+  Base domain: example.com
+  ✓ PASS
+
+Test 3: example.com
+  Subdomain: example
+  Base domain: com
+  ⚠ WARNING: 'example.com' parsed as subdomain 'example', base 'com'
+  This is expected behavior for single-dot domains
+
+Test 4: armorclaw.test.example.com
+  Subdomain: armorclaw
+  Base domain: test.example.com
+  ✓ PASS

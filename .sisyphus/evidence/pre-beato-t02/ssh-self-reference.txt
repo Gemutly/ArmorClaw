@@ -1,0 +1,18 @@
+=== SSH Self-Reference Test ===
+Date: 2026-05-15T21:25:47Z
+
+--- Public Key (local) ---
+ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIPWWN4rkbSiuLe2Gis3WRGArGjtU5zf8ror/dhOzsSKT mikmin@mikmin-All-Series
+
+--- VPS Key Pair Generated ---
+ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIDh8GTJxfEPAUzwu9+ZtTqlA7CP0pXUXBSSuX2dIt42j root@armorclaw
+
+--- Self-Reference Test ---
+ssh-self-ok
+
+--- authorized_keys on VPS ---
+
+ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIC6e9f0MHOdkc1sJvRBScfguDqFjuj7R8st68yI/1TIU mikminmikmin@mail.comssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIPWWN4rkbSiuLe2Gis3WRGArGjtU5zf8ror/dhOzsSKT mikmin@mikmin-All-Series
+ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIDh8GTJxfEPAUzwu9+ZtTqlA7CP0pXUXBSSuX2dIt42j root@armorclaw
+ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIMnYuaFzrxelcTcv41mKuQMjAplikiiHmL9EOWnCv6of mikeminkoff@gemutly.com
+ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAINvHAfAFN7VN6WnZtHsxQHeRaZK3sUb0C12iEjFMltMo micha@windows for openclawssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIHhA5sG5M4+qjZoWaPFB4g micha@windows for openclaw

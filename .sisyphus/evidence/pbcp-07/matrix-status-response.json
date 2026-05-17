@@ -1,0 +1,29 @@
+{
+  "description": "Live matrix.status response captured from VPS",
+  "vps": "5.183.11.149",
+  "bridge_version": "4.6.0",
+  "captured_at": "2026-05-15T23:01:53Z",
+  "response_without_auth": {
+    "jsonrpc": "2.0",
+    "id": 1,
+    "result": {
+      "enabled": true,
+      "connected": true,
+      "logged_in": true,
+      "homeserver": "http://localhost:6167",
+      "user_id": "@bridge:5.183.11.149"
+    }
+  },
+  "response_with_auth": {
+    "jsonrpc": "2.0",
+    "id": 1,
+    "result": {
+      "enabled": true,
+      "connected": true,
+      "logged_in": true,
+      "homeserver": "http://localhost:6167",
+      "user_id": "@bridge:5.183.11.149"
+    }
+  },
+  "note": "matrix.status does not require auth — both responses are identical"
+}

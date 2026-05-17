@@ -1,0 +1,9 @@
+=== VPS Startup Evidence ===
+Timestamp: 2026-03-21T04:51:54-06:00
+Container: armorclaw-test
+Status: Running (healthy)
+Ports: 8443 (bridge API), 6167 (Matrix), 8080 (discovery)
+Bridge Socket: /run/armorclaw/bridge.sock
+API Key Verification: NOT in repo
+Provider: zhipu (z.ai)
+

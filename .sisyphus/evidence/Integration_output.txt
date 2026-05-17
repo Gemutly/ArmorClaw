@@ -1,0 +1,28 @@
+=========================================
+Integration Tests
+=========================================
+VPS IP: 5.183.11.149
+VPS User: root
+Matrix Port: 6167
+Bridge Port: 8080
+=========================================
+
+[0;36mNote: VPS only has Matrix (Conduit) and coturn running. Some tests may fail (expected).[0m
+
+--- Bridge ↔ Matrix Communication ---
+Test 1.1: Matrix client API is accessible... 
+[0;32m[PASS][0m Matrix Client API: Matrix client API is responding
+Test 1.2: Matrix server info is accessible... 
+[0;32m[PASS][0m Matrix Server Info: Matrix server endpoint is responding with login flows
+Test 1.3: Matrix Federation endpoint is accessible... 
+[0;32m[PASS][0m Matrix Federation: Matrix federation endpoint is responding
+Test 1.4: Matrix Conduit container status... 
+[1;33m[WARN][0m Matrix Container: Matrix container not found or not running
+Test 1.5: Matrix container health status... 
+[1;33m[WARN][0m Matrix Container Health: Matrix container health check: 
+no_health_check
+
+--- Bridge → Agent Communication ---
+Test 2.1: Bridge container status... 
+[1;33m[WARN][0m Bridge Container: Bridge container not found (expected on current VPS)
+Test 2.2: Bridge RPC HTTP endpoint... 

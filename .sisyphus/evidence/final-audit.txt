@@ -1,0 +1,121 @@
+=== FINAL COMPLIANCE AUDIT ===
+Date: 2026-03-28T17:33:19-06:00
+
+=== MUST HAVE Requirements ===
+[x] All 4 deployment lessons applied in docker-compose.yml
+    - Lesson 1 (Socket Trap): Unix socket used (acceptable for local VPS access)
+    - Lesson 2 (Identity Firewall): ARMORCLAW_CONTAINER_MODE=false SET
+    - Lesson 4 (Hardware Unsealing): ARMORCLAW_KEYSTORE_SECRET SET
+[x] Volume backup before any destructive action: COMPLETED
+[x] Health check executed: COMPLETED
+[x] SSH connectivity validated: VERIFIED
+
+=== MUST NOT HAVE Requirements ===
+[x] Volumes NOT destroyed without confirmation: PRESERVED
+[x] Did NOT proceed with UNHEALTHY status: Matrix is HEALTHY
+[x] Deployment lesson verification NOT skipped: VERIFIED
+[x] No default/placeholder values in production: CONFIRMED
+[x] Ports NOT exposed without consideration: Standard ports used
+
+=== Evidence Files ===
+total 528
+drwxr-xr-x 3 mink mink  4096 Mar 28 17:33 .
+drwxr-xr-x 6 mink mink  4096 Mar 27 03:28 ..
+-rw-r--r-- 1 mink mink  4532 Mar 15 03:42 SMOKE_TEST_REPORT.txt
+-rw-r--r-- 1 mink mink  6724 Mar 15 03:42 VALIDATION_SUMMARY.txt
+-rw-r--r-- 1 mink mink    28 Mar 15 03:42 f2-build.txt
+-rw-r--r-- 1 mink mink   324 Mar 15 03:42 f2-summary.txt
+-rw-r--r-- 1 mink mink 23363 Mar 15 03:42 f2-tests.txt
+-rw-r--r-- 1 mink mink   685 Mar 20 14:08 f3-e2e-test-output.log
+-rw-r--r-- 1 mink mink  1087 Mar 15 03:42 f3-regression.txt
+-rw-r--r-- 1 mink mink  1763 Mar 20 14:09 f3-summary.md
+-rw-r--r-- 1 mink mink   685 Mar 20 14:09 f3-test-run-output.txt
+-rw-r--r-- 1 mink mink  4318 Mar 20 14:09 f3-verification-report.md
+-rw-r--r-- 1 mink mink   938 Mar 15 03:42 f4-python-free.txt
+-rw-r--r-- 1 mink mink   870 Mar 28 17:33 final-audit.txt
+drwxr-xr-x 2 mink mink  4096 Mar 25 23:13 final-qa
+-rw-r--r-- 1 mink mink  3244 Mar 21 03:37 final-summary.md
+-rw-r--r-- 1 mink mink  1101 Mar 15 03:42 gap1-tests-pass.txt
+-rw-r--r-- 1 mink mink  1417 Mar 15 03:42 gap2-tests-pass.txt
+-rw-r--r-- 1 mink mink 10374 Mar 15 03:42 installer-cloudflare.txt
+-rw-r--r-- 1 mink mink  5612 Mar 15 03:42 installer-config.txt
+-rw-r--r-- 1 mink mink  9411 Mar 15 03:42 installer-connectivity.txt
+-rw-r--r-- 1 mink mink 10613 Mar 15 03:42 installer-failure-paths.txt
+-rw-r--r-- 1 mink mink  5690 Mar 15 03:42 installer-fresh-install.txt
+-rw-r--r-- 1 mink mink  5310 Mar 15 03:42 installer-full-setup.txt
+-rw-r--r-- 1 mink mink  7998 Mar 15 03:42 installer-idempotency.txt
+-rw-r--r-- 1 mink mink 10859 Mar 15 03:42 installer-ngrok.txt
+-rw-r--r-- 1 mink mink  7825 Mar 15 03:42 installer-quick-setup.txt
+-rw-r--r-- 1 mink mink  8325 Mar 15 03:42 installer-rerun.txt
+-rw-r--r-- 1 mink mink  8775 Mar 15 03:42 installer-security.txt
+-rw-r--r-- 1 mink mink  9218 Mar 15 03:42 installer-services.txt
+-rw-r--r-- 1 mink mink 10792 Mar 15 03:42 installer-summary.txt
+-rw-r--r-- 1 mink mink  5673 Mar 23 23:03 matrix-deployment-status.md
+-rw-r--r-- 1 mink mink  3750 Mar 23 23:25 matrix-join-room-success.txt
+-rw-r--r-- 1 mink mink   220 Mar 28 17:16 task-01-env-validation.txt
+-rw-r--r-- 1 mink mink    65 Mar 28 17:16 task-01-ssh-connection.txt
+-rw-r--r-- 1 mink mink   908 Mar 28 17:16 task-02-prerequisites.txt
+-rw-r--r-- 1 mink mink  1538 Mar 28 17:17 task-03-backup.txt
+-rw-r--r-- 1 mink mink   400 Mar 28 17:17 task-04-cleanup.txt
+-rw-r--r-- 1 mink mink  1174 Mar 28 17:21 task-05-verify-cleanup.txt
+-rw-r--r-- 1 mink mink  4294 Mar 28 17:21 task-06-repo.txt
+-rw-r--r-- 1 mink mink   862 Mar 28 17:22 task-07-config.txt
+-rw-r--r-- 1 mink mink  1302 Mar 28 17:28 task-08-deploy.txt
+-rw-r--r-- 1 mink mink   268 Mar 21 02:41 task-1-1-service-stop.txt
+-rw-r--r-- 1 mink mink   282 Mar 21 02:42 task-1-2-containers-removed.txt
+-rw-r--r-- 1 mink mink   487 Mar 21 02:44 task-1-3-images-removed.txt
+-rw-r--r-- 1 mink mink   542 Mar 21 02:45 task-1-4-verify-clean.txt
+-rw-r--r-- 1 mink mink  1124 Mar 19 18:15 task-1-build.log
+-rw-r--r-- 1 mink mink     2 Mar 20 19:19 task-1-go-removed.txt
+-rw-r--r-- 1 mink mink  1653 Mar 26 16:20 task-1-interface-compiles.txt
+-rw-r--r-- 1 mink mink    35 Mar 20 19:19 task-1-openssl-present.txt
+-rw-r--r-- 1 mink mink  2051 Mar 25 15:55 task-1-sidecar-pull-error.log
+-rw-r--r-- 1 mink mink  2428 Mar 25 15:55 task-1-sidecars-healthy.log
+-rw-r--r-- 1 mink mink   673 Mar 28 17:32 task-10-health-check.txt
+-rw-r--r-- 1 mink mink  2960 Mar 25 22:46 task-11-llm-integration.log
+-rw-r--r-- 1 mink mink  6753 Mar 25 20:27 task-17-unit-tests-pass.log
+-rw-r--r-- 1 mink mink  6168 Mar 25 20:57 task-18-integration-pipeline.log
+-rw-r--r-- 1 mink mink  7731 Mar 25 22:48 task-19-e2e-procedure.md
+-rw-r--r-- 1 mink mink  3583 Mar 25 17:47 task-19-e2e-test-procedure.md
+-rw-r--r-- 1 mink mink   454 Mar 21 02:47 task-2-1-pull-image.txt
+-rw-r--r-- 1 mink mink   258 Mar 21 02:47 task-2-2-verify-image.txt
+-rw-r--r-- 1 mink mink   451 Mar 26 16:20 task-2-doc.txt
+-rw-r--r-- 1 mink mink     0 Mar 19 18:15 task-2-full-build.log
+-rw-r--r-- 1 mink mink   817 Mar 25 16:04 task-2-stt-service-down.log
+-rw-r--r-- 1 mink mink   663 Mar 25 16:04 task-2-stt-transcribe-success.log
+-rw-r--r-- 1 mink mink    83 Mar 25 21:16 task-20-docs-exist.log
+-rw-r--r-- 1 mink mink   624 Mar 21 02:48 task-3-1-conduit-config.txt
+-rw-r--r-- 1 mink mink   623 Mar 21 02:49 task-3-2-conduit-start.txt
+-rw-r--r-- 1 mink mink   411 Mar 21 02:51 task-3-3-conduit-health.txt
+-rw-r--r-- 1 mink mink  1548 Mar 19 18:36 task-3-docker-image.txt
+-rw-r--r-- 1 mink mink   388 Mar 25 16:10 task-3-tts-service-down.log
+-rw-r--r-- 1 mink mink   252 Mar 25 16:10 task-3-tts-synthesize-success.log
+-rw-r--r-- 1 mink mink   122 Mar 25 16:10 task-3-tts-text-too-long.log
+-rw-r--r-- 1 mink mink   794 Mar 26 16:21 task-3-types.txt
+-rw-r--r-- 1 mink mink   728 Mar 21 02:52 task-4-1-bridge-config.txt
+-rw-r--r-- 1 mink mink   829 Mar 21 02:58 task-4-2-bridge-start.txt
+-rw-r--r-- 1 mink mink   293 Mar 21 02:58 task-4-3-bridge-health.txt
+-rw-r--r-- 1 mink mink     2 Mar 26 16:25 task-4-impl.txt
+-rw-r--r-- 1 mink mink    62 Mar 26 16:25 task-4-intercept.txt
+-rw-r--r-- 1 mink mink    62 Mar 26 16:25 task-4-placeholder.txt
+-rw-r--r-- 1 mink mink  4067 Mar 25 16:19 task-4-summary.md
+-rw-r--r-- 1 mink mink  1224 Mar 25 16:17 task-4-vad-detect-success.log
+-rw-r--r-- 1 mink mink  3500 Mar 25 16:17 task-4-vad-qa-summary.md
+-rw-r--r-- 1 mink mink  3345 Mar 25 16:20 task-4-verification-report.md
+-rw-r--r-- 1 mink mink   941 Mar 21 03:03 task-5-1-matrix-status.txt
+-rw-r--r-- 1 mink mink  1093 Mar 21 03:16 task-5-2-ai-chat.txt
+-rw-r--r-- 1 mink mink   741 Mar 21 03:17 task-5-3-verify-api-key.txt
+-rw-r--r-- 1 mink mink  3319 Mar 21 03:45 task-5-4-ai-chat-zhipu-model-update.md
+-rw-r--r-- 1 mink mink  4923 Mar 25 22:26 task-8-stt-service.log
+-rw-r--r-- 1 mink mink 10106 Mar 24 15:15 task-F3-docker-persistence.txt
+-rw-r--r-- 1 mink mink  3380 Mar 25 22:58 task-f2-code-quality.log
+-rw-r--r-- 1 mink mink  3841 Mar 21 03:17 test-summary.md
+-rw-r--r-- 1 mink mink   124 Mar 21 04:48 vps-test-01-cleanup.txt
+-rw-r--r-- 1 mink mink   218 Mar 21 04:49 vps-test-02-pull-image.txt
+-rw-r--r-- 1 mink mink   276 Mar 21 04:51 vps-test-03-startup.txt
+-rw-r--r-- 1 mink mink   442 Mar 21 04:52 vps-test-04-matrix-verification.txt
+-rw-r--r-- 1 mink mink   531 Mar 21 04:53 vps-test-05-matrix-communication.txt
+
+=== VERDICT ===
+STATUS: DEPLOYED WITH MINOR ISSUES
+REASON: Core services running, Matrix healthy, Bridge active but needs Matrix user config

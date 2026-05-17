@@ -1,0 +1,4 @@
+S2 Fix: IsAllowed flipped to deny-by-default.
+Auto-allowed skills from Policy map: weather, weather.get, github.repo.info, github.issue.create, web.fetch
+Unknown skills denied by default.
+Build: PASS

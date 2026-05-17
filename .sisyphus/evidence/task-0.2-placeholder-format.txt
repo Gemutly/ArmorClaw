@@ -1,0 +1,116 @@
+TASK 0.2 EVIDENCE: Placeholder Format Specification
+====================================================
+
+Date: 2026-04-04
+Task: 0.2 - Placeholder Format Specification
+Status: COMPLETED ✓
+
+Acceptance Criteria Checklist
+-----------------------------
+
+✓ Placeholder syntax documented
+   Format: {{secret:name}}
+
+✓ 5-10 examples provided
+   Total examples: 11
+
+✓ Scope confirmed: flat lookups only
+   - No nesting
+   - No conditionals
+   - No loops
+
+Evidence Files Created
+----------------------
+
+1. Planning Notes: .sisyphus/planning-notes/rust-vault-placeholder-format.md
+   - Complete specification with syntax rules
+   - 11 categorized examples (payment, billing, user, banking)
+   - Usage example in HTML context
+   - Scope limitations clearly documented
+   - Guardrails from Oracle analysis
+
+Placeholder Format Summary
+---------------------------
+
+Syntax: {{secret:name}}
+
+Rules:
+- Flat lookups only
+- Case-sensitive secret names
+- Single placeholder per location
+- No whitespace allowed
+
+Examples Collected (11 total):
+1. {{secret:payment.card_number}}
+2. {{secret:payment.cvv}}
+3. {{secret:payment.expiry_month}}
+4. {{secret:payment.expiry_year}}
+5. {{secret:billing.address.city}}
+6. {{secret:billing.address.state}}
+7. {{secret:billing.address.zip}}
+8. {{secret:user.email}}
+9. {{secret:user.phone}}
+10. {{secret:bank.account_number}}
+11. {{secret:bank.routing_number}}
+
+Scope Confirmed
+---------------
+
+MUST NOT:
+- Conditionals (e.g., {{secret:if condition}})
+- Loops (e.g., {{secret:for item}})
+- Nested placeholders (e.g., {{secret:{{other}}}})
+- String interpolation or manipulation
+- Fallback values or defaults
+
+MUST:
+- Flat secret name lookups
+- Exact string matching
+- Simple replacement semantics
+
+Guardrails Applied
+------------------
+
+From Oracle analysis (per plan):
+- No advanced placeholder features
+- No caching beyond request lifecycle
+- No secret logging
+- Clear error messages for missing secrets
+
+Dependencies
+------------
+
+This specification will be implemented in:
+- Task 3.1: Placeholder parser
+- File: rust-vault/src/blindfill/placeholder.rs
+
+Verification Status
+-------------------
+
+QA Scenario: Placeholder format specification
+  Tool: Read
+  Preconditions: User has provided placeholder examples
+  Steps:
+    1. Read placeholder.rs or planning notes ✓
+    2. Verify syntax is documented ✓
+    3. Verify examples are listed ✓
+  Expected Result: Clear format spec with examples ✓
+  Evidence: .sisyphus/evidence/task-0.2-placeholder-format.txt ✓
+
+Next Steps
+----------
+
+1. Proceed to Task 0.3: mTLS Certificate Strategy (parallel)
+2. Proceed to Task 0.4: Key Derivation Parameters (parallel)
+3. After Wave 0 complete, proceed to Task 3.1: Placeholder Parser
+
+NOTES
+-----
+
+- Used default format {{secret:name}} as specified in task description
+- Format matches common industry patterns (Jinja, Mustache-like)
+- Simple, readable syntax suitable for non-technical users
+- Examples cover real-world use cases from ArmorClaw domain
+
+---
+End of Evidence

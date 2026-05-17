@@ -1,0 +1,4 @@
+164:	defer ZeroBytes(derived.Key)
+206:	defer ZeroBytes(derived.Key)
+259:	defer ZeroBytes(plaintext)
+276:	defer ZeroBytes(plaintext)

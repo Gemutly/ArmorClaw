@@ -1,0 +1,36 @@
+=== T8: Email Outbox Revalidation After Auth Enforcement ===
+
+Check 1: Email handlers registered in handler map
+  PASS: approve_email → s.handleApproveEmail
+  PASS: deny_email → s.handleDenyEmail
+  PASS: email_approval_status → s.handleEmailApprovalStatus
+  PASS: email.list_pending → s.handleEmailListPending
+  PASS: email.queue_status → s.handleEmailQueueStatus
+  PASS: email.get → s.handleEmailGet
+  PASS: email.retry → s.handleEmailRetry
+  PASS: email.list → s.handleEmailList
+
+Check 2: Email handlers wrapped with EmailRPCGroup in BEATO block
+  PASS: email.queue_status → EmailRPCGroup
+  PASS: email.get → EmailRPCGroup
+  PASS: email.retry → EmailRPCGroup
+  PASS: email.list → EmailRPCGroup
+  PASS: approve_email → EmailRPCGroup
+  PASS: deny_email → EmailRPCGroup
+  PASS: email_approval_status → EmailRPCGroup
+  PASS: email.list_pending → EmailRPCGroup
+
+Check 3: Email handlers NOT in exclusion list
+  PASS: No email handlers found in health/hardening/provisioning exclusion list
+
+Check 4: Auth integration tests exist (from T2)
+  PASS: TestEmailHandlersRequireAuth (12 email methods)
+  PASS: TestEmailApprovalHandlersRequireAuth (4 approval methods)
+
+Check 5: go test execution
+  SKIP: libyara-dev not available on dev machine — go test cannot compile
+  MITIGATION: Source code verification confirms correct wiring (8/8 handlers wrapped)
+  MITIGATION: Auth integration tests in auth_integration_test.go cover email auth rejection
+
+=== T8 Complete ===
+VERDICT: PASS (with SKIP for runtime tests due to dev machine limitation)

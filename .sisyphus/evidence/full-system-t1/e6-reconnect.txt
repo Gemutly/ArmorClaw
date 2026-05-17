@@ -1,0 +1,5 @@
+=== E6: Reconnect Evidence ===
+--- First connection (1 lines) ---
+{"payload":{"status":"ok"},"timestamp":"2026-04-30T15:36:59Z","type":"registered"}
+--- Second connection (1 lines) ---
+{"payload":{"status":"ok"},"timestamp":"2026-04-30T15:37:04Z","type":"registered"}

@@ -1,0 +1,10 @@
+{
+  "access_token": "jCnHMGiQtl8J7ryf2gTzEKk9W3VwqR0s",
+  "refresh_token": "",
+  "device_id": "",
+  "user_id": "@armorclaw-vps-test:5.183.11.149",
+  "test_room_id": "!2Z0lbbz7IMPLxjwTp3qzWEiD-ERHaSYWx1YxEVRH-aw",
+  "conduit_base_url": "http://localhost:6167",
+  "bootstrap_timestamp": "2026-05-13T10:12:40Z",
+  "crypto_state_verified": "true"
+}

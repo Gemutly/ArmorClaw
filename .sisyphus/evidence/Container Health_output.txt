@@ -1,0 +1,9 @@
+=========================================
+Container Health Tests
+=========================================
+Test 1: Docker is installed... [0;32m[PASS][0m Docker Installation: Docker is installed
+Test 2: Docker daemon is running... [0;32m[PASS][0m Docker Daemon: Docker daemon is running
+Test 3: Expected containers are running... [0;31m[FAIL][0m Bridge Container: Bridge container is not running
+[0;31m[FAIL][0m Matrix Container: Matrix container is not running
+[0;31m[FAIL][0m Browser-Service Container: Browser-service container not running (optional)
+Test 4: Container health status... 

@@ -1,0 +1,5 @@
+=== RUN   TestBrowserNavigate
+    rpc_to_mcp_test.go:32: ✓ browser.navigate → browser_navigate with tools/call method
+--- PASS: TestBrowserNavigate (0.00s)
+PASS
+ok  	github.com/armorclaw/bridge/pkg/translator	0.011s

@@ -1,0 +1,6 @@
+344:// LogAuthenticationEvent logs an authentication event
+345:func (l *CriticalOperationLogger) LogAuthenticationEvent(ctx context.Context, userID, method string, success bool, ipAddress string) error {
+386:// LogSecurityEvent logs a security-related event
+387:func (l *CriticalOperationLogger) LogSecurityEvent(ctx context.Context, eventType, severity string, details map[string]interface{}) error {
+414:// LogBudgetEvent logs a budget-related event
+415:func (l *CriticalOperationLogger) LogBudgetEvent(ctx context.Context, sessionID string, tokensUsed, tokensLimit int, exceeded bool) error {

@@ -1,0 +1,34 @@
+--- Final Port Check ---
+LISTEN 0      4096               *:8443            *:*    users:(("armorclaw-bridg",pid=395520,fd=7))               
+
+--- Final Container Check ---
+
+--- Bridge Process Check ---
+armorcl+  395520  0.8  0.3 1728224 24592 ?       SLsl 23:19   0:00 /opt/armorclaw/armorclaw-bridge -config /etc/armorclaw/config.toml
+--- Checking systemd services ---
+  armorclaw-bridge.service                       loaded active running ArmorClaw Bridge Service
+
+--- Checking for supervisor ---
+NO_SUPERVISOR
+
+--- Checking /etc/systemd/system for armorclaw ---
+-rw-r--r-- 1 root root  666 Mar 28 09:28 /etc/systemd/system/armorclaw-bridge.service
+
+/etc/systemd/system/armorclaw-bridge.service.d:
+total 16
+drwxr-xr-x  2 root root 4096 Mar 28 09:49 .
+drwxr-xr-x 27 root root 4096 Mar 28 09:28 ..
+-rw-r--r--  1 root root   95 Mar 28 09:49 keystore.conf
+-rw-r--r--  1 root root  246 Mar 28 09:35 local.conf
+
+--- Stopping armorclaw-bridge service if exists ---
+SERVICE_STOPPED
+
+--- Killing all armorclaw-bridge processes ---
+--- Final Port Check ---
+ALL_REQUIRED_PORTS_AVAILABLE
+
+--- Final Process Check ---
+NO_ARMORCLAW_PROCES
+
+--- Cleanup Status: READY FOR DEPLOYMENT ---

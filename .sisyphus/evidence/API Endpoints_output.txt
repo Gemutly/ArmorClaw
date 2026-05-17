@@ -1,0 +1,116 @@
+=========================================
+API Endpoint Tests
+=========================================
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Phase 1: Basic Connectivity Tests
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Test 1: Bridge RPC health check
+Testing Bridge RPC... [0;31m[FAIL][0m Bridge RPC: Endpoint is not accessible or returned unexpected response
+
+Test 2: Matrix client versions endpoint
+Testing Matrix Client Versions... [0;32m[PASS][0m Matrix Client Versions: Endpoint is accessible
+
+Test 3: Matrix federation endpoint
+Testing Matrix Federation... [0;32m[PASS][0m Matrix Federation: Endpoint is accessible
+
+Test 4: Bridge RPC JSON-RPC 2.0
+Testing Bridge RPC JSON-RPC 2.0... [0;31m[FAIL][0m Bridge RPC JSON-RPC: Bridge RPC not responding correctly
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Phase 2: Health Endpoint Tests
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Test 5: Bridge health endpoint /health
+Testing health endpoint Bridge /health... [0;31m[FAIL][0m Bridge /health Health: Service health unclear or degraded
+
+Test 6: Bridge status endpoint /status
+Testing health endpoint Bridge /status... [0;31m[FAIL][0m Bridge /status Health: Service health unclear or degraded
+
+Test 7: Matrix health check
+Testing health endpoint Matrix Health... [0;31m[FAIL][0m Matrix Health Health: Service health unclear or degraded
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Phase 3: Timeout Handling Tests
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Test 8: Bridge RPC timeout handling (1 second timeout)
+Testing timeout handling for Bridge RPC (1 second timeout)... [0;32m[PASS][0m Bridge RPC Timeout: Timeout handled correctly in 0s
+
+Test 9: Matrix API timeout handling (1 second timeout)
+Testing timeout handling for Matrix API (1 second timeout)... [0;32m[PASS][0m Matrix API Timeout: Timeout handled correctly in 2s
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Phase 4: Response Format Validation Tests
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Test 10: Bridge RPC JSON format validation
+Testing JSON format for Bridge RPC... [0;31m[FAIL][0m Bridge RPC JSON Format: Could not validate JSON format
+
+Test 11: Matrix versions JSON format validation
+Testing JSON format for Matrix Versions... [0;32m[PASS][0m Matrix Versions JSON Format: JSON-like structure detected (jq not available)
+
+Test 12: Bridge /health JSON format validation
+Testing JSON format for Bridge Health... [0;31m[FAIL][0m Bridge Health JSON Format: Could not validate JSON format
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Phase 5: Error Response Format Tests
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Test 13: Bridge RPC 404 error response
+Testing 404 error response for Bridge RPC... [0;31m[FAIL][0m Bridge RPC Error 404: Expected 404, got 000000
+
+Test 14: Matrix API 404 error response
+Testing 404 error response for Matrix API... [0;32m[PASS][0m Matrix API Error 404: Correct HTTP status code
+
+Test 15: Bridge RPC invalid request (400/500)
+Testing 400 error response for Bridge RPC Invalid... [0;31m[FAIL][0m Bridge RPC Invalid Error 400: Expected 400, got 000000
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Phase 6: Authentication Endpoint Tests
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Test 16: Matrix admin endpoint (requires auth)
+Testing authentication for Matrix Admin... [0;31m[FAIL][0m Matrix Admin Auth: Could not verify authentication requirement
+
+Test 17: Bridge protected endpoint (requires auth)
+Testing authentication for Bridge Protected... [0;31m[FAIL][0m Bridge Protected Auth: Could not verify authentication requirement
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Phase 7: Performance Tests
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Test 18: API response time measurement
+Testing API response time... Response time: .782783305s
+[0;32m[PASS][0m API Response Time: Response time is acceptable (.782783305s)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Phase 8: Summary
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+=========================================
+API Endpoint Tests Summary
+=========================================
+
+Total Tests:  18
+[0;32mPassed:       7[0m
+[0;31mFailed:       7[0m
+Pass Rate:    38.00%
+
+[0;31m✗ SOME TESTS FAILED[0m
+
+=========================================
+JSON Output
+=========================================
+[{"test":"Bridge RPC","status":"FAIL","message":"Endpoint returned unexpected response"},{"test":"Matrix Client Versions","status":"PASS","message":"Endpoint is accessible"},{"test":"Matrix Federation","status":"PASS","message":"Endpoint is accessible"},{"test":"Bridge RPC JSON-RPC","status":"FAIL","message":"RPC not responding correctly"},{"test":"Bridge /health Health","status":"FAIL","message":"Service health unclear"},{"test":"Bridge /status Health","status":"FAIL","message":"Service health unclear"},{"test":"Matrix Health Health","status":"FAIL","message":"Service health unclear"},{"test":"Bridge RPC Timeout","status":"PASS","message":"Timeout handled correctly in 0s"},{"test":"Matrix API Timeout","status":"PASS","message":"Timeout handled correctly in 2s"},{"test":"Bridge RPC JSON Format","status":"WARN","message":"Could not validate JSON format"},{"test":"Matrix Versions JSON Format","status":"PASS","message":"JSON-like structure (jq unavailable)"},{"test":"Bridge Health JSON Format","status":"WARN","message":"Could not validate JSON format"},{"test":"Bridge RPC Error 404","status":"FAIL","message":"Incorrect HTTP status code"},{"test":"Matrix API Error 404","status":"PASS","message":"Correct HTTP status code"},{"test":"Bridge RPC Invalid Error 400","status":"FAIL","message":"Incorrect HTTP status code"},{"test":"Matrix Admin Auth","status":"WARN","message":"Could not verify auth requirement"},{"test":"Bridge Protected Auth","status":"WARN","message":"Could not verify auth requirement"},{"test":"API Response Time","status":"PASS","message":"Response time acceptable (.782783305s)"}]
+
+
+=========================================
+Evidence Saved
+=========================================
+Evidence file: /home/mink/src/armorclaw-omo/.sisyphus/evidence/task-5-api-endpoints.txt
+
+=========================================
+API Tests Complete
+=========================================

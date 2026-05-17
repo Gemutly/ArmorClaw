@@ -1,0 +1,12 @@
+Bus 001 Device 001: ID 1d6b:0002 Linux Foundation 2.0 root hub
+Bus 001 Device 002: ID 174c:2074 ASMedia Technology Inc. ASM1074 High-Speed hub
+Bus 001 Device 003: ID 0b05:17d0 ASUSTek Computer, Inc. 
+Bus 001 Device 004: ID 3554:fa09 CX 2.4G Wireless Receiver
+Bus 001 Device 005: ID 0bda:a728 Realtek Semiconductor Corp. Bluetooth 5.4 Radio
+Bus 001 Device 006: ID 25a7:fa07 Areson Technology Corp 2.4G Wireless Receiver
+Bus 002 Device 001: ID 1d6b:0002 Linux Foundation 2.0 root hub
+Bus 002 Device 002: ID 8087:8008 Intel Corp. Integrated Rate Matching Hub
+Bus 003 Device 001: ID 1d6b:0003 Linux Foundation 3.0 root hub
+Bus 003 Device 002: ID 174c:3074 ASMedia Technology Inc. ASM1074 SuperSpeed hub
+Bus 004 Device 001: ID 1d6b:0002 Linux Foundation 2.0 root hub
+Bus 004 Device 002: ID 8087:8000 Intel Corp. Integrated Rate Matching Hub

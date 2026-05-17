@@ -1,0 +1,134 @@
+=== Task 8: Email Pipeline Deploy and Test ===
+Date: 2026-05-16
+
+## Finding: outboxStore wiring gap (not a config issue)
+
+The `outboxStore` field on `rpc.Server` was NEVER wired up:
+- NOT in rpc.Config struct
+- NOT set in rpc.New() constructor  
+- No setter method (SetOutboxStore) existed
+- Never initialized in cmd/bridge/main.go
+
+The email.NewOutboxStore() function existed but was never called.
+
+## Code Changes Made
+
+1. bridge/pkg/rpc/server.go:
+   - Added `OutboxStore OutboxStoreReader` field to Config struct
+   - Wired `s.outboxStore = cfg.OutboxStore` in New()
+
+2. bridge/pkg/config/config.go:
+   - Added EmailConfig struct with OutboxDBPath field
+   - Added `Email EmailConfig` to Config struct
+
+3. bridge/cmd/bridge/main.go:
+   - Added outbox store initialization before rpc.New():
+     - Resolves DB path (defaults to <keystore_dir>/email-outbox.db)
+     - Creates email.NewOutboxStore(outboxDBPath)
+     - Gracefully degrades if init fails (warning log, RPCs return "not configured")
+
+## Config Fix (pre-existing TOML errors)
+
+Fixed two malformed comment lines in /etc/armorclaw/config.toml on VPS:
+- Line 51: `signaling_# enabled set via env` → `# enabled set via env`  
+- Line 61: `websocket_# enabled set via env` → `# enabled set via env`
+
+## Bridge Logs (after fix)
+
+```
+2026/05/16 20:45:22 Email outbox store initialized: /var/lib/armorclaw/email-outbox.db
+```
+
+## RPC Test Results (all PASS)
+
+=== email.queue_status ===
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "result": {
+    "by_status": {},
+    "total": 0
+  }
+}
+```
+Status: PASS - Returns valid JSON (not "not configured")
+
+=== email.list ===
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "result": {
+    "emails": null
+  }
+}
+```
+Status: PASS - Returns valid JSON (not "not configured")
+
+=== email.get (with email_id) ===
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "error": {
+    "code": -32602,
+    "message": "email \"test-001\" not found"
+  }
+}
+```
+Status: PASS - Validates email_id param, returns "not found" for unknown ID (expected)
+
+=== email.get (missing email_id) ===
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "error": {
+    "code": -32602,
+    "message": "email_id is required"
+  }
+}
+```
+Status: PASS - Validates email_id param correctly
+
+=== email.retry (with email_id) ===
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "error": {
+    "code": -32603,
+    "message": "failed to retry email: outbox entry \"test-001\" not found"
+  }
+}
+```
+Status: PASS - Attempts retry, returns "not found" for unknown ID (expected)
+
+=== email.retry (missing email_id) ===
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "error": {
+    "code": -32602,
+    "message": "email_id is required"
+  }
+}
+```
+Status: PASS - Validates email_id param correctly
+
+## Email Pipeline Test Script
+
+/opt/armorclaw/tests/test-email-pipeline.sh exists on VPS but sets up its own
+test environment (separate bridge socket). RPC smoke tests above are sufficient.
+
+## Summary
+
+All 6 expected outcomes achieved:
+- [x] Email outbox store configured on VPS (SQLite at /var/lib/armorclaw/email-outbox.db)
+- [x] email.queue_status returns valid JSON (not "not configured")
+- [x] email.list returns valid JSON (not "not configured")
+- [x] email.get validates email_id param
+- [x] email.retry validates email_id param
+- [x] Evidence saved

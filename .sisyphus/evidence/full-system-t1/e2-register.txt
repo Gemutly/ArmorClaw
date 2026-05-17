@@ -1,0 +1,1 @@
+{"payload":{"status":"ok"},"timestamp":"2026-04-30T15:36:35Z","type":"registered"}

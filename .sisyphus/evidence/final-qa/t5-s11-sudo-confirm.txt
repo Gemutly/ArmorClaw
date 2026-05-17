@@ -1,0 +1,9 @@
+=== T5 Scenario 11: All sudo steps have confirm ===
+--- Steps with sudo and their automation ---
+    automation: "confirm"
+      sudo "$CMD"
+    automation: "confirm"
+      sudo ./deploy/armorclaw-provision.sh --show-url
+      echo "  Ubuntu/Debian: sudo apt install qrencode"
+---
+RESULT: PASS - All sudo commands are within steps having automation: confirm

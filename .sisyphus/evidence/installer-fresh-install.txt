@@ -1,0 +1,168 @@
+# Installer Validation: Fresh Install Flow
+# Generated: 2026-03-13
+# Status: STATIC ANALYSIS (no live Docker environment)
+
+## 1. Bootstrap Flow (Stage-0)
+
+### File: deploy/install.sh
+
+**Prerequisites Checked:**
+- [x] curl - Required for downloading components
+- [x] sha256sum - Required for integrity verification
+- [x] gpg - Required for authenticity verification  
+- [x] mktemp - Required for secure temp workspace
+- [x] sed - Required for line ending normalization
+
+**Verification Steps:**
+1. Tool verification (lines 48-55) - Fails fast if missing
+2. Secure temp workspace creation (line 58) - Uses mktemp -d
+3. TLS-pinned downloads (line 73) - Uses --proto =https --tlsv1.2
+4. Retry logic (lines 27-40) - 3 retries with 2s delay
+5. Atomic file moves (lines 83-86) - Downloads to .tmp, moves after success
+6. Line ending normalization (line 81) - Handles CRLF from GitHub
+
+**Security Measures:**
+- [x] SHA256 checksum verification (lines 89-100)
+- [x] GPG signature verification (lines 102-131)
+- [x] Fingerprint pinning (line 16) - Expected FPR: 55AD64228EF6B4A342DA480A09C43CFA8AC93062
+- [x] Key replacement attack prevention (lines 116-122)
+- [x] Cleanup on exit (lines 65-68, trap)
+
+**Evidence Quality: EXCELLENT**
+- Defense-in-depth: checksum + GPG signature
+- No hardcoded URLs bypassing verification
+- Proper error handling with clear messages
+
+---
+
+## 2. Main Installer (Stage-1)
+
+### File: deploy/installer-v5.sh
+
+**Prerequisites Checked:**
+- [x] flock - Required for lockfile protection
+- [x] curl or docker - Required for downloads/container ops
+- [x] tee - Required for logging
+
+**System Detection:**
+1. OS detection (lines 155-162): Linux, Darwin, or fail
+2. Arch detection (lines 168-175): x86_64/amd64, arm64/aarch64, or fail
+3. Docker Compose detection (lines 140-149): `docker compose` or `docker-compose`
+
+**Lockfile Protection:**
+- File: /tmp/armorclaw-install.lock (line 106)
+- Uses flock -n for non-blocking (line 337)
+- Properly released on exit (cleanup trap, line 265)
+
+**Docker Readiness:**
+- wait_for_docker() function (lines 247-257)
+- Dual-check: `docker info` AND `docker ps` (line 250)
+- 20-second timeout (10 iterations × 2s sleep)
+
+**Evidence Quality: EXCELLENT**
+- Lockfile prevents parallel installs
+- Docker readiness check is comprehensive
+- Idempotent by design (safe to re-run)
+
+---
+
+## 3. Quick Setup (setup-quick.sh)
+
+### Prerequisites Checked:
+- [x] sudo/root privileges
+- [x] Docker installed AND running
+- [x] Memory >= 1GB (line 759)
+- [x] Disk >= 2GB (line 768)
+- [x] qrencode (auto-installed if missing)
+
+**Installation Steps:**
+1. Prerequisites check (lines 715-799)
+2. Bridge installation - binary or source (lines 805-885)
+3. System user creation (lines 891-900)
+4. Configuration generation (lines 906-1002)
+5. Keystore initialization (lines 1008-1025)
+6. Systemd service setup (lines 1031-1078)
+7. Service start (lines 1084-1108)
+8. Health verification (lines 1114-1141)
+9. Matrix setup (optional) (lines 363-463)
+10. API key prompt (optional) (lines 1153-1242)
+11. QR code generation (lines 1248-1338)
+
+**Evidence Quality: EXCELLENT**
+- Comprehensive prerequisites checking
+- Graceful degradation (qrencode optional)
+- Clear error messages with remediation hints
+
+---
+
+## 4. Quickstart Entrypoint (quickstart-entrypoint.sh)
+
+### CI/Docker-less Detection:
+- Checks for Docker socket (line 44)
+- Detects CI environments: GITHUB_ACTIONS, CI, ARMORCLAW_SKIP_DOCKER (line 48)
+- Falls back to bridge-only mode gracefully (lines 49-77)
+
+### Matrix/Conduit Setup:
+1. Migration from old paths (lines 110-115): /var/lib/matrix-conduit → /var/lib/conduit
+2. Server name auto-detection (lines 131-141)
+3. Conduit container detection - by image or port (lines 185-200)
+4. Server name conflict handling (lines 213-243)
+5. Admin bootstrap via shared-secret API (lines 326-368)
+
+**Evidence Quality: EXCELLENT**
+- Smart container detection prevents duplicates
+- Server name conflicts handled gracefully
+- Database migration is safe and reversible
+
+---
+
+## 5. Docker Compose Full Stack
+
+### File: docker-compose-full.yml
+
+**Service Order (by depends_on):**
+1. matrix (no dependencies)
+2. sygnal (depends: matrix)
+3. caddy (depends: matrix, sygnal)
+4. bridge (depends: matrix with healthcheck, sygnal)
+
+**Healthchecks:**
+- matrix: wget to /_matrix/client/versions, 30 retries × 10s (lines 23-28)
+- sygnal: wget to /health, 3 retries × 30s (lines 54-59)
+- bridge: No explicit healthcheck (relies on depends_on)
+
+**Resource Limits:**
+- matrix: 400M limit, 50M reserved
+- sygnal: 200M limit, 50M reserved
+- caddy: 100M limit, 20M reserved
+- bridge: 100M limit, 30M reserved
+
+**Security (bridge service):**
+- cap_drop: ALL (line 131)
+- cap_add: CHOWN, SETGID, SETUID only (lines 132-135)
+
+**Evidence Quality: GOOD**
+- Proper dependency ordering with healthchecks
+- Resource limits prevent runaway memory usage
+- Capability dropping is a security best practice
+
+---
+
+## Summary
+
+| Component | Status | Notes |
+|-----------|--------|-------|
+| install.sh (Stage-0) | PASS | GPG+SHA256 verification, TLS pinning |
+| installer-v5.sh (Stage-1) | PASS | Lockfile, Docker readiness, idempotent |
+| setup-quick.sh | PASS | Comprehensive checks, graceful fallbacks |
+| quickstart-entrypoint.sh | PASS | CI detection, migration support |
+| docker-compose-full.yml | PASS | Proper deps, healthchecks, resource limits |
+
+**Overall Fresh Install Validation: PASS**
+
+The installer demonstrates production-grade reliability:
+- Defense-in-depth security (checksum + GPG + TLS)
+- Parallel install protection (flock lockfile)
+- Docker readiness verification (dual-check)
+- Graceful degradation (CI mode, optional components)
+- Clear error messages with remediation hints

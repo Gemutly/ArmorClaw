@@ -1,0 +1,20 @@
+    "event_type": "egress_denied",
+    "session_id": "",
+    "room_id": "",
+    "user_id": "",
+    "details": {
+      "host": "evil.com",
+      "path": ""
+--
+    "event_type": "egress_denied",
+    "session_id": "",
+    "room_id": "",
+    "user_id": "",
+    "details": {
+      "host": "evil.com",
+      "path": ""
+--
+    "event_type": "egress_denied",
+    "session_id": "",
+    "room_id": "",
+    "user_id": "",

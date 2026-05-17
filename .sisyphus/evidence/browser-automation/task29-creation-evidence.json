@@ -1,0 +1,9 @@
+{
+  "task": "Task 29: Performance Benchmarking",
+  "file": "tests/test-navchart-pipeline.sh",
+  "syntax_check": "passed",
+  "scenarios": ["NP0", "NP1", "NP2", "NP3", "NP4", "NP5"],
+  "tier": "B",
+  "evidence_dir": ".sisyphus/evidence/browser-automation/",
+  "created_at": "2026-04-26"
+}

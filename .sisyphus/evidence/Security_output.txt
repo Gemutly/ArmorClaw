@@ -1,0 +1,71 @@
+=========================================
+Security Verification Tests
+=========================================
+VPS IP: 5.183.11.149
+VPS User: root
+=========================================
+
+[0;34m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m
+[0;34mTest Group 1: Firewall Rules[0m
+[0;34m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m
+Test 1.1: UFW firewall is installed... [0;32m[PASS][0m UFW Installation: UFW firewall is installed
+Test 1.2: UFW firewall is active... [0;32m[PASS][0m UFW Status: UFW firewall is active
+Test 1.3: Default deny policy is set... [0;32m[PASS][0m Default Deny Policy: Default deny policy is configured
+Test 1.4: SSH is allowed with rate limiting... [1;33m[WARN][0m SSH Rate Limiting: SSH is allowed but rate limiting not configured
+Test 1.5: No unnecessary ports are open... [0;32m[PASS][0m Open Ports: No unnecessary ports open
+
+[0;34m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m
+[0;34mTest Group 2: SSH Hardening[0m
+[0;34m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m
+Test 2.1: PasswordAuthentication is disabled... [0;31m[FAIL][0m SSH Password Authentication: Password authentication is enabled
+Test 2.2: PermitRootLogin is disabled... [0;31m[FAIL][0m SSH Root Login: Root login is enabled
+Test 2.3: PubkeyAuthentication is enabled... [0;32m[PASS][0m SSH Pubkey Authentication: Public key authentication is enabled
+Test 2.4: ChallengeResponseAuthentication is disabled... [1;33m[WARN][0m SSH Challenge Response: Challenge-response authentication is enabled
+Test 2.5: UsePAM is disabled... [1;33m[WARN][0m SSH UsePAM: UsePAM is enabled (may reduce security)
+
+[0;34m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m
+[0;34mTest Group 3: Container Isolation[0m
+[0;34m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m
+Test 3.1: Docker is installed... [0;32m[PASS][0m Docker Installation: Docker is installed
+Test 3.2: Seccomp profile exists... [1;33m[WARN][0m Seccomp Profile: Seccomp profile not found
+Test 3.3: no-new-privileges is set in Docker daemon... [1;33m[WARN][0m No New Privileges: no-new-privileges may not be set
+Test 3.4: No privileged containers running... [0;31m[FAIL][0m Privileged Containers: 0
+0 privileged container(s) detected
+Test 3.5: AppArmor is enabled... [0;32m[PASS][0m AppArmor: AppArmor is enabled and running
+
+[0;34m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m
+[0;34mTest Group 4: Secret Access Controls[0m
+[0;34m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m
+Test 4.1: API keys are in environment variables (memory-only)... [0;32m[PASS][0m API Key Source: API key is from environment (memory-only)
+Test 4.2: API keys are not persisted to disk... /opt/armorclaw/.env:ARMORCLAW_API_KEY=cff2e899ebec4c6ab917e13946ff1f05.yZrEJ8uZFh15GeCJ
+[1;33m[WARN][0m API Key Persistence: API keys may be persisted to disk
+Test 4.3: Keystore has restrictive permissions... [0;31m[FAIL][0m Keystore Permissions: Keystore has incorrect permissions (644)
+Test 4.4: No secrets in log files... [0;32m[PASS][0m Log Security: No secrets found in logs
+Test 4.5: .env file has restrictive permissions... [1;33m[WARN][0m .env Permissions: .env permissions are too permissive (644)
+
+[0;34m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m
+[0;34mTest Group 5: Network Policies[0m
+[0;34m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m
+Test 5.1: TCP SYN cookies are enabled... [0;32m[PASS][0m TCP SYN Cookies: TCP SYN cookies are enabled
+Test 5.2: IP forwarding is disabled... [1;33m[WARN][0m IP Forwarding: IP forwarding is enabled
+Test 5.3: Reverse path filtering is enabled... [1;33m[WARN][0m Reverse Path Filtering: Reverse path filtering not enabled
+Test 5.4: Docker socket is not exposed on network... [0;31m[FAIL][0m Docker Socket Exposure: Docker socket is exposed on network
+Test 5.5: ArmorClaw services listening on expected ports... [0;32m[PASS][0m Service Ports: ArmorClaw services listening on expected ports
+
+[0;34m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m
+[0;34mTest Group 6: User Permissions[0m
+[0;34m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m
+Test 6.1: No containers running as root... [1;33m[WARN][0m Container Root User: 1 container(s) may be running as root
+Test 6.2: armorclaw user exists... [0;32m[PASS][0m ArmorClaw User: Armorclaw user exists
+Test 6.3: armorclaw user has no login shell... [1;33m[WARN][0m ArmorClaw User Shell: Armorclaw user has login shell (/bin/bash)
+Test 6.4: armorclaw user does not have passwordless sudo... [0;32m[PASS][0m Passwordless Sudo: Armorclaw user does not have passwordless sudo
+Test 6.5: Config directory has restrictive permissions... [1;33m[WARN][0m Config Directory Permissions: Config directory permissions are too permissive (755)
+
+[0;34m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m
+[0;34mTest Group 7: SQLCipher Keystore[0m
+[0;34m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m
+Test 7.1: SQLCipher is being used for keystore... [1;33m[WARN][0m SQLCipher Database: Keystore format may not be SQLCipher
+Test 7.2: Keystore database is encrypted... [0;32m[PASS][0m Keystore Encryption: Keystore appears to be encrypted (cannot read without key)
+Test 7.3: SQLCipher libraries are available... [1;33m[WARN][0m SQLCipher Libraries: SQLCipher libraries may not be available
+Test 7.4: Keystore database has proper integrity... [0;32m[PASS][0m Keystore Integrity: Keystore has non-standard header (likely encrypted)
+Test 7.5: No unencrypted keystore backups... 

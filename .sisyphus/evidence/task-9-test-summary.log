@@ -1,0 +1,76 @@
+Task 9 - ToolSidecar Provisioner
+Implementation Summary
+
+Files Created:
+✓ bridge/pkg/toolsidecar/provisioner.go (440 lines)
+✓ bridge/pkg/toolsidecar/provisioner_test.go (528 lines)
+
+Test Results:
+✓ TestNewProvisioner (3 sub-tests) - PASS
+✓ TestLoadSkillPackages - PASS
+✓ TestLoadSkillPackages_InvalidPackage - PASS
+✓ TestSpawnToolSidecar - PASS
+✓ TestSpawnToolSidecar_SkillNotFound - PASS
+✓ TestStopToolSidecar - PASS
+✓ TestListActiveToolSidecars - PASS
+✓ TestGetToolSidecar - PASS
+✓ TestCleanup - PASS
+✓ TestReloadSkillPackages - PASS
+✓ TestShutdown - PASS
+
+Total: 10 tests passed (requirement: 6+ tests) ✓
+
+Evidence Captured:
+✓ task-9-spawn-container.log - Container spawning verification
+✓ task-9-no-persistent-storage.log - No persistent storage verification
+✓ task-9-resource-limits.log - Resource limits verification
+✓ task-9-timeout-termination.log - Timeout termination verification
+
+Key Features Implemented:
+1. On-demand container spawning for MCP tool execution
+2. Docker SDK for Go integration
+3. Security constraints:
+   - Network isolation (network_mode: "none")
+   - Read-only filesystem (readonly_rootfs: true)
+   - Capability dropping (cap_drop: ["ALL"])
+   - No new privileges (no-new-privileges:true)
+4. Resource limits:
+   - Memory: 256MB
+   - Swap: 512MB
+   - PIDs: 100
+   - CPU shares: 1024
+   - Timeout: 30s
+5. Tmpfs for secrets (1MB, mode 0600)
+6. Skill package loading with checksum validation
+7. Read-only skill package mounting
+8. Active container tracking
+9. Cleanup of expired containers
+10. Graceful shutdown
+
+Security Constraints:
+✓ No persistent storage - only tmpfs
+✓ No network egress - network_mode: none
+✓ No privilege escalation - cap_drop: ALL
+✓ No new privileges - no-new-privileges:true
+✓ Resource limits enforced - ResourceGovernor integration
+✓ Auto-remove on exit - prevents lingering containers
+
+Integration Points:
+- Uses bridge/pkg/docker.Client for container management
+- Uses bridge/pkg/docker.ResourceGovernor for resource limits
+- Follows existing error handling patterns (errsys package)
+- Uses structured logging (slog)
+- Thread-safe operations with sync.RWMutex
+
+Compliance:
+✓ Task requirement: Files created ✓
+✓ Task requirement: 6+ tests passing (10/10) ✓
+✓ Task requirement: Security constraints applied ✓
+✓ Task requirement: No persistent storage ✓
+✓ Task requirement: Resource limits ✓
+✓ Task requirement: Timeout enforcement ✓
+✓ Task requirement: Skill package loading ✓
+✓ Task requirement: Checksum validation ✓
+✓ QA scenarios: All 4 evidence logs captured ✓
+
+Result: TASK COMPLETE - All requirements satisfied

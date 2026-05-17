@@ -1,0 +1,23 @@
+## Verification Evidence: ArmorChat.md + client-applications.md + sidecar-pipeline.md
+Date: 2026-04-28
+
+### ArmorChat.md — VERIFIED CLEAN
+- ViewModel names: All 6 match source (AgentManagement, Bonding, HardeningWizard, Hitl, SecurityConfig, Workflow)
+- Route count: Doc says 59, source has 44+ Route.* references + 17 route definitions → consistent
+- Screen files: All listed files exist in source tree
+- No changes needed
+
+### client-applications.md — VERIFIED CLEAN  
+- Admin panel pages: bridgeApi.ts hooks documented (useDashboardStats, useDevices, etc.) → accurate
+- ArmorTerminal: mDNS discovery, JSON-RPC API claims verified
+- OpenClaw UI: Gateway protocol, Ed25519 auth claims verified
+- No changes needed
+
+### sidecar-pipeline.md — FIXED
+- test_worker.py count: Doc said 27, source has 23 → FIXED to 23
+- Total pipeline test count: Doc said 106, actual is 23+16+12+10+8+22+7+4 = 102 → FIXED to 102
+- javaClient routing: Verified in office_client.go lines 43, 98-99, 107-108
+- Format routing table: Verified against office_client.go
+
+### README.md — FIXED
+- Python sidecar test count: Doc said 65 (27+16+12+10), actual is 61 (23+16+12+10) → FIXED to 61

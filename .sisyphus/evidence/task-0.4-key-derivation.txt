@@ -1,0 +1,82 @@
+# Key Derivation Parameters Evidence
+# Task: 0.4 - Key Derivation Parameters
+# Date: 2025-04-04
+
+## Source Files
+- bridge/pkg/keystore/keystore.go (lines 39-50, 188)
+- bridge/pkg/crypto/keystore_store.go (lines 24-30)
+
+## Go Bridge SQLCipher Configuration
+
+### Key Derivation Parameters (from keystore.go lines 39-50)
+```go
+const (
+    // Key derivation parameters
+    saltLength       = 32
+    pbkdf2Iterations = 256000 // SQLCipher default
+    keyLength        = 32
+
+    // SQLCipher parameters
+    cipherPageSize     = 4096
+    cipherKdfIter      = 256000
+    cipherHmacAlg      = "HMAC_SHA512"
+    cipherKdfAlgorithm = "PBKDF2_HMAC_SHA512"
+)
+```
+
+### Key Derivation Implementation (keystore.go line 188)
+```go
+// Use PBKDF2-HMAC-SHA512 with the persisted salt
+// This matches SQLCipher's default KDF parameters
+key := pbkdf2.Key(entropy, ks.salt, pbkdf2Iterations, keyLength, sha512.New)
+```
+
+## Final Parameters for Rust Vault
+
+| Parameter | Value | Source |
+|-----------|-------|--------|
+| **Algorithm** | PBKDF2-HMAC-SHA512 | keystore.go:49 |
+| **Iterations** | 256,000 | keystore.go:42, 47 |
+| **Salt Length** | 32 bytes | keystore.go:41 |
+| **Key Length** | 32 bytes | keystore.go:43 |
+| **Page Size** | 4096 bytes | keystore.go:46 |
+| **HMAC Algorithm** | HMAC_SHA512 | keystore.go:48 |
+
+## SQLCipher Connection String Format
+```go
+dsn := fmt.Sprintf(
+    "file:%s?_pragma_key=x'%s'&_pragma_cipher_page_size=%d&_pragma_kdf_iter=%d&_pragma_cipher_hmac_algorithm=%s&_pragma_cipher_kdf_algorithm=%s&_foreign_keys=ON",
+    dbPath,
+    keyHex,
+    cipherPageSize,
+    cipherKdfIter,
+    cipherHmacAlg,
+    cipherKdfAlgorithm,
+)
+```
+
+## Salt Strategy
+- Salt is persisted in `{dbPath}.salt` file (base64 encoded)
+- Generated once on first install using crypto/rand.Reader
+- Persisted across reboots to enable zero-touch operation
+- 32 bytes length, stored as base64 string
+
+## Key Derivation Hierarchy (deriveMasterKey)
+1. **Priority 1**: Environment variable `ARMORCLAW_KEYSTORE_SECRET` (base64-decoded, 32 bytes)
+2. **Priority 2**: Explicit secret file `{dbPath}.key` (base64-decoded, 32 bytes)
+3. **Priority 3**: Container detection → Generate random 32-byte key, persist to `{dbPath}.key`
+4. **Priority 4**: Native host mode → Hardware-derived key via PBKDF2-HMAC-SHA512
+
+## Hardware-Derived Key Entropy Sources
+- Machine ID (from /etc/machine-id or /var/lib/dbus/machine-id)
+- DMI product UUID (from /sys/class/dmi/id/product_uuid)
+- Primary MAC address
+- Hostname
+- OS and architecture
+- CPU info
+
+## Important Notes
+- Algorithm is PBKDF2-HMAC-SHA512, NOT SHA256 as initially suggested
+- Iterations are 256,000, NOT 100,000 as initially suggested
+- These are SQLCipher's default parameters for maximum compatibility
+- The Rust vault MUST use these exact parameters to match Go Bridge implementation

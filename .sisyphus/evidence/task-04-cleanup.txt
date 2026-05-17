@@ -1,0 +1,15 @@
+--- Current Running Containers ---
+armorclaw-conduit: Up 14 hours
+
+--- Checking for docker-compose files ---
+NO_COMPOSE_FILES_FOUND
+
+--- Checking for any armorclaw docker-compose projects ---
+NAME                STATUS              CONFIG FILES
+
+--- Stopping all armorclaw containers directly ---
+Stopping armorclaw-conduit...
+armorclaw-conduit
+armorclaw-conduit
+
+--- Checking for bridge process ---

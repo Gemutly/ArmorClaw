@@ -1,0 +1,31 @@
+Browser RPC Coverage Test
+Date: 2026-05-16
+VPS: 5.183.11.149
+Socket: /run/armorclaw/bridge.sock
+Image: mikegemut/armorclaw:beato-fix
+
+=== Raw Results ===
+
+1. browser.navigate → REGISTERED (error: "url is required")
+2. browser.screenshot → MISSING (error: -32601 "method not found")
+3. browser.close → MISSING (error: -32601 "method not found")
+4. browser.fill → REGISTERED (error: "job_id is required")
+5. browser.click → REGISTERED (error: "job_id is required")
+6. browser.cancel → REGISTERED (error: "job_id is required")
+7. browser.wait_for_element → REGISTERED (error: "job_id is required")
+8. browser.wait_for_captcha → REGISTERED (error: "job_id is required")
+9. browser.wait_for_2fa → REGISTERED (error: "job_id is required")
+10. browser.complete → REGISTERED (error: "job_id is required")
+11. browser.fail → REGISTERED (error: "job_id is required")
+12. browser.replay_diagnostics → REGISTERED (error: "tab_id is required")
+
+=== Summary ===
+Registered: 10/12
+Missing: browser.screenshot, browser.close
+Coverage: 83%
+
+=== Notes ===
+- browser.screenshot and browser.close return JSON-RPC -32601 "method not found"
+- These 2 methods exist in code but are NOT registered in the running bridge handler map
+- The other 10 respond with parameter validation errors, confirming they are registered handlers
+- Auth token not required (middleware not enforcing on this deploy)

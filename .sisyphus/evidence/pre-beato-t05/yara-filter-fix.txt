@@ -1,0 +1,10 @@
+=== YARA Container Filter Fix ===
+Date: 2026-05-15T21:24:36Z
+
+--- Current filter ---
+CONTAINER_FILTER="name=armorclaw"
+CONTAINER_ID=$(ssh_vps "docker ps --filter ${CONTAINER_FILTER} --format '{{.ID}}' | head -1" 2>/dev/null) || CONTAINER_ID=""
+  log_fail "No running ArmorClaw container found (filter: ${CONTAINER_FILTER})"
+
+--- Syntax check ---
+PASS

@@ -1,0 +1,93 @@
+=== Security Verification Evidence ===
+Timestamp: 2026-04-03T08:41:48Z
+VPS IP: 5.183.11.149
+VPS User: root
+
+=== Firewall Status ===
+Status: active
+Logging: on (low)
+Default: deny (incoming), allow (outgoing), deny (routed)
+New profiles: skip
+
+To                         Action      From
+--                         ------      ----
+22/tcp                     ALLOW IN    Anywhere                  
+8080/tcp                   ALLOW IN    Anywhere                   # ArmorChat bridge RPC/WS
+6167/tcp                   ALLOW IN    Anywhere                   # Matrix Conduit
+8448/tcp                   ALLOW IN    Anywhere                  
+8443/tcp                   ALLOW IN    Anywhere                   # ArmorClaw Bridge
+22/tcp (v6)                ALLOW IN    Anywhere (v6)             
+8080/tcp (v6)              ALLOW IN    Anywhere (v6)              # ArmorChat bridge RPC/WS
+6167/tcp (v6)              ALLOW IN    Anywhere (v6)              # Matrix Conduit
+8448/tcp (v6)              ALLOW IN    Anywhere (v6)             
+8443/tcp (v6)              ALLOW IN    Anywhere (v6)              # ArmorClaw Bridge
+
+
+=== SSH Configuration ===
+#PubkeyAuthentication yes
+#PasswordAuthentication yes
+UsePAM yes
+PermitRootLogin yes
+
+=== Docker Security ===
+armorclaw-conduit	matrixconduit/matrix-conduit:latest	Up 5 days
+armorclaw-coturn	coturn/coturn:latest	Up 6 hours (unhealthy)
+
+=== Container Security Settings ===
+Container: armorclaw-conduit
+Privileged: false
+Container: armorclaw-coturn
+Privileged: false
+
+=== Network Settings ===
+1
+1
+2
+
+=== Listening Ports ===
+tcp   LISTEN 0      1024               172.19.0.1:3478      0.0.0.0:*          
+tcp   LISTEN 0      1024               172.19.0.1:3478      0.0.0.0:*          
+tcp   LISTEN 0      1024               172.21.0.1:3478      0.0.0.0:*          
+tcp   LISTEN 0      1024               172.21.0.1:3478      0.0.0.0:*          
+tcp   LISTEN 0      4096               127.0.0.54:53        0.0.0.0:*          
+tcp   LISTEN 0      4096                  0.0.0.0:6167      0.0.0.0:*          
+tcp   LISTEN 0      4096            127.0.0.53%lo:53        0.0.0.0:*          
+tcp   LISTEN 0      4096                  0.0.0.0:8448      0.0.0.0:*          
+tcp   LISTEN 0      4096                  0.0.0.0:22        0.0.0.0:*          
+tcp   LISTEN 0      1024             5.183.11.149:3478      0.0.0.0:*          
+tcp   LISTEN 0      1024             5.183.11.149:3478      0.0.0.0:*          
+tcp   LISTEN 0      1024               172.17.0.1:3478      0.0.0.0:*          
+tcp   LISTEN 0      1024               172.17.0.1:3478      0.0.0.0:*          
+tcp   LISTEN 0      1024                127.0.0.1:3478      0.0.0.0:*          
+tcp   LISTEN 0      1024                127.0.0.1:3478      0.0.0.0:*          
+tcp   LISTEN 0      4096                     [::]:6167         [::]:*          
+tcp   LISTEN 0      4096                        *:9081            *:*          
+tcp   LISTEN 0      1024                    [::1]:3478         [::]:*          
+tcp   LISTEN 0      1024                    [::1]:3478         [::]:*          
+tcp   LISTEN 0      4096                     [::]:8448         [::]:*          
+tcp   LISTEN 0      4096                     [::]:22           [::]:*          
+tcp   LISTEN 0      1024   [2a02:4780:10:b390::1]:3478         [::]:*          
+tcp   LISTEN 0      1024   [2a02:4780:10:b390::1]:3478         [::]:*          
+
+=== Keystore Information ===
+total 1084
+drwx------  3 armorclaw armorclaw  4096 Apr  3 04:40 .
+drwxr-xr-x 50 root      root       4096 Mar 28 09:28 ..
+drwxr-xr-x  2 armorclaw armorclaw  4096 Mar 28 02:06 data
+-rw-r--r--  1 armorclaw armorclaw 32768 Mar 28 09:28 errors.db
+-rw-r--r--  1 armorclaw armorclaw 61440 Apr  3 04:40 keystore.db
+-rw-r--r--  1 armorclaw armorclaw 69632 Mar 28 09:44 keystore.db.corrupted.20260328-094653
+-rw-r--r--  1 armorclaw armorclaw 69632 Mar 28 09:49 keystore.db.corrupted.20260328-232811
+-rw-r--r--  1 armorclaw armorclaw 61440 Mar 28 23:28 keystore.db.corrupted.20260403-024249
+-rw-r--r--  1 root      root      61440 Apr  3 02:42 keystore.db.corrupted.20260403-024403
+-rw-r--r--  1 armorclaw armorclaw 61440 Apr  3 02:44 keystore.db.corrupted.20260403-024459
+-rw-r--r--  1 root      root      61440 Apr  3 02:44 keystore.db.corrupted.20260403-024828
+-rw-r--r--  1 armorclaw armorclaw 61440 Apr  3 02:48 keystore.db.corrupted.20260403-025053
+-rw-r--r--  1 root      root      61440 Apr  3 02:50 keystore.db.corrupted.20260403-025056
+-rw-r--r--  1 armorclaw armorclaw 61440 Apr  3 02:50 keystore.db.corrupted.20260403-025623
+-rw-r--r--  1 root      root      61440 Apr  3 02:56 keystore.db.corrupted.20260403-041415
+-rw-r--r--  1 armorclaw armorclaw 61440 Apr  3 04:14 keystore.db.corrupted.20260403-042144
+-rw-r--r--  1 root      root      61440 Apr  3 04:21 keystore.db.corrupted.20260403-044007
+-rw-------  1 armorclaw armorclaw    44 Mar 28 09:49 keystore.db.salt
+-rw-r--r--  1 armorclaw armorclaw 94208 Mar 28 09:28 rolodex.db
+-rw-r--r--  1 armorclaw armorclaw 94208 Apr  3 04:40 studio

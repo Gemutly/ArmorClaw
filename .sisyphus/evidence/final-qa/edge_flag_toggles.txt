@@ -1,0 +1,15 @@
+44:// ReplayFeatureFlags holds feature toggles needed by browser replay RPC handlers.
+45:type ReplayFeatureFlags struct {
+46:	MultiTabReplay bool
+151:type FeatureFlags struct {
+152:	ZeroTrustKeystore bool
+153:	VoicePipeline     string
+154:	MultiTabReplay    bool
+155:	E2EEBackup        bool
+200:	replayFlags       ReplayFeatureFlags
+235:	E2EEBackupEnabled bool
+237:	VoicePipeline    string
+238:	ReplayFlags      ReplayFeatureFlags
+280:		e2eeBackupEnabled: cfg.E2EEBackupEnabled,
+282:		voicePipeline:     cfg.VoicePipeline,
+1266:		"e2ee.backup_exists":         s.handleE2EEBackupExists,

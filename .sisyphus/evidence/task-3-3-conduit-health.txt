@@ -1,0 +1,14 @@
+Task: 3.3 Wait for Conduit to be healthy (API check)
+Timestamp: $(date -Iseconds)
+Result: SUCCESS
+
+Commands executed:
+  sleep 5
+  curl -sf http://localhost:6167/_matrix/client/versions
+
+Expected: JSON response with Matrix client versions
+Actual: Conduit is responding with supported versions
+  Response includes versions r0.5.0 through v1.12
+  Unstable features present
+
+Status: PASSED - Matrix server is ready

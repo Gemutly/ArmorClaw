@@ -1,0 +1,51 @@
+BEATO Wave 2 - T2.3 Office Sidecar Smoke Test
+Date: 2026-05-16
+
+## Test 1: XLSX Extraction via gRPC (SUCCESS)
+
+Method: Direct gRPC to Python sidecar (bypass bridge - bridge rebuild blocked by navchart dependency)
+
+Request:
+- format: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet
+- content: Minimal valid XLSX with "Hello ArmorClaw" in cell A1 (1564 bytes)
+
+Response:
+- Text: "## Sheet1\n| Hello ArmorClaw |\n| --- |"
+- PageCount: 0
+- Metadata: {}
+- Status: SUCCESS
+
+## Test 2: Error Handling - Corrupt Data (PASS)
+
+Request: corrupt bytes with XLSX format
+Response: No crash, returns raw content (markitdown graceful degradation)
+Status: PASS (no crash)
+
+## Test 3: Error Handling - Empty Content (PASS)
+
+Request: empty document_content
+Response: StatusCode.INVALID_ARGUMENT - "empty document_content"
+Status: PASS
+
+## Test 4: Error Handling - No Auth (PASS)
+
+Request: no x-request-token metadata
+Response: StatusCode.UNAUTHENTICATED - "missing token"
+Status: PASS
+
+## Auth Notes
+
+- Token format: {request_id}:{timestamp}:{operation}:{hmac_signature}
+- HMAC data: request_id + timestamp + operation (concatenated, no separators)
+- Metadata key: "x-request-token"
+- Secret path: /run/armorclaw/secrets/office-hmac (bridge volume)
+
+## Bridge Rebuild Blocker
+
+Bridge rebuild blocked by pre-existing navchart dependency issue:
+- bridge/pkg/rpc/browser.go imports github.com/armorclaw/jetski/navchart
+- No go.mod replace directive for local jetski module
+- Dockerfile only copies bridge/ context, can't access ../jetski/
+- This is a pre-existing issue - not caused by document RPC changes
+
+## Verdict: SIDECAR WORKS - document extraction functional via gRPC

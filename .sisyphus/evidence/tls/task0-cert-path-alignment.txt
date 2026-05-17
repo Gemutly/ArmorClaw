@@ -1,0 +1,16 @@
+T0: TLS Metadata Source-of-Truth Alignment
+Date: 2026-04-29
+Status: PASS
+
+Changes:
+1. bridge/pkg/http/server.go:117 — CertDir default changed from /var/lib/armorclaw/certs to /etc/armorclaw/certs
+2. bridge/pkg/http/server.go:271 — cert filename changed from bridge.crt to server.crt
+3. bridge/pkg/http/server.go:274 — key filename changed from bridge.key to server.key
+4. bridge/pkg/config/config.go:978 — HTTPConfig.CertDir default changed from /var/lib/armorclaw/certs to /etc/armorclaw/certs
+
+Alignment verification:
+- Bridge: /etc/armorclaw/certs/server.crt + server.key ✅
+- Caddy: /etc/armorclaw/certs/server.crt + server.key ✅
+- generate-certs.sh: OUTPUT_DIR=/etc/armorclaw/certs, generates server.crt + server.key ✅
+
+Build: go build ./pkg/http/... ./pkg/config/... — PASS (zero errors)

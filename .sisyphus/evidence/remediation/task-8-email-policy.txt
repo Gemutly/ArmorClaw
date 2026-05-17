@@ -1,0 +1,1 @@
+S8 Fix: Added email.send policy entry

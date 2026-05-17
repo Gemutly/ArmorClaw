@@ -1,0 +1,1 @@
+{"jsonrpc":"2.0","id":4,"result":{"enabled":false,"status":"not_configured","tls":{"mode":"none","health":"ok","fingerprint_sha256":"177751f0beadfba62eff910d6fe6b8b6cd2a3462fe57292d1ff83559dfb00b71","trust_type":"self_signed","expires_at":1810410575,"san_includes_public_ip":false,"cert_source":"shared_cert"}}}

@@ -1,0 +1,323 @@
+================================================================================
+EVIDENCE: Task 0.3 - mTLS Certificate Strategy
+================================================================================
+
+Date: 2025-04-04
+Task: Determine mTLS certificate strategy for Rust Vault gRPC communication
+
+================================================================================
+ANALYSIS PERFORMED
+================================================================================
+
+1. Explored Go Bridge gRPC setup (bridge/pkg/rpc/):
+   - File examined: server.go
+   - Current transport: JSON-RPC over Unix Domain Socket (UDS) or TCP
+   - No existing TLS/mTLS implementation
+   - Transport selection: Unix socket (default) or TCP
+
+2. Examined existing Rust sidecar security patterns:
+   - File examined: sidecar/src/grpc/interceptor.rs
+   - Current authentication: Ephemeral tokens (HMAC-SHA256)
+   - Token TTL: 30 minutes
+   - Security layers: Custom interceptor with Prometheus metrics
+   - No mTLS currently implemented
+   - ServerTlsConfig imported but unused
+
+3. Reviewed existing token-based authentication:
+   - File examined: sidecar/src/security/token.rs
+   - Token format: {request_id}:{timestamp}:{operation}:{signature}
+   - Signature algorithm: HMAC-SHA256
+   - Validation: Signature, expiration, age checks
+   - Max timestamp age: 5 minutes
+   - Token TTL: 30 minutes
+
+4. Checked for existing certificate infrastructure:
+   - Found: scripts/certbot-healthcheck.sh (Let's Encrypt for HTTPS)
+   - No existing mTLS certificates in codebase
+   - No existing certificate generation scripts
+   - No existing TLS configuration in Go Bridge or Rust sidecar
+
+5. Examined related planning notes:
+   - File reviewed: .sisyphus/planning-notes/rust-vault-db-strategy.md
+   - Established pattern: gRPC over UDS with ephemeral token auth
+   - Architecture: Microservices with explicit service boundaries
+   - Security: Shared secret for HMAC, audit logging
+
+================================================================================
+DECISION: Self-Signed Certificates with Auto-Rotation (Per-Client mTLS)
+================================================================================
+
+STRATEGY COMPONENTS:
+
+1. Certificate Source:
+   - Self-signed Certificate Authority (CA)
+   - CA generated once during initial setup
+   - Server and client certificates signed by CA
+   - RSA 4096-bit for compatibility
+   - No external PKI dependencies
+
+2. Rotation Strategy:
+   - Automatic rotation every 90 days
+   - Rotation trigger: Certificate age > 75 days OR startup if expired
+   - Grace period: 15 days before expiration
+   - Validation on every connection
+   - Graceful restart (SIGHUP) for config reload
+
+3. Scope:
+   - Per-client certificates (individual isolation)
+   - One server certificate (Go Bridge)
+   - One client certificate (Rust Vault)
+   - Future: Support multiple independent vault instances
+
+4. Architecture:
+   - Transport: gRPC over Unix Domain Socket (UDS) with TLS layer
+   - Dual-layer security: mTLS (transport) + ephemeral tokens (application)
+   - Defense in depth: Both layers must pass
+   - Zero external dependencies: Self-signed CA
+
+================================================================================
+RATIONALE
+================================================================================
+
+WHY SELF-SIGNED CERTIFICATES?
+
+✓ Zero external dependencies - works offline, no CA fees
+✓ Operational simplicity - no third-party PKI management
+✓ Fast deployment - no certificate signing delays
+✓ Privacy - no external CA knows your infrastructure
+✓ Cost - no ongoing certificate fees
+
+✗ Trust chain - must distribute CA certificate to all services
+✗ Revocation - no built-in revocation mechanism (must implement CRL)
+
+WHY AUTO-ROTATION (90 DAYS)?
+
+✓ Security - limits exposure time if certificate is compromised
+✓ Compliance - meets industry best practices (NIST SP 800-57)
+✓ Automation - reduces operational overhead
+✓ Early warning - rotation 15 days before expiration
+
+WHY PER-CLIENT CERTIFICATES?
+
+✓ Isolation - compromised client doesn't affect others
+✓ Revocation - can revoke individual clients
+✓ Audit - clear attribution of actions
+✓ Scalability - supports multiple vault instances
+✓ Zero-trust - follows security best practices
+
+WHY mTLS + EPHEMERAL TOKENS?
+
+✓ Defense in depth - multiple security layers
+✓ Transport security - mTLS prevents MITM attacks
+✓ Application security - tokens provide fine-grained authorization
+✓ Compatibility - works alongside existing token auth
+✓ Migration - can deploy mTLS without breaking existing clients
+
+================================================================================
+ALTERNATIVES CONSIDERED
+================================================================================
+
+Alternative 1: External PKI (Let's Encrypt / commercial CA)
+✗ Requires external dependencies
+✗ Cannot work offline
+✗ ACME protocol complexity for internal services
+✗ Certificate fees (commercial CA)
+✗ Privacy concerns (CA learns about infrastructure)
+
+Alternative 2: Shared certificate (one cert for all clients)
+✗ Compromised client exposes all vaults
+✗ No individual client isolation
+✗ Cannot revoke individual clients
+✗ Violates zero-trust principles
+
+Alternative 3: No mTLS (ephemeral tokens only)
+✗ No transport layer security
+✗ Vulnerable to MITM attacks on network level
+✗ No cryptographic identity verification
+✗ Lower security posture
+
+Alternative 4: Manual certificate rotation
+✗ High operational overhead
+✗ Risk of missed rotations
+✗ Service disruption during manual updates
+✗ Human error risk
+
+Alternative 5: Longer certificate lifetime (365+ days)
+✗ Increased exposure time
+✗ Violates NIST recommendations
+✗ Larger blast radius if compromised
+✗ Less frequent rotation = less practice
+
+================================================================================
+SECURITY ANALYSIS
+================================================================================
+
+THREATS MITIGATED:
+
+1. Man-in-the-Middle (MITM) attacks
+   - Mitigation: mTLS provides cryptographic identity verification
+   - Both client and server verify each other's certificates
+
+2. Eavesdropping on UDS (if filesystem compromised)
+   - Mitigation: TLS encryption protects data in transit
+   - Strong cipher suites with forward secrecy
+
+3. Impersonation attacks
+   - Mitigation: CA-based certificate validation
+   - Per-client certificates limit blast radius
+
+4. Certificate expiration
+   - Mitigation: Automatic rotation 15 days before expiration
+   - Health checks monitor certificate age
+
+5. Unauthorized access
+   - Mitigation: Dual-layer security (mTLS + ephemeral tokens)
+   - Both layers must pass for request to succeed
+
+6. Key compromise
+   - Mitigation: Per-client certificates isolate impact
+   - Automatic rotation limits exposure time
+
+SECURITY TRADE-OFFS:
+
+✓ Enhanced security: mTLS adds strong cryptographic protection
+✗ Increased complexity: Certificate management adds operational overhead
+✓ Defense in depth: Dual-layer security is more robust
+✗ Performance overhead: TLS adds latency to gRPC calls (minimal for UDS)
+
+================================================================================
+OPERATIONAL IMPACT
+================================================================================
+
+INITIAL SETUP:
+- One-time CA generation (automated)
+- Certificate directories creation
+- Go Bridge integration (Task 4.2)
+- Rust Vault integration (Task 4.2)
+- Estimated time: 4-6 hours for full implementation
+
+ONGOING OPERATIONS:
+- Automatic certificate rotation (no manual intervention)
+- Health monitoring (certificate age checks)
+- Rotation logging (audit trail)
+- Estimated ongoing overhead: Minimal (automated)
+
+MAINTENANCE:
+- Monitor certificate rotation logs
+- Verify rotation success via health check
+- Backup CA certificate (disaster recovery)
+- Estimated maintenance: 5 minutes per month
+
+RISK MITIGATION:
+- Certificate generation failures: Retry logic + logging
+- Rotation failures: Alert + manual intervention fallback
+- Expired certificates: Health check prevents startup with expired certs
+- Compromised certificates: Generate new CA + rotate all certificates
+
+================================================================================
+COMPATIBILITY MATRIX
+================================================================================
+
+| Component          | Version        | mTLS Support | Status         |
+|--------------------|----------------|--------------|----------------|
+| Go Bridge          | v4.7.0+       | Yes (new)    | Greenfield     |
+| Rust Vault         | v6.0.0        | Yes (new)    | Greenfield     |
+| gRPC               | tonic 0.12+    | Yes          | Supported      |
+| TLS                | Rustls 0.23+   | Yes          | Supported      |
+| Ephemeral Tokens   | v1.0.0         | Yes          | Existing       |
+
+BACKWARD COMPATIBILITY:
+- Existing token-based authentication: Preserved
+- Existing UDS transport: Preserved (with TLS layer)
+- Existing interceptor logic: Preserved
+- No breaking changes to existing services
+
+MIGRATION PATH:
+- Phase 1: Implement mTLS infrastructure (this task)
+- Phase 2: Add mTLS to Go Bridge (Task 4.2)
+- Phase 3: Add mTLS to Rust Vault (Task 4.2)
+- Phase 4: Enable mTLS in production (optional toggle)
+- Rollback: Can disable mTLS via configuration if needed
+
+================================================================================
+IMPLEMENTATION PLAN
+================================================================================
+
+TASK 4.2 (gRPC mTLS Implementation):
+
+1. Go Bridge Changes:
+   - Add certificate generation script (setup)
+   - Implement rotation daemon
+   - Create gRPC server with mTLS
+   - Add certificate health check endpoint
+   - Integrate with existing interceptor
+
+2. Rust Vault Changes:
+   - Add client certificate generation
+   - Implement rotation logic
+   - Create gRPC client with mTLS
+   - Add certificate validation
+   - Handle rotation errors gracefully
+
+3. Configuration:
+   - Add mTLS configuration to config.rs
+   - Support dev mode (no mTLS for testing)
+   - Support production mode (mTLS required)
+   - Document configuration options
+
+4. Testing:
+   - Unit tests for certificate logic
+   - Integration tests for mTLS handshake
+   - E2E tests for rotation
+   - Performance benchmarks
+
+================================================================================
+REFERENCES
+================================================================================
+
+Planning Notes:
+- .sisyphus/planning-notes/rust-vault-mtls-strategy.md (detailed strategy)
+
+Code Examined:
+- bridge/pkg/rpc/server.go (Go Bridge gRPC server)
+- sidecar/src/grpc/interceptor.rs (security interceptor)
+- sidecar/src/grpc/server.rs (gRPC server setup)
+- sidecar/src/security/token.rs (ephemeral token auth)
+
+Documentation:
+- Tonic gRPC documentation: https://docs.rs/tonic/
+- TLS best practices: https://wiki.mozilla.org/Security/Server_Side_TLS
+- NIST SP 800-57: Recommendation for Key Management
+
+Standards:
+- RFC 5246: TLS 1.2
+- RFC 8446: TLS 1.3
+- RFC 5280: X.509 certificates
+- NIST SP 800-57: Key management guidelines
+
+================================================================================
+DECISION RECORD
+================================================================================
+
+Date: 2025-04-04
+Approver: Task 0.3 (mTLS Certificate Strategy)
+Status: APPROVED
+
+Decision: Implement self-signed mTLS with auto-rotation and per-client certificates
+
+Rationale Summary:
+- Enhanced security through defense in depth
+- Zero external dependencies (self-signed CA)
+- Operational simplicity (automatic rotation)
+- Per-client isolation (zero-trust principles)
+- Compatible with existing architecture
+
+Next Steps:
+- Task 4.2: Implement gRPC mTLS (Go Bridge + Rust Vault)
+- Document mTLS setup in deployment guide
+- Add monitoring for certificate rotation
+- Update security documentation
+
+================================================================================
+END OF EVIDENCE
+================================================================================

@@ -1,0 +1,20 @@
+=== RUN   TestDetectSpeech_Success
+2026/03/25 16:17:02 INFO vad detection completed latency=827.9µs speech_detected=true confidence=0.95 threshold=0.7 audio_size=4
+--- PASS: TestDetectSpeech_Success (0.01s)
+=== RUN   TestDetectSpeech_ServiceUnavailable
+--- PASS: TestDetectSpeech_ServiceUnavailable (3.13s)
+=== RUN   TestDetectSpeech_EmptyAudioData
+--- PASS: TestDetectSpeech_EmptyAudioData (0.00s)
+=== RUN   TestDetectSpeech_RetryLogic
+2026/03/25 16:17:08 INFO vad detection completed latency=3.022669757s speech_detected=true confidence=0.85 threshold=0.7 audio_size=4
+--- PASS: TestDetectSpeech_RetryLogic (3.02s)
+=== RUN   TestDetectSpeech_ThresholdLowConfidence
+2026/03/25 16:17:08 INFO vad detection completed latency=564.3µs speech_detected=false confidence=0.5 threshold=0.7 audio_size=4
+--- PASS: TestDetectSpeech_ThresholdLowConfidence (0.00s)
+=== RUN   TestDetectSpeech_ContextCancellation
+--- PASS: TestDetectSpeech_ContextCancellation (0.20s)
+=== RUN   TestDetectSpeech_NoSpeechDetected
+2026/03/25 16:17:08 INFO vad detection completed latency=462.9µs speech_detected=false confidence=0.1 threshold=0.7 audio_size=4
+--- PASS: TestDetectSpeech_NoSpeechDetected (0.00s)
+PASS
+ok  	command-line-arguments	6.375s

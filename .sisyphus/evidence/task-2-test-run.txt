@@ -1,0 +1,1 @@
+/home/mink/src/armorclaw-omo/.env: line 14: Agents: command not found

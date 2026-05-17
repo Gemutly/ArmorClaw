@@ -1,0 +1,26 @@
+--- Checking existing /opt/armorclaw ---
+total 34692
+drwxr-xr-x 2 root root     4096 Mar 28 10:05 .
+drwxr-xr-x 6 root root     4096 Mar 28 09:28 ..
+-rwxr-xr-x 1 root root 35515952 Mar 28 10:22 armorclaw-bridge
+
+--- Checking existing /etc/armorclaw ---
+total 16
+drwxr-xr-x   2 root      root      4096 Mar 28 09:45 .
+drwxr-xr-x 113 root      root      4096 Mar 28 09:28 ..
+-rw-r-----   1 armorclaw armorclaw 1388 Mar 28 09:28 config.toml
+-rw-r--r--   1 root      root      1764 Mar 28 09:45 providers.json
+
+--- Cloning ArmorClaw repository ---
+Cloning into '/opt/armorclaw'...
+Updating files:   3% (189/5307)Updating files:   3% (192/5307)Updating files:   4% (213/5307)Updating files:   5% (266/5307)Updating files:   6% (319/5307)Updating files:   7% (372/5307)Updating files:   8% (425/5307)Updating files:   9% (478/5307)Updating files:  10% (531/5307)Updating files:  11% (584/5307)Updating files:  12% (637/5307)Updating files:  13% (690/5307)Updating files:  14% (743/5307)Updating files:  15% (797/5307)Updating files:  16% (850/5307)Updating files:  17% (903/5307)Updating files:  18% (956/5307)Updating files:  19% (1009/5307)Updating files:  20% (1062/5307)Updating files:  21% (1115/5307)Updating files:  22% (1168/5307)Updating files:  23% (1221/5307)Updating files:  24% (1274/5307)Updating files:  25% (1327/5307)Updating files:  26% (1380/5307)Updating files:  27% (1433/5307)Updating files:  28% (1486/5307)Updating files:  29% (1540/5307)Updating files:  30% (1593/5307)Updating files:  31% (1646/5307)Updating files:  32% (1699/5307)Updating files:  33% (1752/5307)Updating files:  34% (1805/5307)Updating files:  35% (1858/5307)Updating files:  36% (1911/5307)Updating files:  37% (1964/5307)Updating files:  38% (2017/5307)Updating files:  39% (2070/5307)Updating files:  40% (2123/5307)Updating files:  41% (2176/5307)Updating files:  42% (2229/5307)Updating files:  43% (2283/5307)Updating files:  44% (2336/5307)Updating files:  44% (2366/5307)Updating files:  45% (2389/5307)Updating files:  46% (2442/5307)Updating files:  47% (2495/5307)Updating files:  48% (2548/5307)Updating files:  49% (2601/5307)Updating files:  50% (2654/5307)Updating files:  51% (2707/5307)Updating files:  52% (2760/5307)Updating files:  53% (2813/5307)Updating files:  54% (2866/5307)Updating files:  55% (2919/5307)Updating files:  56% (2972/5307)Updating files:  57% (3025/5307)Updating files:  58% (3079/5307)Updating files:  59% (3132/5307)Updating files:  60% (3185/5307)Updating files:  61% (3238/5307)Updating files:  62% (3291/5307)Updating files:  63% (3344/5307)Updating files:  64% (3397/5307)Updating files:  65% (3450/5307)Updating files:  66% (3503/5307)Updating files:  67% (3556/5307)Updating files:  68% (3609/5307)Updating files:  69% (3662/5307)Updating files:  70% (3715/5307)Updating files:  71% (3768/5307)Updating files:  72% (3822/5307)Updating files:  73% (3875/5307)Updating files:  74% (3928/5307)Updating files:  75% (3981/5307)Updating files:  76% (4034/5307)Updating files:  77% (4087/5307)Updating files:  78% (4140/5307)Updating files:  79% (4193/5307)Updating files:  80% (4246/5307)Updating files:  81% (4299/5307)Updating files:  82% (4352/5307)Updating files:  83% (4405/5307)Updating files:  84% (4458/5307)Updating files:  85% (4511/5307)Updating files:  86% (4565/5307)Updating files:  87% (4618/5307)Updating files:  88% (4671/5307)Updating files:  89% (4724/5307)Updating files:  90% (4777/5307)Updating files:  91% (4830/5307)Updating files:  91% (4864/5307)Updating files:  92% (4883/5307)Updating files:  93% (4936/5307)Updating files:  94% (4989/5307)Updating files:  95% (5042/5307)Updating files:  96% (5095/5307)Updating files:  97% (5148/5307)Updating files:  98% (5201/5307)Updating files:  99% (5254/5307)Updating files: 100% (5307/5307)Updating files: 100% (5307/5307), done.
+
+--- Verifying clone ---
+total 284
+drwxr-xr-x 20 root root  4096 Mar 28 23:21 .
+drwxr-xr-x  6 root root  4096 Mar 28 23:21 ..
+drwxr-xr-x  3 root root  4096 Mar 28 23:21 .agent-os
+-rw-r--r--  1 root root  3603 Mar 28 23:21 .dockerignore
+
+--- Checking for docker-compose-full.yml ---
+-rw-r--r-- 1 root root 4836 Mar 28 23:21 /opt/armorclaw/docker-compose-full.yml

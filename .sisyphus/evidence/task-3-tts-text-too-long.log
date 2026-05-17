@@ -1,0 +1,4 @@
+=== RUN   TestSynthesize_TextTooLong
+--- PASS: TestSynthesize_TextTooLong (0.00s)
+PASS
+ok  	command-line-arguments	0.005s

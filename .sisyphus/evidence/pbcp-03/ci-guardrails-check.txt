@@ -1,0 +1,18 @@
+Pre-BEATO Control Plane — T3: CI Guardrails
+Date: 2026-05-15T22:52Z
+
+Changes:
+  Added job `script-and-go-checks` to .github/workflows/test.yml:
+  - Step: bash -n on all tests/test-*.sh and tests/lib/*.sh
+  - Step: go vet on 6 critical packages (rpc, matrix, security, socket, websocket, executor)
+  - Step: go test -short on same packages
+  - Added as dependency for `summary` job
+
+Local verification:
+  - YAML syntax: VALID
+  - bash -n: 1 pre-existing error in test-webrtc-voice-integration.sh (line 388, missing paren — NOT introduced by this change)
+  - go vet: fails locally due to missing libyara-dev (CI will install via apt)
+
+Note: test-webrtc-voice-integration.sh has a pre-existing syntax error at line 388:
+  `for i in $(seq 1 $((MAX_CALLS + 2)); do` — missing closing `)`
+  This is a BEATO-entry script (feature-gated for voice), not part of T6 assertion fixes.

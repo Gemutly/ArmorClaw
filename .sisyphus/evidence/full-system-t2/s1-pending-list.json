@@ -1,0 +1,40 @@
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "result": {
+    "count": 1,
+    "requests": [
+      {
+        "agent_id": "trust-test-agent-001",
+        "context": "Testing PII detection with fake SSN=000-00-0000 and CC=4111-1111-1111-1111",
+        "created_at": "2026-04-30T02:23:38Z",
+        "expires_at": "2026-04-30T02:24:38Z",
+        "profile_id": "trust-test-profile-001",
+        "request_id": "pii_550f9f5668c5e5d03de8e1cf",
+        "requested_fields": [
+          {
+            "key": "ssn_field",
+            "display_name": "Social Security Number",
+            "required": true,
+            "sensitive": true
+          },
+          {
+            "key": "cc_field",
+            "display_name": "Credit Card",
+            "required": true,
+            "sensitive": true
+          },
+          {
+            "key": "email_field",
+            "display_name": "Email",
+            "required": false,
+            "sensitive": true
+          }
+        ],
+        "skill_id": "trust-test-skill-001",
+        "skill_name": "trust_layer_test",
+        "status": "pending"
+      }
+    ]
+  }
+}

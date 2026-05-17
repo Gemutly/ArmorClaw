@@ -1,0 +1,1 @@
+{"jsonrpc":"2.0","id":1,"result":{"denied_at":"2026-04-30T15:37:46Z","denied_by":"harness","deny_reason":"XV2 causal chain denial","message":"PII request denied. Agent task cancelled.","request_id":"pii_4b418a55cc2a1d14ea94ef60","status":"denied"}}

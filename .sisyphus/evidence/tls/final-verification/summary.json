@@ -1,0 +1,87 @@
+{
+  "plan": "tls-default-execution-plan-v1",
+  "wave": "Final Verification",
+  "timestamp": "2026-04-29",
+
+  "F1_plan_compliance": {
+    "verdict": "PASS",
+    "must_have": {
+      "sha256_der_fingerprint": "CONFIRMED — sha256.Sum256(block.Bytes) in server.go:261",
+      "external_ip_in_san": "CONFIRMED — getConfiguredExternalIP() + PublicIP in ssl.go",
+      "tls_in_bridge_status": "CONFIRMED — TLSInfoProvider interface + handleBridgeStatus",
+      "tls_in_discover": "CONFIRMED — handleDiscover includes s.GetTLSInfo()",
+      "qr_v1_default_v2_gated": "CONFIRMED — ARMORCLAW_QR_VERSION=2 gates v2 in public.go",
+      "restart_safety_test": "CONFIRMED — tests/test-tls-restart-safety.sh exists, bash -n passes"
+    },
+    "must_not_have": {
+      "no_armorchat_changes": "CONFIRMED — git diff shows zero changes under applications/",
+      "no_duplicate_cert_gen": "CONFIRMED — tls.sh wraps generate-certs.sh, doesn't duplicate",
+      "no_cert_rotation_on_restart": "CONFIRMED — restart test does not use ROTATE flag",
+      "no_wellknown_required_private": "CONFIRMED — a2_provision.sh uses SKIP for private mode",
+      "no_breaking_configpayload": "CONFIRMED — v1 signing preserved, v2 adds fields only",
+      "no_removal_localhost_ssh": "CONFIRMED — localhost HTTP path unchanged"
+    },
+    "count": "Must Have [6/6] | Must NOT Have [6/6]"
+  },
+
+  "F2_code_quality": {
+    "verdict": "PASS",
+    "build": "PASS — go build ./pkg/http/... ./pkg/qr/... ./pkg/setup/... exit 0",
+    "vet": "PASS — go vet exit 0",
+    "tests": "PASS — go test ./pkg/setup/... ./pkg/qr/... all pass",
+    "shell_syntax": "PASS — all 7 scripts pass bash -n",
+    "fmt_print_in_prod": "CLEAN — no new fmt.Print/log.Print in TLS code (all pre-existing)",
+    "unused_imports": "CLEAN — go build would catch these",
+    "files_reviewed": [
+      "bridge/pkg/http/server.go (TLSInfo struct, GetCertExpiry, GetTLSInfo, deriveTLSMode, certIncludesPublicIP)",
+      "bridge/pkg/qr/public.go (ConfigPayload TLS fields, signConfig versioning, QR v1/v2 gating)",
+      "bridge/pkg/rpc/server.go (TLSInfoProvider interface, SetTLSInfoProvider)",
+      "bridge/pkg/rpc/bridge_handlers.go (TLS metadata in handleBridgeStatus with fallback)",
+      "bridge/cmd/bridge/main.go (ServerMode + SetTLSInfoProvider wiring)"
+    ]
+  },
+
+  "F3_full_qa": {
+    "verdict": "SKIP",
+    "reason": "Requires live VPS with bridge running. SSH auth times out from this environment (key exchange succeeds, authentication hangs after 60s). QA scenarios are scripted in test-tls-restart-safety.sh and test-tls-mode-integration.sh — ready to run when VPS access is available.",
+    "scenarios_scripted": 14,
+    "test_scripts_ready": [
+      "tests/test-tls-restart-safety.sh (4 scenarios)",
+      "tests/test-tls-mode-integration.sh (9 always-on + 1 conditional v2)"
+    ]
+  },
+
+  "F4_scope_fidelity": {
+    "verdict": "PASS",
+    "files_changed": 15,
+    "files_accounted": 15,
+    "unaccounted_files": 0,
+    "task_to_file_mapping": {
+      "T0": ["bridge/pkg/http/server.go", "bridge/pkg/config/config.go"],
+      "T1": ["bridge/pkg/http/server.go", "bridge/pkg/setup/ssl_test.go"],
+      "T2": ["bridge/pkg/http/server.go", "bridge/pkg/setup/ssl.go", "bridge/pkg/setup/ssl_test.go"],
+      "T3": ["bridge/pkg/qr/public.go", "bridge/pkg/http/server.go"],
+      "T4": ["scripts/lib/tls.sh", "deploy/scripts/generate-certs.sh"],
+      "T5": ["bridge/pkg/http/server.go", "bridge/pkg/rpc/server.go", "bridge/pkg/rpc/bridge_handlers.go", "bridge/cmd/bridge/main.go"],
+      "T6": ["scripts/a0_discover.sh", "scripts/a1_deploy.sh"],
+      "T7": ["scripts/a2_provision.sh"],
+      "T8": ["bridge/pkg/http/server.go"],
+      "T9": ["tests/test-tls-restart-safety.sh"],
+      "T10": ["tests/test-tls-mode-integration.sh"],
+      "T11": ["doc/testing.md (local-only, gitignored)"],
+      "T12": ["doc/armorclaw.md (local-only, gitignored)", ".sisyphus/evidence/tls/final_summary.json"]
+    }
+  },
+
+  "F5_documentation_reconciliation": {
+    "verdict": "PASS",
+    "docs_updated": [
+      "doc/testing.md — TLS test entries in Tier A table, F6 verification check, TLS Mode Derivation section",
+      "doc/armorclaw.md — TLS Mode Detection section with 3-value enum, shared-cert model, zero-value semantics, QR versioning, /.well-known host ownership, env vars, client-side dependency note"
+    ],
+    "host_model_reconciled": "RECONCILED — doc/armorclaw.md explains /.well-known is Bridge-served on same host as /api",
+    "tls_contract_documented": "DOCUMENTED — mode derivation, health field, cert_source, fingerprint format, QR v1/v2 all documented",
+    "fingerprint_migration_noted": "YES — documented that operators should expect different fingerprint values from old signature truncation method",
+    "self_hosted_to_private_mapping": "YES — Self-Hosted mode maps to TLS mode private (same topology)"
+  }
+}

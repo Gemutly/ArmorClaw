@@ -1,0 +1,5 @@
+38:- **Error handling** — Admin panel displays real connection errors, loading states, and empty states from the Bridge.
+69:- **Bridge-side agent state inference** — 11 agent states derived from CDP and workflow signals (IDLE, BROWSING, FORM_FILLING, AWAITING_APPROVAL, PROCESSING_PAYMENT, ERROR, COMPLETE, etc.) with `ForceTransition` for manual override
+70:- **BroadcastStatus via Matrix events** — Agent state changes published as `com.armorclaw.agent.status` Matrix events, enabling real-time status in ArmorChat
+105:- **ArmorChat GovernanceBanner** (`GovernanceBanner.kt`) — Running state with pulsing indicator and step count
+107:- **State Directory Cleanup** (`bridge/pkg/secretary/cleanup.go`) — cleanupStateDir with purge ordering: parse → RemoveAll → notify

@@ -1,0 +1,341 @@
+# Installer Validation: ngrok Fallback Path
+# Generated: 2026-03-14
+# Status: FULL VALIDATION
+
+## Overview
+
+ngrok is a fallback HTTPS tunnel when Cloudflare is unavailable or rate-limited. Requires free account at ngrok.com.
+
+---
+
+## 1. Selection Trigger
+
+### setup-quick.sh (lines 492-495)
+
+```bash
+if [[ "$tunnel_choice" == "2" ]]; then
+    start_ngrok_tunnel
+    return $?
+fi
+```
+
+**Entry Points:**
+1. User explicitly selects option 2
+2. Cloudflare fails and user re-runs selecting ngrok
+
+**Evidence:** PASS - Clear delegation
+
+---
+
+## 2. Installation
+
+### setup-quick.sh (lines 604-609)
+
+```bash
+if ! command -v ngrok &>/dev/null; then
+    print_info "ngrok not installed. Installing..."
+    curl -s https://ngrok-agent.s3.amazonaws.com/ngrok.asc | sudo tee /etc/apt/trusted.gpg.d/ngrok.asc >/dev/null
+    echo "deb https://ngrok-agent.s3.amazonaws.com/buster main" | sudo tee /etc/apt/sources.list.d/ngrok.list
+    sudo apt-get update -qq && sudo apt-get install -y ngrok
+fi
+```
+
+**Security:**
+- Uses official ngrok apt repository
+- GPG key verification
+- Not direct binary download
+
+**Evidence:** PASS - Secure installation method
+
+---
+
+## 3. Authtoken Configuration Check
+
+### setup-quick.sh (lines 611-622)
+
+```bash
+if ! ngrok config check &>/dev/null; then
+    echo ""
+    echo -e "${YELLOW}ngrok requires a free account.${NC}"
+    echo ""
+    echo -e "  ${BOLD}Setup steps:${NC}"
+    echo "  1) Go to https://ngrok.com and sign up (free)"
+    echo "  2) Get authtoken: https://dashboard.ngrok.com/get-started/your-authtoken"
+    echo "  3) Run: ${CYAN}ngrok config add-authtoken YOUR_TOKEN${NC}"
+    echo "  4) Re-run this setup"
+    echo ""
+    return 1
+fi
+```
+
+**Validation:** `ngrok config check` command
+
+**User Guidance:**
+- Explains requirement
+- Direct links to signup and token
+- Exact command to run
+- Tells user to re-run
+
+**Evidence:** EXCELLENT - Step-by-step instructions
+
+---
+
+## 4. Process Start
+
+### setup-quick.sh (lines 624-641)
+
+```bash
+# Cleanup existing
+if docker ps -a --format '{{.Names}}' | grep -q "^armorclaw-tunnel$"; then
+    docker rm -f armorclaw-tunnel 2>/dev/null || true
+fi
+
+pkill -f "ngrok http" 2>/dev/null || true
+sleep 1
+
+# Start ngrok
+nohup ngrok http 6167 --log=stdout > /tmp/ngrok.log 2>&1 &
+local ngrok_pid=$!
+sleep 4
+
+# Verify process started
+if ! kill -0 $ngrok_pid 2>/dev/null; then
+    print_error "ngrok failed to start"
+    cat /tmp/ngrok.log 2>/dev/null | tail -10
+    return 1
+fi
+```
+
+**Evidence:** PASS - Process verification with log output
+
+---
+
+## 5. URL Detection via API
+
+### setup-quick.sh (lines 643-658)
+
+**API Endpoint:** `http://localhost:4040/api/tunnels`
+
+**Configuration:**
+- Max attempts: 15
+- Sleep: 1 second
+- Total timeout: ~15 seconds
+
+**Detection Pattern:**
+```bash
+ngrok_url=$(curl -s http://localhost:4040/api/tunnels 2>/dev/null | \
+    grep -oE 'https://[a-zA-Z0-9.-]+\.(ngrok\.io|ngrok-free\.app|ngrok\.app)' | head -1)
+```
+
+**Domain Patterns Supported:**
+- `*.ngrok.io` (legacy)
+- `*.ngrok-free.app` (current free tier)
+- `*.ngrok.app` (paid tier)
+
+**Evidence:** PASS - Multiple domain patterns
+
+---
+
+## 6. Failure Handling
+
+### setup-quick.sh (lines 660-681)
+
+```bash
+if [[ -z "$ngrok_url" ]]; then
+    print_error "Could not detect ngrok URL automatically"
+    echo ""
+    echo -e "${YELLOW}ngrok web interface: http://localhost:4040${NC}"
+    echo ""
+    
+    # Show API response for debugging
+    ngrok_url=$(curl -s http://localhost:4040/api/tunnels 2>/dev/null)
+    if [[ -n "$ngrok_url" ]]; then
+        echo -e "${YELLOW}API response:${NC}"
+        echo "$ngrok_url" | head -c 500
+        echo ""
+    fi
+    
+    echo ""
+    print_info "To complete setup manually:"
+    print_info "  1) Open http://localhost:4040 in a browser"
+    print_info "  2) Copy the HTTPS URL (e.g., https://abc-123.ngrok-free.app)"
+    print_info "  3) Run these commands:"
+    echo ""
+    echo "     sudo sed -i 's/^server_name = .*/server_name = \"YOUR-NGROK-URL\"/' /etc/armorclaw/conduit.toml"
+    echo "     docker restart armorclaw-conduit"
+    echo ""
+    print_info "Then connect Element X to: https://YOUR-NGROK-URL"
+    return 1
+fi
+```
+
+**User Guidance:**
+- Points to web UI
+- Shows API response (debug)
+- Manual config steps with exact commands
+
+**Evidence:** EXCELLENT - Detailed manual recovery
+
+---
+
+## 7. Success Flow
+
+### setup-quick.sh (lines 684-698)
+
+```bash
+TUNNEL_URL="$ngrok_url"
+TUNNEL_DOMAIN=$(echo "$TUNNEL_URL" | sed 's|https://||')
+
+print_success "ngrok Tunnel active!"
+echo ""
+echo -e "  ${BOLD}${GREEN}Tunnel URL:${NC} ${TUNNEL_URL}"
+echo ""
+
+# Update Matrix config
+if [[ -f "$CONDUIT_CONFIG_FILE" ]]; then
+    print_info "Updating Matrix server_name to tunnel domain..."
+    $SUDO sed -i "s/^server_name = .*/server_name = \"$TUNNEL_DOMAIN\"/" "$CONDUIT_CONFIG_FILE"
+    print_info "Restarting Matrix to apply changes..."
+    docker restart armorclaw-conduit 2>/dev/null || true
+    sleep 3
+fi
+```
+
+**Evidence:** PASS - Same flow as Cloudflare
+
+---
+
+## 8. Status Monitoring
+
+### setup-quick.sh (lines 1404-1414)
+
+```bash
+if pgrep -f "ngrok http" &>/dev/null; then
+    tunnel_url=$(curl -s http://localhost:4040/api/tunnels 2>/dev/null | \
+        grep -oE 'https://[a-z0-9-]+\.(ngrok\.io|ngrok-free\.app)' | head -1)
+    if [[ -n "$tunnel_url" ]]; then
+        echo -e "  Tunnel (ngrok)        ${GREEN}● active${NC}       $tunnel_url"
+        tunnel_ok=true
+        tunnel_type="ngrok"
+    else
+        echo -e "  Tunnel (ngrok)        ${YELLOW}● starting${NC}     waiting for URL..."
+    fi
+fi
+```
+
+**Evidence:** PASS - Process + API status check
+
+---
+
+## Complete Flow Diagram
+
+```
+┌─────────────────────────────────────────┐
+│     User selects "2) ngrok Tunnel"      │
+└─────────────────┬───────────────────────┘
+                  │
+                  ▼
+┌─────────────────────────────────────────┐
+│     Is ngrok installed?                 │
+│     NO → Install via apt (GPG signed)   │
+└─────────────────┬───────────────────────┘
+                  │
+                  ▼
+┌─────────────────────────────────────────┐
+│     Is ngrok configured?                │
+│     ngrok config check                  │
+│     NO → Show 4-step setup instructions │
+│           Return 1                      │
+└─────────────────┬───────────────────────┘
+                  │ YES
+                  ▼
+┌─────────────────────────────────────────┐
+│     Cleanup existing tunnel             │
+│     - docker rm armorclaw-tunnel        │
+│     - pkill ngrok                       │
+└─────────────────┬───────────────────────┘
+                  │
+                  ▼
+┌─────────────────────────────────────────┐
+│     Start ngrok                         │
+│     nohup ngrok http 6167 &             │
+│     sleep 4                             │
+└─────────────────┬───────────────────────┘
+                  │
+                  ▼
+┌─────────────────────────────────────────┐
+│     Verify process alive                │
+│     kill -0 $pid                        │
+│     DEAD → Show log, return 1           │
+└─────────────────┬───────────────────────┘
+                  │ ALIVE
+                  ▼
+┌─────────────────────────────────────────┐
+│     URL Detection (15 x 1s)             │
+│     curl localhost:4040/api/tunnels     │
+│     Extract *.ngrok-*.app URL           │
+└─────────────────┬───────────────────────┘
+                  │
+        ┌─────────┴─────────┐
+        │ URL found?        │
+        ▼                   ▼
+┌────────────────┐  ┌──────────────────────────┐
+│ Update config  │  │ Show failure +           │
+│ Show success   │  │ manual recovery steps    │
+│ Return 0       │  │ Point to web UI          │
+└────────────────┘  │ Show API response        │
+                    │ Return 1                 │
+                    └──────────────────────────┘
+```
+
+---
+
+## Summary
+
+| Check | Status | Notes |
+|-------|--------|-------|
+| Installation | PASS | GPG-verified apt repo |
+| Authtoken Check | PASS | Step-by-step guidance |
+| Process Start | PASS | Verification + log |
+| URL Detection | PASS | API polling |
+| Failure Handling | PASS | Manual recovery steps |
+| Success Output | PASS | Clear URL display |
+| Config Update | PASS | server_name update |
+| Status Monitoring | PASS | Process + API check |
+
+**NGROK TUNNEL VERDICT: PASS** ✅
+
+---
+
+## CRITICAL: Transient Domain Caveat
+
+**Issue:** ngrok generates NEW random domains on each restart
+
+**Implications:**
+1. **Mobile clients break** - Element X configured with old URL fails
+2. **QR codes expire** - Any QR with ngrok URL invalid after restart
+3. **Federation breaks** - Other Matrix servers cache old domain
+4. **Shared links fail** - Room invite links become invalid
+
+**NOT DOCUMENTED IN INSTALLER** - Users are not warned about this limitation.
+
+**Recommendation:** Add prominent warning in output:
+```bash
+echo -e "${YELLOW}⚠ WARNING: ngrok domains change on restart${NC}"
+echo -e "${YELLOW}  Mobile clients will need reconfiguration${NC}"
+echo -e "${YELLOW}  For production, use Cloudflare or static domain${NC}"
+```
+
+---
+
+## Cloudflare Fallback Integration
+
+When Cloudflare fails (lines 571-582), installer suggests:
+```
+Alternatives:
+  1) Try ngrok (option 2) - requires free account at ngrok.com
+  2) Wait 10-15 minutes and re-run setup
+  3) Use local network only (HTTP)
+```
+
+**Evidence:** PASS - Clear fallback path

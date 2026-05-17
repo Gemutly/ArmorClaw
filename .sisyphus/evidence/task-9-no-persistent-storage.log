@@ -1,0 +1,31 @@
+Task 9 - ToolSidecar Provisioner
+Scenario: ToolSidecar has no persistent storage
+
+Test: TestSpawnToolSidecar (security constraints verification)
+Status: PASS
+Description: Verifies that ToolSidecar containers have no persistent storage
+
+Expected Behavior:
+- ReadonlyRootfs: true (entire filesystem read-only)
+- No bind mounts for persistent storage
+- No volume mounts for data persistence
+- Only tmpfs mount for temporary secrets (in-memory only)
+
+Verification:
+✓ ReadonlyRootfs set to true in host config
+✓ No persistent bind mounts configured
+✓ Tmpfs mount for secrets only (1MB, mode 0600)
+✓ Skill packages mounted as read-only (not writable by container)
+✓ AutoRemove: true (container removed on exit)
+
+Security Constraints Applied:
+NetworkMode: "none"              → Prevents network egress
+ReadonlyRootfs: true             → No persistent storage
+CapDrop: ["ALL"]                 → No Linux capabilities
+SecurityOpt: ["no-new-privileges:true"] → Prevents privilege escalation
+Tmpfs: {"/tmp/secrets": "size=1M,mode=0600"}  → Memory-only secrets
+AutoRemove: true                   → Cleanup on exit
+Memory: 268435456 (256MB)        → Resource limit
+PidsLimit: 100                    → Process limit
+
+Result: PASSED - ToolSidecar has no persistent storage, only memory-only tmpfs

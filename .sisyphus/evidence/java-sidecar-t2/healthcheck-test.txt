@@ -1,0 +1,30 @@
+========================================
+Java Sidecar gRPC Server - T2 Evidence
+Date: 2026-04-26T18:20:59-06:00
+========================================
+
+## Build
+mvn compile: BUILD SUCCESS
+mvn package -DskipTests: BUILD SUCCESS
+
+## Socket
+Path: /tmp/java-sidecar-test/sidecar-java.sock
+srw------- 1 mikmin mikmin 0 Apr 26 18:20 /tmp/java-sidecar-test/sidecar-java.sock
+Permissions: 600  Owner: mikmin
+
+## HealthCheck RPC
+status:             SERVING
+version:            1.0.0
+uptime_seconds:     2
+memory_used_bytes:  9983216
+active_requests:    0
+
+## Server Startup Log
+ERROR StatusLogger Log4j2 could not find a logging implementation. Please add log4j-core to the classpath. Using SimpleLogger to log to the console...
+ArmorClaw Java Sidecar started on /tmp/java-sidecar-test/sidecar-java.sock
+
+## Graceful Shutdown
+## Shutdown log
+ERROR StatusLogger Log4j2 could not find a logging implementation. Please add log4j-core to the classpath. Using SimpleLogger to log to the console...
+ArmorClaw Java Sidecar started on /tmp/java-sidecar-test/sidecar-java.sock
+Shutting down gRPC server...

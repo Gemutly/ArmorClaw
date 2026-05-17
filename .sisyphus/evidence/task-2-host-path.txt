@@ -1,0 +1,50 @@
+=== Host-Side Path Verification ===
+Date: 2026-05-16
+VPS: 5.183.11.149
+
+--- namei traversal ---
+$ namei -l /run/armorclaw/secrets/office-hmac
+f: /run/armorclaw/secrets/office-hmac
+drwxr-xr-x root  root  /
+drwxr-xr-x root  root  run
+drwxrwx--- 10001 10001 armorclaw        ← 770, NO world-readable/traversable
+drwxr-xr-x root  root  secrets
+-r-------- 10001 10001 office-hmac       ← 400, owner-read only
+
+--- stat permissions ---
+$ stat -c '%a %U %G %u %g %n' /run/armorclaw /run/armorclaw/secrets /run/armorclaw/secrets/office-hmac
+770 UNKNOWN UNKNOWN 10001 10001 /run/armorclaw
+755 root root 0 0 /run/armorclaw/secrets
+400 UNKNOWN UNKNOWN 10001 10001 /run/armorclaw/secrets/office-hmac
+
+--- Docker volume data (what container sees) ---
+$ stat -c '%a %U %G %u %g %n' /var/lib/docker/volumes/d2772372.../_data/...
+770 UNKNOWN UNKNOWN 10001 10001 /var/lib/docker/volumes/d2772372.../_data
+755 root root 0 0 /var/lib/docker/volumes/d2772372.../_data/secrets
+644 UNKNOWN UNKNOWN 10001 10001 /var/lib/docker/volumes/d2772372.../_data/secrets/office-hmac
+
+Note: Volume copy has mode 644 (world-readable), but host tmpfs copy has mode 400.
+Both share the same parent directory mode 770/10001:10001 which blocks traversal
+for any process not running as uid 10001 or in group 10001.
+
+--- Filesystem type ---
+$ stat -f /run/armorclaw
+  Type: tmpfs
+  Block size: 4096
+
+--- AppArmor status ---
+$ sudo aa-status | grep armorclaw
+   /opt/armorclaw/armorclaw-bridge (2062484) docker-default
+(armorclaw-office-worker profile does NOT exist)
+
+--- Running container config ---
+Image:        mikegemut/sidecar-office:beato
+User:         (empty → root uid 0)
+CapDrop:      ALL
+SecurityOpt:  [no-new-privileges:true]
+Mounts:       Docker volume d2772372... → /run/armorclaw (bind, rslave, RW)
+Env:          SECRET_PATH=/run/armorclaw/secrets/office-hmac
+Status:       restarting (crash loop, ExitCode 1)
+
+ROOT CAUSE: Container runs as root (uid 0) with ALL capabilities dropped.
+Without CAP_DAC_OVERRIDE, uid 0 cannot traverse the 770/10001:10001 directory.

@@ -1,0 +1,8 @@
+=== RUN   TestEgressDenied
+--- PASS: TestEgressDenied (0.00s)
+=== RUN   TestEgressDeniedMultiple
+--- PASS: TestEgressDeniedMultiple (0.00s)
+=== RUN   TestEgressDeniedFields
+--- PASS: TestEgressDeniedFields (0.00s)
+PASS
+ok  	github.com/armorclaw/bridge/pkg/audit	(cached)

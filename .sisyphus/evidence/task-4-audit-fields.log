@@ -1,0 +1,12 @@
+Checking required fields:
+  ✓ timestamp: 2026-04-07T18:53:46-06:00
+  ✓ event_type: egress_denied
+  ✓ user_id: user-qa-fields
+  ✓ container_id: openclaw-qa-fields
+  ✓ host: test.example.com
+  ✓ path: /test-path
+  ✓ method: GET
+  ✓ reason: Host not in allowlist
+
+All required fields present ✓
+Timestamp is valid: 2026-04-07T18:53:46-06:00 ✓

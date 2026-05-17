@@ -1,0 +1,39 @@
+Task 14: Persist ServerConfig via EncryptedSharedPreferences
+=============================================================
+
+Created: applications/ArmorChat/app/src/main/java/app/armorclaw/config/ConfigManager.kt
+
+Reference: ArmorTerminal ConfigManager (plain SharedPreferences)
+Implementation: ArmorChat ConfigManager (EncryptedSharedPreferences)
+
+Approach:
+- Uses MasterKey with AES256_GCM key scheme
+- EncryptedSharedPreferences with AES256_SIV key encryption + AES256_GCM value encryption
+- Fallback to plain SharedPreferences if master key is corrupted (graceful degradation)
+
+Fields persisted (non-sensitive only):
+- matrixHomeserver, rpcUrl, wsUrl, pushGateway, serverName, region
+- configSource (enum name)
+- expiresAt (millis timestamp)
+- bridgePublicKey
+
+Fields NOT persisted (security boundary):
+- accessToken, refreshToken — remain in BridgeRepository memory only (v0.8.0 security review)
+
+Public API:
+- saveConfig(config: ServerConfig) — persists config after QR scan
+- loadConfig(): ServerConfig? — restores config on startup, null if missing/corrupted
+- clearConfig() — wipes all stored config (logout)
+- isConfigExpired(): Boolean — checks expiresAt, triggers re-provisioning
+
+Design decisions:
+1. Singleton pattern (thread-safe double-checked locking) matching ArmorTerminal
+2. Version field in prefs for future migration support
+3. Config validation on load (blank homeserver → null)
+4. No dependency on BridgeRepository (task constraint)
+5. Existing dependency: androidx.security:security-crypto:1.1.0-alpha06 in build.gradle.kts
+
+Verification:
+- grep "EncryptedSharedPreferences" ConfigManager.kt → 6 matches
+- All 4 required methods present (saveConfig, loadConfig, clearConfig, isConfigExpired)
+- Kotlin LSP not installed; structural verification via grep passed

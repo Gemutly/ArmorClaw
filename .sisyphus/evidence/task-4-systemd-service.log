@@ -1,0 +1,23 @@
+Testing systemd service file generation...
+
+Generated service content:
+---
+[Unit]
+Description=Cloudflare Tunnel for ArmorClaw
+After=network.target
+
+[Service]
+Type=simple
+User=testuser
+ExecStart=/usr/local/bin/cloudflared tunnel run --config=/home/testuser/.cloudflared/config.yml armorclaw-test
+Restart=on-failure
+RestartSec=5s
+
+[Install]
+WantedBy=multi-user.target
+---
+✓ Description present
+✓ User configured
+✓ ExecStart path correct
+✓ Restart policy configured
+✓ Install target correct

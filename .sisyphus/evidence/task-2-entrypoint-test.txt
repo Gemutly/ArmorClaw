@@ -1,0 +1,53 @@
+=== Override-Entrypoint Container Test Results ===
+Date: 2026-05-16
+VPS: 5.183.11.149
+
+--- Test 1: Compose run (fails - AppArmor profile missing) ---
+Command: docker compose -f deploy/docker-compose.sidecar-py.yml run --rm --entrypoint sh sidecar-office -c "id; ..."
+Result: FAILED
+Error: OCI runtime create failed: unable to apply apparmor profile: apparmor failed to apply profile: write fsmount:fscontext:proc/thread-self/attr/apparmor/exec: no such file or directory
+
+--- Test 2: Docker run as root + CapDrop ALL (reproduces crash) ---
+Command: docker run --rm --cap-drop ALL --security-opt no-new-privileges:true \
+  -v /var/lib/docker/volumes/d2772372.../_data:/run/armorclaw \
+  --entrypoint sh mikegemut/sidecar-office:beato -c "id; cat /run/armorclaw/secrets/office-hmac"
+
+Result:
+  uid=0(root) gid=0(root) groups=0(root)
+  drwxrwx--- 4 10001 10001 4096 May 16 13:29 /run/armorclaw
+  cat: /run/armorclaw/secrets/office-hmac: Permission denied
+  stat: cannot statx '/run/armorclaw/secrets/office-hmac': Permission denied
+
+--- Test 3: Docker run as 10001:10001 + CapDrop ALL (fixes crash) ---
+Command: docker run --rm --user "10001:10001" --cap-drop ALL \
+  --security-opt no-new-privileges:true \
+  -v /var/lib/docker/volumes/d2772372.../_data:/run/armorclaw \
+  --entrypoint sh mikegemut/sidecar-office:beato -c "id; cat /run/armorclaw/secrets/office-hmac"
+
+Result:
+  uid=10001 gid=10001 groups=10001
+  60e264db...
+
+--- Test 4: Docker run with full compose-equivalent config ---
+Command: docker run --rm --user "10001:10001" --network none --read-only \
+  --cap-drop ALL --security-opt no-new-privileges:true \
+  --tmpfs /tmp/office_worker:size=512m,mode=0700 \
+  -v /run/armorclaw:/run/armorclaw \
+  -v /run/armorclaw/secrets/office-hmac:/run/secrets/shared_secret:ro \
+  -e SIDECAR_SECRET_FILE=/run/secrets/shared_secret \
+  --entrypoint sh mikegemut/sidecar-office:beato -c "..."
+
+Result:
+  uid=10001 gid=10001 groups=10001
+  SECRET_PATH=/run/secrets/shared_secret
+  SIDECAR_SECRET_FILE=/run/secrets/shared_secret
+  /run/armorclaw: drwxrwx--- 4 10001 10001 140
+  /run/armorclaw/secrets: drwxr-xr-x 2 root root 60
+  /run/armorclaw/secrets/office-hmac: -r-------- 1 10001 10001 64
+  /run/secrets/shared_secret: -r-------- 1 10001 10001 64
+  secret_path /run/secrets/shared_secret
+  exists True
+  stat 0o100400 10001 10001
+  read_prefix 60e2
+
+CONCLUSION: Running as uid 10001:10001 resolves the permission issue completely.

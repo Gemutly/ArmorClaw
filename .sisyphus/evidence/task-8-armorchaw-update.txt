@@ -1,0 +1,26 @@
+Scenario: ARMORCLAW.md documents skill discovery
+Tool: Bash
+Date: 2026-04-03
+Status: PASS
+
+Verification Results:
+1. Section exists: grep "## Deployment Skills" ARMORCLAW.md
+   Result: Line 3 - "## Deployment Skills for AI CLI Tools"
+   
+2. Commands documented: grep "/deploy\|/status\|/cloudflare\|/provision" ARMORCLAW.md
+   Result: All 4 skills documented
+   - /deploy - Deploy ArmorClaw to VPS
+   - /status - Check deployment health
+   - /cloudflare - Setup HTTPS/Cloudflare
+   - /provision - Connect mobile device
+   
+3. Directory referenced: grep ".skills/" ARMORCLAW.md
+   Result: 4 references found
+   - .skills/deploy.yaml + deploy/SKILL.md
+   - .skills/status.yaml + status/SKILL.md
+   - .skills/cloudflare.yaml + cloudflare/SKILL.md
+   - .skills/provision.yaml + provision/SKILL.md
+
+Section Length: 45 lines (under 50 line limit ✓)
+
+VERDICT: APPROVE - ARMORCLAW.md fully documents skill discovery

@@ -1,0 +1,4 @@
+S1 Fix: Narrowed containsDangerousChars to shell constructs only.
+Blocked: | ; ` $( ${
+Allowed: & ( ) { } < > $ (standalone)
+Build: PASS (./internal/skills/...)

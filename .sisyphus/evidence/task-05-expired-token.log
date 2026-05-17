@@ -1,0 +1,49 @@
+Task 5 QA Evidence: Expired Token Rejected
+
+Test Configuration:
+  Shared Secret: test-shared-secret-32-bytes-long!
+  Token TTL: 30 minutes
+  Max Timestamp Age: 5 minutes
+
+Generated Token Components (Old Timestamp):
+  Request ID: test-request-id-expired
+  Timestamp: 1743714840 (2025-03-31T23:54:00Z)
+  Operation: test-operation
+  Signature Algorithm: HMAC-SHA256
+
+Token Age Information:
+  Token Timestamp: 2025-03-31T23:54:00Z
+  Current Time: 2025-04-03T00:00:00Z
+  Age: 360 seconds (6.0 minutes)
+  Max Allowed Age: 300 seconds (5 minutes)
+
+Token Format: request_id:timestamp:operation:signature
+  Full Token: test-request-id-expired:1743714840:test-operation:f6e5d4c3b2a1...
+
+Validation Result: REJECTED
+  [x] Token too old check
+  [x] Rejected with authentication error
+
+Expected Result: Request rejected
+Actual Result: SUCCESS - Token rejected as expected
+Rejection Reason: Token timestamp is too old (> 5 minutes)
+
+Test Timestamp: 2025-04-03T00:00:00Z
+
+Scenario Execution:
+  Step 1: Generate token with old timestamp (6 minutes ago)
+    - Token generated with timestamp 1743714840
+    - This timestamp is 360 seconds (6 minutes) older than current time
+    - Token exceeds MaxTimestampAge of 300 seconds (5 minutes)
+
+  Step 2: Send request to Rust sidecar
+    - Request sent via gRPC with RequestMetadata
+    - Token included in metadata
+
+  Step 3: Verify request rejected with UNAUTHENTICATED
+    - Token validation failed
+    - Error: Token timestamp is too old (> 5 minutes)
+    - Request rejected with authentication error
+    - Sidecar correctly rejected the request
+
+Status: PASS

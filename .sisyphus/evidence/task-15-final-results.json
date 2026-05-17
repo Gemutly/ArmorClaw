@@ -1,0 +1,11 @@
+{
+  "test_suite": "All Tests",
+  "timestamp": "2026-04-03T22:21:33Z",
+  "vps_ip": "5.183.11.149",
+  "vps_user": "root",
+  "total_tests": 1,
+  "passed": 1,
+  "failed": 0,
+  "output_format": "console",
+  "verbose": false
+}

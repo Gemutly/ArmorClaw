@@ -1,0 +1,4 @@
+=== RUN   TestSSRF_IPv6Multicast
+--- PASS: TestSSRF_IPv6Multicast (0.00s)
+PASS
+ok  	github.com/armorclaw/bridge/internal/skills	0.003s

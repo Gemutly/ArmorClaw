@@ -1,0 +1,16 @@
+=== TASK 5 QA: persistence test script checks ===
+Date: 2026-04-25
+
+--- Scenario 5.1: head -2 | grep -c 'set -euo pipefail' → 1 ---
+RESULT: PASS
+Count: 1
+
+--- Scenario 5.2: grep -c 'systemctl restart\|poll\|ready\|sleep\|is-active' → ≥3 ---
+RESULT: PASS
+Count: 7
+
+--- Scenario 5.3: ls -la execute bit ---
+RESULT: PASS
+Permissions: -rwxrwxr-x (execute bit set ✓)
+
+Task 5 Score: 3/3 pass

@@ -1,0 +1,55 @@
+9:#   fixture-admin — Isolated state-changing tests: /claim_admin, /verify, /approve, /reject
+13:#   MODE=smoke VPS_IP=1.2.3.4 MATRIX_BASE_URL=https://... ./scripts/vps-matrix-cli-test.sh
+14:#   MODE=fixture-admin FIXTURE_ROOM_ID='!x:y' FIXTURE_TEST_USER='@test:y' ./scripts/vps-matrix-cli-test.sh
+30:# Fixture-mode specific (only used in fixture-admin mode)
+147:  # Poll sync for m.notice events in a room. Args: room_id [expected_substring]
+173:          '[.[] | select(.type == "m.notice" and ((.content.body // "") | test($sub; "i")))][0]' 2>/dev/null)
+176:          '[.[] | select(.type == "m.notice")][0]' 2>/dev/null)
+279:  # Send /status command
+281:  event_id=$(matrix_send "$MATRIX_ROOM_ID" "/status" 2>/dev/null) || {
+282:    log_fail "status_command: failed to send /status"
+288:  # Poll for m.notice response containing "status" or "bridge"
+291:    log_fail "status_command: no m.notice response received"
+300:    log_pass "status_command (m.notice received, body length: ${#body})"
+302:    log_fail "status_command: m.notice received but body is empty"
+314:  event_id=$(matrix_send "$MATRIX_ROOM_ID" "/help" 2>/dev/null) || {
+315:    log_fail "help_command: failed to send /help"
+323:    log_fail "help_command: no m.notice response received"
+331:  if [[ "$msgtype" == "m.notice" ]]; then
+332:    log_pass "help_command (m.notice confirmed)"
+334:    log_fail "help_command: response msgtype is '${msgtype}', expected m.notice"
+353:  # Poll for any m.notice (don't filter by content — just verify routing)
+356:    log_fail "studio_command: no m.notice response received"
+364:  if [[ "$msgtype" == "m.notice" ]]; then
+365:    log_pass "studio_command (m.notice received from !agent list)"
+367:    log_fail "studio_command: response msgtype is '${msgtype}', expected m.notice"
+386:  # Poll for any m.notice (just verify command routes)
+389:    log_fail "secretary_command: no m.notice response received"
+397:  if [[ "$msgtype" == "m.notice" ]]; then
+398:    log_pass "secretary_command (m.notice received from !secretary status)"
+400:    log_fail "secretary_command: response msgtype is '${msgtype}', expected m.notice"
+420:    log_fail "claim_admin: no m.notice response received"
+428:  if [[ "$msgtype" == "m.notice" ]]; then
+429:    log_pass "claim_admin (m.notice confirmed)"
+431:    log_fail "claim_admin: response msgtype is '${msgtype}', expected m.notice"
+455:    log_fail "verify: no m.notice response received"
+463:  if [[ "$msgtype" == "m.notice" ]]; then
+464:    log_pass "verify (m.notice confirmed)"
+466:    log_fail "verify: response msgtype is '${msgtype}', expected m.notice"
+490:    log_fail "approve: no m.notice response received"
+498:  if [[ "$msgtype" == "m.notice" ]]; then
+499:    log_pass "approve (m.notice confirmed)"
+501:    log_fail "approve: response msgtype is '${msgtype}', expected m.notice"
+525:    log_fail "reject: no m.notice response received"
+533:  if [[ "$msgtype" == "m.notice" ]]; then
+534:    log_pass "reject (m.notice confirmed)"
+536:    log_fail "reject: response msgtype is '${msgtype}', expected m.notice"
+559:  echo " MODE: fixture-admin (isolated state-changing)"
+565:    echo "FATAL: fixture-admin mode requires FIXTURE_ROOM_ID and FIXTURE_TEST_USER"
+572:    echo "FATAL: fixture-admin mode requires MATRIX_BASE_URL, MATRIX_USER, MATRIX_PASSWORD"
+580:    echo "FATAL: login failed, cannot proceed with fixture-admin tests"
+598:  fixture-admin)
+602:    echo "Usage: MODE=smoke|fixture-admin $0"
+605:    echo "  smoke         — Safe read-only tests (SSH, health, login, /status, /help, studio, secretary)"
+606:    echo "  fixture-admin — State-changing tests in isolated fixtures (/claim_admin, /verify, /approve, /reject)"
+611:    echo "Additional env vars for fixture-admin:"

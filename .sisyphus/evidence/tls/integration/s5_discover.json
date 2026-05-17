@@ -1,0 +1,36 @@
+{
+  "endpoints": {
+    "health": "/health",
+    "rpc": "/api",
+    "ws": "/ws"
+  },
+  "fingerprint": "d36b6d3cad22d23921badec8eb3206991e6f6779d336c4bfe269a379674bc3c3",
+  "hostname": "0.0.0.0",
+  "ips": [
+    "5.183.11.149",
+    "2a02:4780:10:b390::1",
+    "fe80::c6e8:d4ff:feb9:1a5b",
+    "172.17.0.1",
+    "fe80::b476:d5ff:feec:535d",
+    "fe80::688d:4cff:fe57:34fa",
+    "172.19.0.1",
+    "fe80::1889:47ff:feee:15f8",
+    "172.21.0.1"
+  ],
+  "matrix_homeserver": "http://localhost:6167",
+  "name": "armorclaw",
+  "port": 8080,
+  "push_gateway": "https://0.0.0.0:8080/_matrix/push/v1/notify",
+  "rpc_url": "https://0.0.0.0:8080/api",
+  "tls": {
+    "mode": "none",
+    "health": "ok",
+    "fingerprint_sha256": "d36b6d3cad22d23921badec8eb3206991e6f6779d336c4bfe269a379674bc3c3",
+    "trust_type": "self_signed",
+    "expires_at": 1809047777,
+    "san_includes_public_ip": true,
+    "cert_source": "shared_cert"
+  },
+  "version": "1.0.0",
+  "ws_url": "wss://0.0.0.0:8080/ws"
+}

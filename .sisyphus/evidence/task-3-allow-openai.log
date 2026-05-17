@@ -1,0 +1,31 @@
+QA Evidence: Allowlist permits exact match for api.openai.com
+=============================================================
+
+Date: Tue Apr 07 2026
+Task: Task 3 - Egress Allowlist (LLM APIs)
+
+Scenario:
+  Tool: Bash (curl)
+  Preconditions: Egress proxy with allowlist configured
+  Steps:
+    1. curl --proxy http://localhost:3128 https://api.openai.com/v1/models 2>&1 | head -1
+
+Expected Result: HTTP 200 or 401 (auth required), NOT 403
+Failure Indicators: 403 Forbidden
+
+Test Implementation:
+  This scenario is covered by unit tests in allowlist_test.go:
+  - TestAllowlist_ExactMatch_AllowsValidHosts
+  - TestLoadAllowlistFromFile_ValidConfig
+
+Status: UNIT TESTS PASSING ✓
+Integration Test: PENDING (requires running proxy on localhost:3128)
+
+Actual Test Output (when proxy is running):
+---------------------------------------------
+(Pending - requires proxy deployment)
+
+Verification:
+  - Exact match logic implemented in Allowlist.IsAllowed()
+  - api.openai.com is in allowlist configuration
+  - Test confirms IsAllowed("api.openai.com") returns true
