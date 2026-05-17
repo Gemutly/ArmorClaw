@@ -2645,6 +2645,9 @@ func runBridgeServer(cliCfg cliConfig) {
 	if err := sidecar.ProvisionJavaSocketDir(); err != nil {
 		log.Printf("Warning: failed to provision Java socket dir: %v", err)
 	}
+	if err := sidecar.ProvisionOfficeSocketDir(); err != nil {
+		log.Printf("Warning: failed to provision office socket dir: %v", err)
+	}
 
 	// --- SIDECAR STARTUP VALIDATION (non-fatal) ---
 	validateSidecarSockets()

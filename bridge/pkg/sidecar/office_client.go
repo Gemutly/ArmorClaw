@@ -14,9 +14,9 @@ import (
 
 const (
 	// OfficeSocketPath is the canonical socket path for the Python office sidecar.
-	// Deprecated: the old path /run/armorclaw/office-sidecar/sidecar-office.sock
-	// is no longer used; keep env override OFFICE_SOCKET for migration compat.
-	OfficeSocketPath = "/run/armorclaw/sidecar-office.sock"
+	// Scoped mount: host /run/armorclaw/sidecar-office → container /run/armorclaw,
+	// so the socket appears at sidecar-office/sidecar-office.sock on the host.
+	OfficeSocketPath = "/run/armorclaw/sidecar-office/sidecar-office.sock"
 	OfficeMaxMsgSize = 100 * 1024 * 1024 // 100 MB
 )
 
@@ -219,4 +219,17 @@ func LogExtractionModeStartup() {
 func socketExists(path string) bool {
 	_, err := os.Stat(path)
 	return !os.IsNotExist(err)
+}
+
+// ProvisionOfficeSocketDir creates the socket directory for the Python office sidecar
+// with permissions allowing UID 10001 to write.
+func ProvisionOfficeSocketDir() error {
+	dir := "/run/armorclaw/sidecar-office"
+	if err := os.MkdirAll(dir, 0770); err != nil {
+		return fmt.Errorf("failed to create office socket dir: %w", err)
+	}
+	if err := os.Chown(dir, 10001, 10001); err != nil {
+		slog.Warn("failed to chown office socket dir (non-root?)", "error", err)
+	}
+	return nil
 }
