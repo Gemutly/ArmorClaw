@@ -1,0 +1,46 @@
+# Docker Compose: ArmorClaw Rust Document Sidecar
+# High-performance data plane for PDF, DOCX, XLSX, S3 storage
+#
+# Symmetrical containment with Java and Python sidecars:
+#   - network_mode: none (zero network)
+#   - UID 10001 (non-root, same as other sidecars)
+#   - cap_drop: ALL
+#   - read_only filesystem
+#   - tmpfs for temp spill
+#
+# Usage:
+#   docker compose -f deploy/docker-compose.sidecar-rust.yml up -d
+#
+# Socket: /run/armorclaw/sidecar-rust/sidecar-rust.sock (host)
+# Container sees: /run/armorclaw/sidecar-rust.sock
+
+services:
+  sidecar-rust:
+    build:
+      context: ../sidecar
+      dockerfile: Dockerfile
+    image: mikegemut/sidecar-rust:latest
+    container_name: armorclaw-sidecar-rust
+    user: "10001:10001"
+    restart: unless-stopped
+    network_mode: none
+    volumes:
+      - /run/armorclaw/sidecar-rust:/run/armorclaw
+      - /run/armorclaw/secrets/office-hmac:/run/secrets/shared_secret:ro
+    tmpfs:
+      - /tmp:size=64m,mode=0700
+    read_only: true
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    environment:
+      - ARMORCLAW_SIDECAR__SOCKET_PATH=/run/armorclaw/sidecar-rust.sock
+      - ARMORCLAW_SIDECAR__SHARED_SECRET_FILE=/run/secrets/shared_secret
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 512M
+        reservations:
+          memory: 128M
