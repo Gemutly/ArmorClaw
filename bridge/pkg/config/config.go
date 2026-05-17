@@ -1362,7 +1362,7 @@ func (c *Config) IsFeatureEnabled(flagName string) bool {
 	case "zero_trust_keystore":
 		return c.Features.ZeroTrustKeystore
 	case "voice_pipeline":
-		return c.Features.VoicePipeline == "cloud"
+		return c.Features.VoicePipeline == "cloud" || c.Features.VoicePipeline == "edge"
 	case "multi_tab_replay":
 		return c.Features.MultiTabReplay
 	case "e2ee_backup":
@@ -1373,8 +1373,8 @@ func (c *Config) IsFeatureEnabled(flagName string) bool {
 }
 
 func (c *FeatureFlags) Validate() error {
-	if c.VoicePipeline != "" && c.VoicePipeline != "cloud" && c.VoicePipeline != "off" {
-		return fmt.Errorf("%w: features.voice_pipeline must be 'cloud' or 'off', got '%s'", ErrInvalidConfig, c.VoicePipeline)
+	if c.VoicePipeline != "" && c.VoicePipeline != "cloud" && c.VoicePipeline != "off" && c.VoicePipeline != "edge" {
+		return fmt.Errorf("%w: features.voice_pipeline must be 'cloud', 'edge', or 'off', got '%s'", ErrInvalidConfig, c.VoicePipeline)
 	}
 	return nil
 }

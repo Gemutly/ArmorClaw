@@ -1196,6 +1196,52 @@ func (s *Server) handleVoiceStopSession(ctx context.Context, req *Request) (inte
 	return map[string]interface{}{"stopped": true}, nil
 }
 
+func (s *Server) handleVoiceIntentSubmit(ctx context.Context, req *Request) (interface{}, *ErrorObj) {
+	if s.voicePipeline != "edge" && s.voicePipeline != "cloud" {
+		return nil, voiceFeatureDisabled()
+	}
+
+	var params voice.VoiceIntentRequest
+	if err := json.Unmarshal(req.Params, &params); err != nil {
+		return nil, &ErrorObj{Code: InvalidParams, Message: err.Error()}
+	}
+
+	// Reject raw audio payloads — edge voice mode accepts text transcripts only
+	var rawCheck map[string]json.RawMessage
+	if err := json.Unmarshal(req.Params, &rawCheck); err == nil {
+		if _, hasAudio := rawCheck["audio"]; hasAudio {
+			return nil, &ErrorObj{
+				Code:    InvalidParams,
+				Message: "raw audio not accepted in edge voice mode: send transcript text only",
+			}
+		}
+		if _, hasAudioData := rawCheck["audio_data"]; hasAudioData {
+			return nil, &ErrorObj{
+				Code:    InvalidParams,
+				Message: "raw audio not accepted in edge voice mode: send transcript text only",
+			}
+		}
+	}
+
+	resp, logEntry, err := voice.ProcessVoiceIntent(ctx, &params)
+	if err != nil {
+		return nil, &ErrorObj{Code: InvalidParams, Message: err.Error()}
+	}
+
+	if s.auditLog != nil && logEntry != nil {
+		_ = s.auditLog.LogEvent(audit.EventVoiceStartSession, logEntry.SessionID, "", "", map[string]interface{}{
+			"source":      logEntry.Source,
+			"transcript":  logEntry.Transcript,
+			"confidence":  logEntry.Confidence,
+			"locale":      logEntry.Locale,
+			"action":      logEntry.ActionTaken,
+			"timestamp":   logEntry.Timestamp,
+		})
+	}
+
+	return resp, nil
+}
+
 func (s *Server) handleVoiceStatus(ctx context.Context, req *Request) (interface{}, *ErrorObj) {
 	if s.voicePipeline != "cloud" {
 		return nil, voiceFeatureDisabled()
@@ -1370,6 +1416,7 @@ func (s *Server) registerHandlers() {
 		"voice.start_session":                  s.handleVoiceStartSession,
 		"voice.stop_session":                   s.handleVoiceStopSession,
 		"voice.status":                         s.handleVoiceStatus,
+		"voice.intent.submit":                  s.handleVoiceIntentSubmit,
 		"e2ee.create_backup":                   s.handleE2EECreateBackup,
 		"e2ee.delete_backup":                   s.handleE2EEDeleteBackup,
 		"e2ee.backup_exists":                   s.handleE2EEBackupExists,
