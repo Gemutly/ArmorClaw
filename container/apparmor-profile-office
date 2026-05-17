@@ -14,8 +14,13 @@ profile armorclaw-office-worker flags=(attach_disconnected,mediate_deleted) {
 
   # Python runtime
   /usr/bin/python3.* ix,
-  /usr/lib/python3.*/** r,
-  /usr/local/lib/python3.*/dist-packages/** r,
+  /usr/lib/python3.*/** rm,
+  /usr/local/lib/python3.*/dist-packages/** rm,
+  /usr/local/lib/** rm,
+
+  # Application code
+  /app/ r,
+  /app/** rm,
 
   # Temp file workspace (tmpfs — RAM-only, 512MB)
   /tmp/office_worker/** rw,
@@ -25,6 +30,10 @@ profile armorclaw-office-worker flags=(attach_disconnected,mediate_deleted) {
 
   # Socket directory (isolated mount — container sees only /run/armorclaw/)
   /run/armorclaw/** rw,
+
+  # System info (CPU detection, device enumeration)
+  /sys/devices/system/cpu/** r,
+  /sys/class/drm/ r,
 
   # Deny shells (defense in depth)
   deny /bin/sh x,
@@ -43,10 +52,10 @@ profile armorclaw-office-worker flags=(attach_disconnected,mediate_deleted) {
   deny /root/** rw,
   deny /etc/** rw,
 
-  # System libraries (read-only)
-  /usr/lib/** r,
-  /lib/** r,
-  /lib64/** r,
+  # System libraries (read-only + mmap)
+  /usr/lib/** rm,
+  /lib/** rm,
+  /lib64/** rm,
 
   # Deny process inspection
   deny ptrace read,
@@ -54,10 +63,7 @@ profile armorclaw-office-worker flags=(attach_disconnected,mediate_deleted) {
   deny /proc/*/environ r,
   deny /proc/*/maps r,
 
-  # Deny mount and module operations
+  # Deny mount operations
   deny mount,
   deny umount,
-  deny init_module,
-  deny finit_module,
-  deny delete_module,
 }
