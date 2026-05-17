@@ -1,0 +1,115 @@
+name: Sidecar Security Gates (v1.3)
+
+on:
+  pull_request:
+    paths:
+      - 'sidecar/**'
+      - 'sidecar-python/**'
+      - 'deploy/docker-compose.sidecar-*.yml'
+      - 'bridge/pkg/sidecar/**'
+      - 'bridge/cmd/bridge/main.go'
+
+jobs:
+  hardening-check:
+    name: Hardening Regression Gates
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Verify Rust sidecar metadata key is x-request-token
+        run: |
+          KEY=$(grep -oP 'METADATA_TOKEN_KEY.*?=.*?"\K[^"]+' sidecar/src/grpc/interceptor.rs | head -1)
+          if [ "$KEY" != "x-request-token" ]; then
+            echo "FAIL: Rust metadata key is '$KEY', expected 'x-request-token'"
+            exit 1
+          fi
+          echo "PASS: Rust metadata key is 'x-request-token'"
+
+      - name: Verify Python HMAC bypass removed
+        run: |
+          if grep -q "SKIP_TOKEN_VALIDATION" sidecar-python/worker.py; then
+            echo "FAIL: SKIP_TOKEN_VALIDATION still present in worker.py"
+            exit 1
+          fi
+          echo "PASS: HMAC bypass removed from worker.py"
+
+      - name: Verify AppArmor in all sidecar compose files
+        run: |
+          for f in deploy/docker-compose.sidecar-*.yml; do
+            if ! grep -q "apparmor=armorclaw-office-worker" "$f"; then
+              echo "FAIL: No AppArmor profile in $f"
+              exit 1
+            fi
+            echo "PASS: AppArmor found in $f"
+          done
+
+      - name: Verify no privileged containers in sidecar compose files
+        run: |
+          for f in deploy/docker-compose.sidecar-*.yml; do
+            if grep -q "privileged:.*true" "$f"; then
+              echo "FAIL: Privileged mode found in $f"
+              exit 1
+            fi
+            echo "PASS: No privileged mode in $f"
+          done
+
+      - name: Verify network_mode is none in sidecar compose files
+        run: |
+          for f in deploy/docker-compose.sidecar-*.yml; do
+            if ! grep -q "network_mode: none" "$f"; then
+              echo "FAIL: network_mode not set to 'none' in $f"
+              exit 1
+            fi
+            echo "PASS: network_mode=none in $f"
+          done
+
+      - name: Verify cap_drop ALL in sidecar compose files
+        run: |
+          for f in deploy/docker-compose.sidecar-*.yml; do
+            if ! grep -q "cap_drop:" "$f" || ! grep -q "ALL" "$f"; then
+              echo "FAIL: cap_drop ALL not found in $f"
+              exit 1
+            fi
+            echo "PASS: cap_drop ALL in $f"
+          done
+
+      - name: Verify Rust socket path matches compose volume mount
+        run: |
+          EXPECTED="/run/armorclaw/sidecar-rust/sidecar-rust.sock"
+          ACTUAL=$(grep -oP 'DefaultSocketPath\s*=\s*"\K[^"]+' bridge/pkg/sidecar/client.go | head -1)
+          if [ "$ACTUAL" != "$EXPECTED" ]; then
+            echo "FAIL: DefaultSocketPath is '$ACTUAL', expected '$EXPECTED'"
+            exit 1
+          fi
+          echo "PASS: DefaultSocketPath matches compose mount ($EXPECTED)"
+
+      - name: Verify HMAC TokenGenerator wired to Rust client
+        run: |
+          if ! grep -q "TokenGenerator.*tokenGen" bridge/cmd/bridge/main.go; then
+            echo "FAIL: TokenGenerator not wired to Rust client in main.go"
+            exit 1
+          fi
+          echo "PASS: TokenGenerator wired to Rust client"
+
+  rust-tests:
+    name: Rust Sidecar Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: 1.91.1
+      - name: Cache cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            sidecar/target
+          key: ${{ runner.os }}-cargo-security-${{ hashFiles('sidecar/Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-cargo-
+      - name: Install build deps
+        run: sudo apt-get install -y cmake clang nasm
+      - name: Run Rust sidecar tests
+        working-directory: sidecar
+        run: cargo test --lib
