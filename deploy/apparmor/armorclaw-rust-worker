@@ -20,8 +20,9 @@ profile armorclaw-rust-worker flags=(attach_disconnected,mediate_deleted) {
   # Shared secret (read-only tmpfs mount — injected by Go Bridge)
   /run/secrets/shared_secret r,
 
-  # System info (CPU detection, container detection)
+  # System info (CPU detection, container detection, cgroups)
   /sys/devices/system/cpu/** r,
+  /sys/fs/cgroup/** r,
   /proc/*/cgroup r,
   /proc/*/status r,
   /proc/self/** r,
