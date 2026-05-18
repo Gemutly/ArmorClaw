@@ -58,13 +58,15 @@
 
 ## Numeric Count Assertions
 
-**No hardcoded numeric count assertions found** in any CI workflow or test file.
-The test at `server_test.go` checks method NAME presence (not count).
-CI workflow `test.yml` runs `go test -short ./pkg/rpc/...` with no count expectation.
+**Automated** — `TotalRPCMethods()` in `method_count.go` is the single source of truth.
+It creates a zero-value Server, calls `registerHandlers()`, and returns `len(s.handlers)`.
+
+Both `discovery_test.go` and `replay_gating_test.go` call `TotalRPCMethods()` instead
+of hardcoding a constant. Adding a new RPC to `registerHandlers()` automatically updates
+the expected count in all tests.
 
 ## Action Items After New Methods Registered
 
-1. After T2.2b (document RPC): Add `document.extract_text` to `server_test.go:TestMethodRegistrationCompleteness` expected methods list
-2. After T3.0 (email RPC): Add new email.* method tests to `email_approval_test.go` or new test file
-3. Re-run `grep -oP '"[a-z_]+\.[a-z_]+"' bridge/pkg/rpc/server.go | sort -u | wc -l` → expect 136
-4. Run `cd bridge && go test ./pkg/rpc/... -count=1` → ALL pass
+1. Add new method to `registerHandlers()` in `server.go` — tests auto-update
+2. Add method name to any feature-specific test (e.g., `featureMethods` in `discovery_test.go`)
+3. Run `cd bridge && go test ./pkg/rpc/... -count=1` → ALL pass

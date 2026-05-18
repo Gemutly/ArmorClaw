@@ -12,7 +12,7 @@ import (
 // is always present in the map so clients get a proper "feature disabled"
 // response instead of "method not found".
 func TestDiscovery_FlagIndependence(t *testing.T) {
-	const expectedMethods = 149
+	expectedMethods := TotalRPCMethods()
 
 	// Feature-flagged method groups that MUST always be registered.
 	featureMethods := []string{
