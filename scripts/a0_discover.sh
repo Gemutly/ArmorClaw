@@ -8,8 +8,11 @@
 set -uo pipefail
 
 _SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+_REPO_ROOT="$(cd "${_SCRIPT_DIR}/.." && pwd)"
 source "${_SCRIPT_DIR}/lib/contract.sh"
 source "${_SCRIPT_DIR}/lib/probe.sh"
+source "${_SCRIPT_DIR}/lib/rpc-methods.sh"
+_rpc_load_methods "$_REPO_ROOT"
 
 log_info "========================================="
 log_info " Phase A0: Contract Discovery"
@@ -116,44 +119,7 @@ if [[ -z "$DISCOVER_METHODS" ]] || echo "$DISCOVER_METHODS" | jq -e '.error' >/d
 fi
 
 # Known RPC method list from bridge/pkg/rpc/server.go registerHandlers()
-KNOWN_METHODS=(
-  "ai.chat"
-  "browser.navigate" "browser.fill" "browser.click" "browser.status"
-  "browser.wait_for_element" "browser.wait_for_captcha" "browser.wait_for_2fa"
-  "browser.complete" "browser.fail" "browser.list" "browser.cancel"
-  "browser.replay_diagnostics"
-  "bridge.start" "bridge.stop" "bridge.status" "bridge.channel"
-  "bridge.unchannel" "bridge.list" "bridge.ghost_list" "bridge.appservice_status"
-  "bridge.e2ee_enable" "bridge.e2ee_disable"
-  "pii.request" "pii.approve" "pii.deny" "pii.status" "pii.list_pending"
-  "pii.stats" "pii.cancel" "pii.fulfill" "pii.wait_for_approval"
-  "skills.execute" "skills.list" "skills.get_schema" "skills.allow" "skills.block"
-  "skills.allowlist_add" "skills.allowlist_remove" "skills.allowlist_list"
-  "skills.web_search" "skills.web_extract" "skills.email_send"
-  "skills.slack_message" "skills.file_read" "skills.data_analyze"
-  "matrix.status" "matrix.login" "matrix.send" "matrix.receive" "matrix.join_room"
-  "events.replay" "events.stream"
-  "studio.deploy" "studio.stats"
-  "store_key"
-  "provisioning.start" "provisioning.claim"
-  "hardening.status" "hardening.ack" "hardening.rotate_password"
-  "health.check" "mobile.heartbeat"
-  "container.terminate" "container.list"
-  "resolve_blocker"
-  "approve_email" "deny_email" "email_approval_status" "email.list_pending"
-  "account.delete"
-  "secretary.start_workflow" "secretary.get_workflow" "secretary.cancel_workflow"
-  "secretary.create_workflow" "secretary.is_running" "secretary.get_active_count"
-  "secretary.shutdown"
-  "secretary.advance_workflow" "secretary.list_templates" "secretary.create_template"
-  "secretary.get_template" "secretary.delete_template" "secretary.update_template"
-  "task.create" "task.list" "task.cancel" "task.get"
-  "device.list" "device.get" "device.approve" "device.reject"
-  "invite.list" "invite.create" "invite.revoke" "invite.validate"
-  "keystore.unseal" "keystore.sealed" "keystore.seal" "keystore.extend_session" "keystore.session_status" "keystore.list_keys" "keystore.delete_key"
-  "e2ee.create_backup" "e2ee.delete_backup" "e2ee.backup_exists"
-  "voice.start_session" "voice.stop_session" "voice.status"
- )
+KNOWN_METHODS=("${RPC_METHODS[@]}")
 
 RPC_METHODS_JSON="[]"
 METHODS_FOUND=0
