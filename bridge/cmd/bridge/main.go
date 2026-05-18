@@ -2695,6 +2695,7 @@ func runBridgeServer(cliCfg cliConfig) {
 	rpcCfg.MCPRouter = mcpRouter
 	rpcCfg.Translator = mcpTranslator
 	rpcCfg.VoiceMgr = voiceMgr
+	rpcCfg.AdminToken = cfg.Server.AdminToken
 	rpcCfg.DockerClient = dockerClient
 	auditor, auditErr := audit.NewAuditLog(audit.DefaultConfig())
 	if auditErr != nil {
