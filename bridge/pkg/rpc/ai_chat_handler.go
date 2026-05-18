@@ -27,7 +27,11 @@ func (s *Server) handleAIChat(ctx context.Context, req *Request) (interface{}, *
 
 	userID := "default"
 
-	if s.aiService != nil && !s.aiService.CheckRateLimit(userID) {
+	if s.aiService == nil {
+		return nil, &ErrorObj{Code: InternalError, Message: "AI service not configured"}
+	}
+
+	if !s.aiService.CheckRateLimit(userID) {
 		return nil, &ErrorObj{Code: TooManyRequests, Message: "AI rate limit exceeded"}
 	}
 
@@ -48,7 +52,7 @@ func (s *Server) handleAIChat(ctx context.Context, req *Request) (interface{}, *
 	defer cancel()
 
 	model := params.Model
-	if model == "" && s.aiService != nil {
+	if model == "" {
 		model = s.aiService.DefaultModel()
 	}
 	if model == "" {
@@ -65,14 +69,12 @@ func (s *Server) handleAIChat(ctx context.Context, req *Request) (interface{}, *
 		RequestID:   uuid.New().String(),
 	}
 
-	if s.aiService != nil {
-		if err := s.aiService.ValidateRequest(chatReq); err != nil {
-			return nil, &ErrorObj{Code: InvalidRequest, Message: err.Error()}
-		}
+	if err := s.aiService.ValidateRequest(chatReq); err != nil {
+		return nil, &ErrorObj{Code: InvalidRequest, Message: err.Error()}
 	}
 
 	keyID := params.KeyID
-	if keyID == "" && s.aiService != nil {
+	if keyID == "" {
 		keyID = s.aiService.DefaultKeyID()
 	}
 	if keyID == "" {
@@ -83,9 +85,6 @@ func (s *Server) handleAIChat(ctx context.Context, req *Request) (interface{}, *
 
 	resp, err := s.aiService.Chat(ctx, chatReq, keyID)
 	if err != nil {
-		if s.aiService == nil {
-			return nil, &ErrorObj{Code: InternalError, Message: err.Error()}
-		}
 		return nil, &ErrorObj{Code: ai.AIErrProviderError, Message: err.Error()}
 	}
 
