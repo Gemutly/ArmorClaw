@@ -44,6 +44,8 @@ services:
     image: armorclaw/sidecar-office:latest
     container_name: armorclaw-sidecar-office
     user: "10001:10001"
+    group_add:
+      - "986"  # armorclaw-runtime GID for socket dir access
     depends_on:
       office-secret-init:
         condition: service_completed_successfully

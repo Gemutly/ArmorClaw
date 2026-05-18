@@ -1,6 +1,6 @@
 # Voice Stack
 
-> Part of the [ArmorClaw System Documentation](armorclaw.md) | See also: [Voice Event Contract](#voice-event-contract) (below)
+> Part of the [ArmorClaw System Documentation](architecture.md) | See also: [Voice Event Contract](#voice-event-contract) (below)
 
 ## Current State
 

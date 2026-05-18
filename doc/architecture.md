@@ -183,7 +183,7 @@ Input PCM → VAD (energy threshold) → STT (OpenAI Whisper) → text → agent
 | `hardening.*` | 3 | Security hardening status and password rotation |
 | `task.*` | 4 | Task create/list/cancel/get (delegates to secretary) |
 | `events.*` | 2 | Event replay and streaming |
-| `email.*` | 3 | Email approval status and pending list |
+| `email.*` | 4 | Email approval status and pending list |
 | `studio.*` | 2 | Agent studio deploy and stats |
 | `e2ee.*` | 2 (baseline) + 3 (flagged) | E2EE enable/disable toggle (`e2ee_enable`, `e2ee_disable`). When `E2EEBackup=true`, adds 3 more: `create_backup`, `delete_backup`, `backup_exists` (total 5) |
 | `provisioning.*` | 2 | QR provisioning start and claim |

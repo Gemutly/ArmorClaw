@@ -22,6 +22,8 @@ services:
     image: mikegemut/sidecar-rust:latest
     container_name: armorclaw-sidecar-rust
     user: "10001:10001"
+    group_add:
+      - "986"  # armorclaw-runtime GID for socket dir access
     restart: unless-stopped
     network_mode: none
     volumes:

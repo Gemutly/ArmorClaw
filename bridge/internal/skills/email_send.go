@@ -4,6 +4,9 @@ import (
 	"context"
 	"fmt"
 	"net/mail"
+	"net/smtp"
+	"os"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -226,48 +229,95 @@ func validateEmailAddress(email string) error {
 	return nil
 }
 
-// getSMTPConfig gets SMTP configuration (mock for Phase 2)
+// getSMTPConfig gets SMTP configuration from environment variables
 func getSMTPConfig(ctx context.Context) (*SMTPConfig, error) {
-	// In production, this would load from secure storage or environment variables
-	// For Phase 2, we'll return a mock configuration
+	host := os.Getenv("ARMORCLAW_SMTP_HOST")
+	if host == "" {
+		host = "127.0.0.1"
+	}
+
+	portStr := os.Getenv("ARMORCLAW_SMTP_PORT")
+	port := 1025
+	if portStr != "" {
+		if p, err := strconv.Atoi(portStr); err == nil {
+			port = p
+		}
+	}
+
+	from := os.Getenv("ARMORCLAW_SMTP_FROM")
+	if from == "" {
+		from = "noreply@armorclaw.local"
+	}
+
 	return &SMTPConfig{
-		Host:     "smtp.example.com",
-		Port:     587,
-		Username: "user@example.com",
-		Password: "mock-password",
-		From:     "noreply@example.com",
-		TLS:      true,
-		StartTLS: true,
+		Host:     host,
+		Port:     port,
+		Username: os.Getenv("ARMORCLAW_SMTP_USERNAME"),
+		Password: os.Getenv("ARMORCLAW_SMTP_PASSWORD"),
+		From:     from,
+		TLS:      false,
+		StartTLS: false,
 	}, nil
 }
 
-// sendEmailViaSMTP sends an email using SMTP
+// sendEmailViaSMTP sends an email using SMTP via net/smtp
 func sendEmailViaSMTP(ctx context.Context, emailParams *EmailParams, smtpConfig *SMTPConfig) (*EmailResult, error) {
-	// For Phase 2, we'll simulate email sending
-	// In production, this would use net/smtp to actually send the email
-	
 	startTime := time.Now()
-	
-	// Generate a mock message ID
+
 	messageID := fmt.Sprintf("<%s@%s>", generateRandomID(), smtpConfig.Host)
-	
-	// Calculate email size
-	emailSize := len(emailParams.Subject) + len(emailParams.Body)
-	emailSize += len(emailParams.From) * 2 // From and Reply-To
-	for _, to := range emailParams.To {
-		emailSize += len(to)
+
+	emailContent := buildEmailContent(emailParams, smtpConfig.From, messageID)
+
+	addr := fmt.Sprintf("%s:%d", smtpConfig.Host, smtpConfig.Port)
+
+	var client *smtp.Client
+	var err error
+
+	client, err = smtp.Dial(addr)
+	if err != nil {
+		return nil, fmt.Errorf("failed to connect to SMTP server %s: %w", addr, err)
 	}
-	for _, cc := range emailParams.CC {
-		emailSize += len(cc)
-	}
-	for _, bcc := range emailParams.BCC {
-		emailSize += len(bcc)
+	defer client.Close()
+
+	if smtpConfig.Username != "" && smtpConfig.Password != "" {
+		auth := smtp.PlainAuth("", smtpConfig.Username, smtpConfig.Password, smtpConfig.Host)
+		if err := client.Auth(auth); err != nil {
+			return nil, fmt.Errorf("SMTP authentication failed: %w", err)
+		}
 	}
 
-	// Create result
+	if err := client.Mail(smtpConfig.From); err != nil {
+		return nil, fmt.Errorf("failed to set sender: %w", err)
+	}
+
+	allRecipients := make([]string, 0, len(emailParams.To)+len(emailParams.CC)+len(emailParams.BCC))
+	allRecipients = append(allRecipients, emailParams.To...)
+	allRecipients = append(allRecipients, emailParams.CC...)
+	allRecipients = append(allRecipients, emailParams.BCC...)
+	for _, recipient := range allRecipients {
+		if err := client.Rcpt(recipient); err != nil {
+			return nil, fmt.Errorf("failed to add recipient '%s': %w", recipient, err)
+		}
+	}
+
+	wc, err := client.Data()
+	if err != nil {
+		return nil, fmt.Errorf("failed to prepare email content: %w", err)
+	}
+	if _, err := fmt.Fprint(wc, emailContent); err != nil {
+		return nil, fmt.Errorf("failed to send email content: %w", err)
+	}
+	if err := wc.Close(); err != nil {
+		return nil, fmt.Errorf("failed to finalize email: %w", err)
+	}
+
+	client.Quit()
+
+	emailSize := len(emailContent)
+
 	result := &EmailResult{
 		MessageID: messageID,
-		From:      emailParams.From,
+		From:      smtpConfig.From,
 		To:        emailParams.To,
 		CC:        emailParams.CC,
 		BCC:       emailParams.BCC,
@@ -276,69 +326,12 @@ func sendEmailViaSMTP(ctx context.Context, emailParams *EmailParams, smtpConfig 
 		Size:      emailSize,
 		Provider:  "smtp",
 		Metadata: map[string]string{
-			"smtp_host":     smtpConfig.Host,
-			"smtp_port":     fmt.Sprintf("%d", smtpConfig.Port),
-			"content_type":  "text/plain",
-			"message_size":  fmt.Sprintf("%d", emailSize),
+			"smtp_host":    smtpConfig.Host,
+			"smtp_port":    fmt.Sprintf("%d", smtpConfig.Port),
+			"content_type": "text/plain",
+			"message_size": fmt.Sprintf("%d", emailSize),
 		},
 	}
-
-	// In a real implementation, this would be:
-	/*
-	// Connect to SMTP server
-	auth := smtp.PlainAuth("", smtpConfig.Username, smtpConfig.Password, smtpConfig.Host)
-	
-	addr := fmt.Sprintf("%s:%d", smtpConfig.Host, smtpConfig.Port)
-	
-	client, err := smtp.Dial(addr)
-	if err != nil {
-		return nil, fmt.Errorf("failed to connect to SMTP server: %w", err)
-	}
-	defer client.Close()
-	
-	// Enable TLS if required
-	if smtpConfig.TLS {
-		if ok, _ := client.Extension("STARTTLS"); ok {
-			config := &tls.Config{ServerName: smtpConfig.Host}
-			if err := client.StartTLS(config); err != nil {
-				return nil, fmt.Errorf("failed to start TLS: %w", err)
-			}
-		}
-	}
-	
-	// Authenticate if credentials provided
-	if smtpConfig.Username != "" && smtpConfig.Password != "" {
-		if err := client.Auth(auth); err != nil {
-			return nil, fmt.Errorf("SMTP authentication failed: %w", err)
-		}
-	}
-	
-	// Set sender
-	if err := client.Mail(smtpConfig.From); err != nil {
-		return nil, fmt.Errorf("failed to set sender: %w", err)
-	}
-	
-	// Add recipients (TO, CC, BCC)
-	allRecipients := append(append(emailParams.To, emailParams.CC...), emailParams.BCC...)
-	for _, recipient := range allRecipients {
-		if err := client.Rcpt(recipient); err != nil {
-			return nil, fmt.Errorf("failed to add recipient '%s': %w", recipient, err)
-		}
-	}
-	
-	// Send email content
-	wc, err := client.Data()
-	if err != nil {
-		return nil, fmt.Errorf("failed to prepare email content: %w", err)
-	}
-	defer wc.Close()
-	
-	// Write email headers and body
-	emailContent := buildEmailContent(emailParams, smtpConfig.From, messageID)
-	if _, err := fmt.Fprint(wc, emailContent); err != nil {
-		return nil, fmt.Errorf("failed to send email content: %w", err)
-	}
-	*/
 
 	return result, nil
 }

@@ -1,6 +1,6 @@
 # Secretary Workflow System
 
-> Part of the [ArmorClaw System Documentation](armorclaw.md)
+> Part of the [ArmorClaw System Documentation](architecture.md)
 
 Deep dive into ArmorClaw's workflow engine: scheduled tasks, multi-step workflows, and PII approval gates.
 
@@ -50,7 +50,7 @@ ScheduledTask (cron)
 > - **Outbound from container**: Exit code + `result.json` (step mode) or exit code only (agent mode)
 > - **Real-time events**: Containers emit `StepEvent` entries to `_events.jsonl` during execution, which the Bridge tails for live progress
 >
-> In step mode (STEP_CONFIG present), the container writes structured results to `result.json` in the bind-mounted state dir before exit. The Bridge reads this via `ParseContainerStepResult()` (or `ParseExtendedStepResult()` for enriched results with blockers and skill candidates). During execution, the Bridge also tails `_events.jsonl` via `EventReader` for real-time step progress. See `doc/agent-runtime.md` for the step mode flow.
+> In step mode (STEP_CONFIG present), the container writes structured results to `result.json` in the bind-mounted state dir before exit. The Bridge reads this via `ParseContainerStepResult()` (or `ParseExtendedStepResult()` for enriched results with blockers and skill candidates). During execution, the Bridge also tails `_events.jsonl` via `EventReader` for real-time step progress. See `doc/ARCHIVE/obsolete/agent-runtime.md` for the step mode flow.
 >
 > Remaining limitations:
 > - Agent state transitions (BROWSING, FORM_FILLING, etc.) are **invisible** to the Bridge
@@ -301,7 +301,7 @@ In this example, `process_order` receives the `order_id` and `email` from the `f
 Existing templates are unaffected. To add inter-step data passing:
 1. Add an `"input": {}` field to the steps that need upstream data.
 2. Use `{{steps.<step_id>.data.<key>}}` syntax to reference previous step outputs.
-3. A migration tool (`bridge/cmd/migrate-templates/`) is available to add empty `input` fields to existing template JSON files. See `doc/migration/workflow-step-input.md` for the full migration guide.
+3. A migration tool (`bridge/cmd/migrate-templates/`) is available to add empty `input` fields to existing template JSON files. See `bridge/cmd/migrate-templates/` for the migration tool.
 
 ### Data flow
 
@@ -311,7 +311,7 @@ Containers spawned by the step executor run with `NetworkMode: "none"`. In step 
 - Non zero exit (status `Failed`): step failed. Bridge reads `result.json` for error details and `_events.jsonl` for any events emitted before failure.
 - Container still running: keep polling. `EventReader.ReadNew()` tails `_events.jsonl` for real-time progress.
 
-The container writes structured results (status, output, data, error, duration_ms) to `result.json` before exit. The `EventEmitter` in the container writes `StepEvent` entries to `_events.jsonl` throughout execution. After parsing, the state directory is purged via `cleanupStateDir()`. See `doc/agent-runtime.md` Step Mode section for the full flow.
+The container writes structured results (status, output, data, error, duration_ms) to `result.json` before exit. The `EventEmitter` in the container writes `StepEvent` entries to `_events.jsonl` throughout execution. After parsing, the state directory is purged via `cleanupStateDir()`. See `doc/ARCHIVE/obsolete/agent-runtime.md` Step Mode section for the full flow.
 
 ---
 

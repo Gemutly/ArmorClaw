@@ -332,7 +332,7 @@ All 109 methods are always registered regardless of feature flags. Flags control
 | `studio.deploy` | `handleStudio` | Deploy an agent to the studio |
 | `studio.stats` | `handleStudioStats` | Get studio agent statistics |
 
-### Keystore (7 methods, requires `ZeroTrustKeystore` flag)
+### Keystore (8 methods, requires `ZeroTrustKeystore` flag)
 
 | Method | Handler | Description |
 |--------|---------|-------------|
@@ -343,6 +343,7 @@ All 109 methods are always registered regardless of feature flags. Flags control
 | `keystore.session_status` | `handleKeystoreSessionStatus` | Get current session status. Params: `{}`. Returns: `{ "sealed": false, "time_remaining": "4m32s", "unseal_count": 3 }` |
 | `keystore.list_keys` | `handleKeystoreListKeys` | List stored key identifiers. Params: `{}`. Returns: `{ "keys": ["openai", "anthropic", ...] }` |
 | `keystore.delete_key` | `handleKeystoreDeleteKey` | Delete a stored key. Params: `{ "key_id": "..." }`. Returns: `{ "deleted": true }` |
+| `store_key` | `handleStoreKey` | Store a credential in the encrypted keystore |
 
 **Error codes:**
 
@@ -379,12 +380,6 @@ Voice routes through OpenAI cloud: STT via Whisper, TTS via tts-1, VAD via energ
 | `e2ee.backup_exists` | `handleE2EEBackupExists` | Check whether an E2EE key backup exists |
 
 Note: `e2ee.restore_backup` does NOT exist. Key restoration is out of scope for v1.0.0.
-
-### Keystore (1 method)
-
-| Method | Handler | Description |
-|--------|---------|-------------|
-| `store_key` | `handleStoreKey` | Store a credential in the encrypted keystore |
 
 ### Provisioning (2 methods)
 

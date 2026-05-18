@@ -1,6 +1,6 @@
 # Document Processing Pipeline (Sidecar)
 
-> Part of the [ArmorClaw System Documentation](armorclaw.md)
+> Part of the [ArmorClaw System Documentation](architecture.md)
 
 ## Overview
 
