@@ -223,9 +223,10 @@ func (m *SafetyMiddleware) Wrap(handler HandlerFunc) HandlerFunc {
 // Helpers
 // ---------------------------------------------------------------------------
 
-// extractAuthKey extracts the authentication token from the request.
-// It checks the "token" field in the params JSON.
 func (m *SafetyMiddleware) extractAuthKey(req *Request) string {
+	if req.AuthToken != "" {
+		return req.AuthToken
+	}
 	if req.Params == nil {
 		return ""
 	}

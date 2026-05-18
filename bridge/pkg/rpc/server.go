@@ -108,6 +108,10 @@ type Request struct {
 	ID      interface{}     `json:"id,omitempty"`
 	Method  string          `json:"method"`
 	Params  json.RawMessage `json:"params,omitempty"`
+
+	// AuthToken carries the bearer token extracted from HTTP Authorization
+	// header (TCP connections via POST /api). Not serialized in JSON-RPC.
+	AuthToken string `json:"-"`
 }
 
 type Response struct {
@@ -1582,7 +1586,11 @@ func (s *Server) Run(socketPath string) error {
 		if err != nil {
 			return fmt.Errorf("failed to create TCP listener on %s: %w", listenAddr, err)
 		}
-		slog.Info("RPC server listening", "transport", "tcp", "address", listenAddr)
+		if s.safety != nil && s.safety.cfg.AdminToken != "" {
+			slog.Info("RPC server listening", "transport", "tcp", "address", listenAddr, "tcp_auth", "enabled")
+		} else {
+			slog.Warn("RPC server listening", "transport", "tcp", "address", listenAddr, "tcp_auth", "disabled", "reason", "no AdminToken")
+		}
 	} else {
 		socketDir := filepath.Dir(listenAddr)
 		if err := os.MkdirAll(socketDir, 0755); err != nil {
@@ -1686,6 +1694,10 @@ func (s *Server) handleConnection(conn net.Conn) {
 			fmt.Fprintf(conn, "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nConnection: close\r\n\r\n%s\n", resp)
 			return
 		}
+		if strings.HasPrefix(peekStr, "POST /api") {
+			s.handleHTTPAPI(conn, br)
+			return
+		}
 	}
 
 	// Read JSON-RPC request
@@ -1705,4 +1717,37 @@ func (s *Server) handleConnection(conn net.Conn) {
 	if err := encoder.Encode(resp); err != nil {
 		slog.Warn("rpc_write_error", "error", err)
 	}
+}
+
+func (s *Server) handleHTTPAPI(conn net.Conn, br *bufio.Reader) {
+	var bearerToken string
+	for {
+		line, err := br.ReadString('\n')
+		if err != nil || line == "\r\n" || line == "\n" {
+			break
+		}
+		line = strings.TrimSpace(line)
+		if strings.HasPrefix(line, "Authorization:") {
+			parts := strings.SplitN(line, " ", 3)
+			if len(parts) >= 2 && strings.EqualFold(parts[1], "Bearer") && len(parts) == 3 {
+				bearerToken = parts[2]
+			}
+		}
+	}
+
+	var req Request
+	if err := json.NewDecoder(br).Decode(&req); err != nil {
+		fmt.Fprintf(conn, "HTTP/1.1 400 Bad Request\r\nContent-Type: application/json\r\nConnection: close\r\n\r\n{\"jsonrpc\":\"2.0\",\"id\":null,\"error\":{\"code\":-32700,\"message\":\"parse error\"}}\n")
+		return
+	}
+	req.AuthToken = bearerToken
+
+	resp := s.Handle(context.Background(), &req)
+
+	respBytes, err := json.Marshal(resp)
+	if err != nil {
+		fmt.Fprintf(conn, "HTTP/1.1 500 Internal Server Error\r\nContent-Type: application/json\r\nConnection: close\r\n\r\n{\"error\":\"marshal failed\"}\n")
+		return
+	}
+	fmt.Fprintf(conn, "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nConnection: close\r\nContent-Length: %d\r\n\r\n%s\n", len(respBytes)+1, string(respBytes))
 }

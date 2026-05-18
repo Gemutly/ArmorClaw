@@ -1,0 +1,52 @@
+#include <tunables/global>
+
+profile armorclaw-rust-worker flags=(attach_disconnected,mediate_deleted) {
+  #include <abstractions/base>
+
+  # Rust runtime libraries
+  /usr/lib/** rm,
+  /lib/** rm,
+  /lib64/** rm,
+
+  # Application binary
+  /usr/local/bin/armorclaw-sidecar ix,
+
+  # Temp file workspace for document extraction
+  /tmp/** rw,
+
+  # Socket directory (isolated mount — container sees only /run/armorclaw/)
+  /run/armorclaw/** rw,
+
+  # Shared secret (read-only tmpfs mount — injected by Go Bridge)
+  /run/secrets/shared_secret r,
+
+  # System info (CPU detection)
+  /sys/devices/system/cpu/** r,
+
+  # Deny shells
+  deny /bin/sh x,
+  deny /bin/bash x,
+  deny /bin/dash x,
+  deny /usr/bin/zsh x,
+
+  # Deny network tools
+  deny /usr/bin/curl x,
+  deny /usr/bin/wget x,
+  deny /usr/bin/nc x,
+  deny /usr/bin/telnet x,
+
+  # Deny host filesystem access
+  deny /home/** rw,
+  deny /root/** rw,
+  deny /etc/** rw,
+
+  # Deny process inspection
+  deny ptrace read,
+  deny /proc/*/cmdline r,
+  deny /proc/*/environ r,
+  deny /proc/*/maps r,
+
+  # Deny mount operations
+  deny mount,
+  deny umount,
+}
