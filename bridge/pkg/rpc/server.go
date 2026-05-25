@@ -31,6 +31,7 @@ import (
 	"github.com/armorclaw/bridge/pkg/interfaces"
 	"github.com/armorclaw/bridge/pkg/invite"
 	"github.com/armorclaw/bridge/pkg/keystore"
+	"github.com/armorclaw/bridge/pkg/lockdown"
 	"github.com/armorclaw/bridge/pkg/mcp"
 	"github.com/armorclaw/bridge/pkg/provisioning"
 	"github.com/armorclaw/bridge/pkg/secretary"
@@ -214,6 +215,8 @@ type Server struct {
 	sidecarJava       *sidecar.Client
 	extractionJobs    map[string]*ExtractionJob
 	outboxStore       OutboxStoreReader
+	lockdownMgr       *lockdown.Manager
+	bondingMgr        *lockdown.BondingManager
 	safety            *SafetyMiddleware
 }
 
@@ -257,6 +260,8 @@ type Config struct {
 	NavChartStore     *browser.MultiTabStore
 	MethodRateLimiter MethodRateLimiter
 	OutboxStore       OutboxStoreReader
+	LockdownMgr       *lockdown.Manager
+	BondingMgr        *lockdown.BondingManager
 	AdminToken        string
 }
 
@@ -306,6 +311,8 @@ func New(cfg Config) (*Server, error) {
 		navChartStore:     cfg.NavChartStore,
 		methodRateLimiter: cfg.MethodRateLimiter,
 		outboxStore:       cfg.OutboxStore,
+		lockdownMgr:       cfg.LockdownMgr,
+		bondingMgr:        cfg.BondingMgr,
 	}
 	s.e2eeEnabled.Store(cfg.EnableE2EE)
 
@@ -1279,6 +1286,96 @@ func (s *Server) handleVoiceStatus(ctx context.Context, req *Request) (interface
 	}, nil
 }
 
+func (s *Server) handleLockdownStatus(ctx context.Context, req *Request) (interface{}, *ErrorObj) {
+	if s.lockdownMgr == nil {
+		return nil, &ErrorObj{Code: InternalError, Message: "lockdown not configured"}
+	}
+	return s.lockdownMgr.Status(), nil
+}
+
+func (s *Server) handleLockdownGetChallenge(ctx context.Context, req *Request) (interface{}, *ErrorObj) {
+	if s.bondingMgr == nil {
+		return nil, &ErrorObj{Code: InternalError, Message: "bonding not configured"}
+	}
+	if s.lockdownMgr.IsAdminEstablished() {
+		return nil, &ErrorObj{Code: InvalidRequest, Message: "already claimed"}
+	}
+	challenge, err := s.bondingMgr.GetChallenge()
+	if err != nil {
+		return nil, &ErrorObj{Code: InternalError, Message: "failed to generate challenge"}
+	}
+	return map[string]interface{}{
+		"nonce":      challenge.Nonce,
+		"created_at": challenge.CreatedAt,
+		"expires_at": challenge.ExpiresAt,
+	}, nil
+}
+
+func (s *Server) handleLockdownClaimOwnership(ctx context.Context, req *Request) (interface{}, *ErrorObj) {
+	if s.bondingMgr == nil {
+		return nil, &ErrorObj{Code: InternalError, Message: "bonding not configured"}
+	}
+	var params struct {
+		DisplayName          string `json:"display_name"`
+		DeviceName           string `json:"device_name"`
+		DeviceFingerprint    string `json:"device_fingerprint"`
+		PassphraseCommitment string `json:"passphrase_commitment"`
+		ChallengeResponse    string `json:"challenge_response"`
+	}
+	if err := json.Unmarshal(req.Params, &params); err != nil {
+		return nil, &ErrorObj{Code: InvalidParams, Message: err.Error()}
+	}
+	bondingReq := lockdown.BondingRequest{
+		DisplayName:          params.DisplayName,
+		DeviceName:           params.DeviceName,
+		DeviceFingerprint:    params.DeviceFingerprint,
+		PassphraseCommitment: params.PassphraseCommitment,
+		ChallengeResponse:    params.ChallengeResponse,
+	}
+	resp, err := s.bondingMgr.ClaimOwnership(bondingReq)
+	if err != nil {
+		if bondErr, ok := err.(*lockdown.BondingError); ok {
+			return nil, &ErrorObj{Code: InvalidParams, Message: bondErr.Message}
+		}
+		return nil, &ErrorObj{Code: InternalError, Message: "claim failed"}
+	}
+	return map[string]interface{}{
+		"status":        resp.Status,
+		"admin_id":      resp.AdminID,
+		"device_id":     resp.DeviceID,
+		"certificate":   resp.Certificate,
+		"session_token": resp.SessionToken,
+		"expires_at":    resp.ExpiresAt,
+		"next_step":     resp.NextStep,
+	}, nil
+}
+
+func (s *Server) handleLockdownTransition(ctx context.Context, req *Request) (interface{}, *ErrorObj) {
+	if s.lockdownMgr == nil {
+		return nil, &ErrorObj{Code: InternalError, Message: "lockdown not configured"}
+	}
+	if !s.lockdownMgr.IsAdminEstablished() {
+		return nil, &ErrorObj{Code: InvalidRequest, Message: "admin not established"}
+	}
+	var params struct {
+		Target string `json:"target"`
+	}
+	if err := json.Unmarshal(req.Params, &params); err != nil {
+		return nil, &ErrorObj{Code: InvalidParams, Message: err.Error()}
+	}
+	if params.Target == "" {
+		return nil, &ErrorObj{Code: InvalidParams, Message: "target is required"}
+	}
+	if err := s.lockdownMgr.Transition(lockdown.Mode(params.Target)); err != nil {
+		return nil, &ErrorObj{Code: InvalidParams, Message: err.Error()}
+	}
+	state := s.lockdownMgr.GetState()
+	return map[string]string{
+		"mode":    string(state.Mode),
+		"message": "transitioned successfully",
+	}, nil
+}
+
 func (s *Server) registerHandlers() {
 	h := map[string]HandlerFunc{
 		"ai.chat":                    s.handleAIChat,
@@ -1431,6 +1528,10 @@ func (s *Server) registerHandlers() {
 		"email.get":                            s.handleEmailGet,
 		"email.retry":                          s.handleEmailRetry,
 		"email.list":                           s.handleEmailList,
+		"lockdown.status":                      s.handleLockdownStatus,
+		"lockdown.get_challenge":               s.handleLockdownGetChallenge,
+		"lockdown.claim_ownership":             s.handleLockdownClaimOwnership,
+		"lockdown.transition":                  s.handleLockdownTransition,
 	}
 
 	s.handlers = h

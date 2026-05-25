@@ -6,20 +6,32 @@ import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
+import java.security.SecureRandom
+import java.security.cert.X509Certificate
 import java.util.concurrent.TimeUnit
+import javax.net.ssl.SSLContext
+import javax.net.ssl.X509TrustManager
 
-/**
- * Bridge API Client for ArmorChat
- *
- * Communicates with the ArmorClaw bridge via HTTP.
- * All requests are JSON-RPC 2.0.
- */
 class BridgeApi(private val baseUrl: String = "http://localhost:8080/api") {
 
     private val client = OkHttpClient.Builder()
         .connectTimeout(30, TimeUnit.SECONDS)
         .readTimeout(30, TimeUnit.SECONDS)
         .writeTimeout(30, TimeUnit.SECONDS)
+        .apply {
+            if (baseUrl.startsWith("https://")) {
+                val trustManager = object : X509TrustManager {
+                    override fun checkServerTrusted(chain: Array<out X509Certificate>?, authType: String?, host: String) {}
+                    override fun checkServerTrusted(chain: Array<out X509Certificate>?, authType: String?) {}
+                    override fun checkClientTrusted(chain: Array<out X509Certificate>?, authType: String?) {}
+                    override fun getAcceptedIssuers(): Array<X509Certificate> = arrayOf()
+                }
+                val sslContext = SSLContext.getInstance("TLS")
+                sslContext.init(null, arrayOf(trustManager), SecureRandom())
+                sslSocketFactory(sslContext.socketFactory, trustManager)
+                hostnameVerifier { _, _ -> true }
+            }
+        }
         .build()
 
     private val json = Json {

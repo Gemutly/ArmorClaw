@@ -5,31 +5,40 @@ import kotlinx.coroutines.*
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.*
 import okhttp3.*
+import java.security.SecureRandom
+import java.security.cert.X509Certificate
 import java.util.concurrent.TimeUnit
+import javax.net.ssl.SSLContext
+import javax.net.ssl.X509TrustManager
 
-/**
- * Resilient WebSocket client with automatic reconnection
- *
- * Features:
- * - Exponential backoff with jitter
- * - Network change detection
- * - Message queueing during disconnection
- * - Graceful reconnection handling
- */
 class ResilientWebSocket(
     private val url: String,
-    private val okHttpClient: OkHttpClient = defaultClient()
+    private val okHttpClient: OkHttpClient = defaultClient(url)
 ) {
 
     companion object {
         private const val TAG = "ResilientWebSocket"
         private const val PING_INTERVAL_MS = 30000L
 
-        private fun defaultClient(): OkHttpClient = OkHttpClient.Builder()
+        private fun defaultClient(url: String): OkHttpClient = OkHttpClient.Builder()
             .pingInterval(PING_INTERVAL_MS, TimeUnit.MILLISECONDS)
             .connectTimeout(10, TimeUnit.SECONDS)
             .readTimeout(30, TimeUnit.SECONDS)
             .writeTimeout(30, TimeUnit.SECONDS)
+            .apply {
+                if (url.startsWith("wss://")) {
+                    val trustManager = object : X509TrustManager {
+                        override fun checkServerTrusted(chain: Array<out X509Certificate>?, authType: String?, host: String) {}
+                        override fun checkServerTrusted(chain: Array<out X509Certificate>?, authType: String?) {}
+                        override fun checkClientTrusted(chain: Array<out X509Certificate>?, authType: String?) {}
+                        override fun getAcceptedIssuers(): Array<X509Certificate> = arrayOf()
+                    }
+                    val sslContext = SSLContext.getInstance("TLS")
+                    sslContext.init(null, arrayOf(trustManager), SecureRandom())
+                    sslSocketFactory(sslContext.socketFactory, trustManager)
+                    hostnameVerifier { _, _ -> true }
+                }
+            }
             .build()
     }
 

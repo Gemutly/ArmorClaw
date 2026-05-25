@@ -22,7 +22,7 @@
         <domain includeSubdomains="true">172.16.</domain>
     </domain-config>
 
-    <!-- User-added servers (from mDNS discovery or manual entry) -->
+    <!-- Self-hosted VPS servers - trust self-signed certs -->
     <base-config cleartextTrafficPermitted="${debuggable}">
         <trust-anchors>
             <certificates src="system" />

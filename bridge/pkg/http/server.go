@@ -44,8 +44,9 @@ type ServerConfig struct {
 	AllowedOrigins []string
 	ServerMode     string
 	// Discovery configuration
-	MatrixHomeserver string // Matrix homeserver URL
-	ServerName       string // Human-readable server name
+	MatrixHomeserver    string // Matrix homeserver URL (internal, for bridge→conduit)
+	MatrixPublicURL     string // Public Matrix URL (external, for client well-known)
+	ServerName          string // Human-readable server name
 	// Discovery integration
 	PushGateway string
 	APIPath     string
@@ -631,12 +632,18 @@ func (s *Server) handleDiscover(w http.ResponseWriter, r *http.Request) {
 	ips, _ := getLocalIPs()
 	fingerprint, _ := s.GetCertificateFingerprint()
 
-	bridgeURL := fmt.Sprintf("https://%s", s.config.Hostname)
-	if s.config.Port != 443 && s.config.Port != 0 {
-		bridgeURL = fmt.Sprintf("https://%s:%d", s.config.Hostname, s.config.Port)
+	bridgeURL := s.config.MatrixPublicURL
+	if bridgeURL == "" {
+		bridgeURL = fmt.Sprintf("https://%s", s.config.Hostname)
+		if s.config.Port != 443 && s.config.Port != 0 {
+			bridgeURL = fmt.Sprintf("https://%s:%d", s.config.Hostname, s.config.Port)
+		}
 	}
 
-	matrixURL := s.config.MatrixHomeserver
+	matrixURL := s.config.MatrixPublicURL
+	if matrixURL == "" {
+		matrixURL = s.config.MatrixHomeserver
+	}
 	if matrixURL == "" {
 		matrixURL = "https://matrix.armorclaw.app"
 	}
@@ -694,16 +701,21 @@ func (s *Server) writeError(w http.ResponseWriter, id interface{}, code int, mes
 }
 
 // handleWellKnown serves the Matrix well-known discovery document
-// This is the standard Matrix discovery mechanism at /.well-known/matrix/client
 func (s *Server) handleWellKnown(w http.ResponseWriter, r *http.Request) {
-	matrixURL := s.config.MatrixHomeserver
+	matrixURL := s.config.MatrixPublicURL
+	if matrixURL == "" {
+		matrixURL = s.config.MatrixHomeserver
+	}
 	if matrixURL == "" {
 		matrixURL = "https://matrix.armorclaw.app"
 	}
 
-	bridgeURL := fmt.Sprintf("https://%s", s.config.Hostname)
-	if s.config.Port != 443 && s.config.Port != 0 {
-		bridgeURL = fmt.Sprintf("https://%s:%d", s.config.Hostname, s.config.Port)
+	bridgeURL := s.config.MatrixPublicURL
+	if bridgeURL == "" {
+		bridgeURL = fmt.Sprintf("https://%s", s.config.Hostname)
+		if s.config.Port != 443 && s.config.Port != 0 {
+			bridgeURL = fmt.Sprintf("https://%s:%d", s.config.Hostname, s.config.Port)
+		}
 	}
 
 	tlsInfo, _ := s.GetTLSInfo().(TLSInfo)

@@ -2618,13 +2618,20 @@ func runBridgeServer(cliCfg cliConfig) {
 		log.Println("Admin command handler initialized")
 	}
 
+	var bondingMgr *lockdown.BondingManager
+	if lockdownMgr != nil {
+		bondingMgr = lockdown.NewBondingManager(lockdownMgr)
+		log.Println("Lockdown bonding manager initialized")
+	}
+
+	aiService := ai.NewAIService(ks)
 	taskScheduler := setupSecretaryCommandHandler(
 		rolodexStore, workflowOrchestrator, orchestratorIntegration,
 		matrixAdapter, studioService,
 		rolodexService, webdavService, calendarService,
 		approvalEngine, trustEngine,
 		adminCmdHandler,
-		rpcCfg.AIService,
+		aiService,
 	)
 	if taskScheduler != nil {
 		defer taskScheduler.Stop()
@@ -2681,7 +2688,7 @@ func runBridgeServer(cliCfg cliConfig) {
 	rpcCfg.ListenAddr = cfg.Server.ListenAddr
 	rpcCfg.Keystore = ks
 	rpcCfg.Matrix = matrixAdapter
-	rpcCfg.AIService = ai.NewAIService(ks)
+	rpcCfg.AIService = aiService
 	rpcCfg.AIMaxConcurrent = 4
 	rpcCfg.BridgeManager = bridgeManager
 	rpcCfg.BrowserJobs = browserJobs
@@ -2699,6 +2706,8 @@ func runBridgeServer(cliCfg cliConfig) {
 	rpcCfg.VoiceMgr = voiceMgr
 	rpcCfg.AdminToken = cfg.Server.AdminToken
 	rpcCfg.DockerClient = dockerClient
+	rpcCfg.LockdownMgr = lockdownMgr
+	rpcCfg.BondingMgr = bondingMgr
 	auditor, auditErr := audit.NewAuditLog(audit.DefaultConfig())
 	if auditErr != nil {
 		log.Printf("[WARN] audit logger init failed: %v, degrading to stderr", auditErr)
@@ -2935,17 +2944,18 @@ func runBridgeServer(cliCfg cliConfig) {
 		}
 
 		httpsServer = bridgeHTTP.NewServer(bridgeHTTP.ServerConfig{
-			Port:             cfg.HTTP.Port,
-			CertDir:          cfg.HTTP.CertDir,
-			Hostname:         hostname,
-			MatrixHomeserver: matrixHS,
-			ServerName:       hostname,
-			EnableCORS:       true,
-			PushGateway:      pushGW,
-			APIPath:          cfg.Discovery.APIPath,
-			WSPath:           cfg.Discovery.WSPath,
-			Metrics:          metrics,
-			ServerMode:       cfg.Server.Mode,
+			Port:              cfg.HTTP.Port,
+			CertDir:           cfg.HTTP.CertDir,
+			Hostname:          hostname,
+			MatrixHomeserver:  matrixHS,
+			MatrixPublicURL:   cfg.Server.PublicBaseURL,
+			ServerName:        hostname,
+			EnableCORS:        true,
+			PushGateway:       pushGW,
+			APIPath:           cfg.Discovery.APIPath,
+			WSPath:            cfg.Discovery.WSPath,
+			Metrics:           metrics,
+			ServerMode:        cfg.Server.Mode,
 		}, server)
 
 		server.SetTLSInfoProvider(httpsServer)
