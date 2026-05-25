@@ -7,8 +7,10 @@ import (
 	"log"
 
 	"github.com/armorclaw/bridge/internal/adapter"
+	"github.com/armorclaw/bridge/internal/ai"
 	"github.com/armorclaw/bridge/internal/events"
 	"github.com/armorclaw/bridge/pkg/browser"
+	"github.com/armorclaw/bridge/pkg/chatrelay"
 	"github.com/armorclaw/bridge/pkg/config"
 	"github.com/armorclaw/bridge/pkg/keystore"
 	"github.com/armorclaw/bridge/pkg/secretary"
@@ -224,7 +226,23 @@ func setupSecretaryCommandHandler(
 	approvalEngine *secretary.ApprovalEngineImpl,
 	trustEngine *secretary.TrustedWorkflowEngine,
 	adminHandler *adapter.CommandHandler,
+	aiService *ai.AIService,
 ) *secretary.TaskScheduler {
+	// Chat relay setup
+	relayConfig := chatrelay.ConfigFromEnv()
+	var relayHandler *chatrelay.Handler
+	if relayConfig.Enabled && aiService != nil && matrixAdapter != nil {
+		botMXID := matrixAdapter.GetUserID()
+		relayHandler = chatrelay.NewHandler(
+			*relayConfig,
+			aiService.Chat,
+			matrixAdapter,
+			aiService.DefaultKeyID(),
+			botMXID,
+		)
+		log.Println("chat relay enabled for rooms:", relayConfig.RoomIDs)
+	}
+
 	if matrixAdapter != nil {
 		secretaryHandler := secretary.NewSecretaryCommandHandler(secretary.SecretaryCommandHandlerConfig{
 			Store:          rolodexStore,
@@ -243,6 +261,7 @@ func setupSecretaryCommandHandler(
 			studio:       studioService,
 			secretary:    secretaryHandler,
 			adminHandler: adminHandler,
+			chatrelay:    relayHandler,
 		})
 		log.Println("Studio command handler wired to Matrix adapter")
 	}

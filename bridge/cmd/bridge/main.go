@@ -27,6 +27,7 @@ import (
 	"github.com/armorclaw/bridge/internal/events"
 	"github.com/armorclaw/bridge/internal/wizard"
 	"github.com/armorclaw/bridge/pkg/admin"
+	"github.com/armorclaw/bridge/pkg/chatrelay"
 	"github.com/armorclaw/bridge/pkg/config"
 	"github.com/armorclaw/bridge/pkg/crypto"
 	"github.com/armorclaw/bridge/pkg/discovery"
@@ -2623,6 +2624,7 @@ func runBridgeServer(cliCfg cliConfig) {
 		rolodexService, webdavService, calendarService,
 		approvalEngine, trustEngine,
 		adminCmdHandler,
+		rpcCfg.AIService,
 	)
 	if taskScheduler != nil {
 		defer taskScheduler.Stop()
@@ -3766,6 +3768,7 @@ type compositeStudioHandler struct {
 	studio       *studio.StudioIntegration
 	secretary    *secretary.SecretaryCommandHandler
 	adminHandler *adapter.CommandHandler
+	chatrelay    *chatrelay.Handler
 }
 
 func (c *compositeStudioHandler) HandleMatrixMessage(ctx context.Context, roomID, userID, eventID, text string) bool {
@@ -3781,7 +3784,14 @@ func (c *compositeStudioHandler) HandleMatrixMessage(ctx context.Context, roomID
 		}
 	}
 	if c.secretary != nil {
-		return c.secretary.HandleMatrixMessage(ctx, roomID, userID, eventID, text)
+		if c.secretary.HandleMatrixMessage(ctx, roomID, userID, eventID, text) {
+			return true
+		}
+	}
+	if c.chatrelay != nil {
+		if c.chatrelay.HandleMatrixMessage(ctx, roomID, userID, eventID, text) {
+			return true
+		}
 	}
 	return false
 }
