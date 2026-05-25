@@ -890,8 +890,8 @@ func (m *MatrixAdapter) processEvents(syncResp *SyncResponse) int {
 
 				select {
 				case m.eventQueue <- &event:
-				default:
-					// Queue full, drop event
+			default:
+				log.Printf("[matrix] WARNING: eventQueue full, dropping event: room=%s event_id=%s\n", event.RoomID, event.EventID)
 				}
 
 				// Publish to high-throughput event bus if configured
