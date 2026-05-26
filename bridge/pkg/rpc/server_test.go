@@ -132,6 +132,26 @@ func TestHealthCheckHandler(t *testing.T) {
 		t.Error("expected components to contain 'keystore' key")
 	}
 
+	if !healthResp.BridgeReady {
+		t.Error("expected bridge_ready to be true")
+	}
+
+	if healthResp.ProvisioningAvailable {
+		t.Error("expected provisioning_available to be false when provisioningMgr is nil")
+	}
+
+	if !healthResp.IsNewServer {
+		t.Error("expected is_new_server to be true when no owner claimed")
+	}
+
+	if healthResp.Version == "" {
+		t.Error("expected version to be set")
+	}
+
+	if healthResp.Timestamp == "" {
+		t.Error("expected timestamp to be set")
+	}
+
 	validStatuses := []string{"healthy", "degraded", "unhealthy"}
 	valid := false
 	for _, vs := range validStatuses {

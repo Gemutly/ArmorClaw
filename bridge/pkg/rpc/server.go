@@ -78,6 +78,7 @@ type StudioService interface {
 type ProvisioningManager interface {
 	GetUserRole(userID string) provisioning.AdminRole
 	StartSetupToken(ctx context.Context) (qrDeepLink string, expiresAt string, err error)
+	IsOwnerClaimed() bool
 }
 
 type AppService interface {
@@ -151,8 +152,15 @@ type MatrixHealthResult struct {
 }
 
 type HealthCheckResponse struct {
-	Status     string            `json:"status"`
-	Components map[string]string `json:"components"`
+	Status               string            `json:"status"`
+	BridgeReady          bool              `json:"bridge_ready"`
+	ProvisioningAvailable bool             `json:"provisioning_available"`
+	IsNewServer          bool              `json:"is_new_server"`
+	Healthy              bool              `json:"healthy"`
+	ServerName           string            `json:"server_name,omitempty"`
+	Timestamp            string            `json:"timestamp,omitempty"`
+	Version              string            `json:"version,omitempty"`
+	Components           map[string]string `json:"components"`
 }
 
 type HandlerFunc func(ctx context.Context, req *Request) (interface{}, *ErrorObj)
@@ -493,9 +501,24 @@ func (s *Server) handleHealthCheck(ctx context.Context, req *Request) (interface
 		})
 	}
 
+	// Determine provisioning state
+	provisioningAvailable := !isInterfaceNil(s.provisioningMgr)
+	var isNewServer bool
+	if provisioningAvailable {
+		isNewServer = !s.provisioningMgr.IsOwnerClaimed()
+	} else {
+		isNewServer = true
+	}
+
 	return HealthCheckResponse{
-		Status:     status,
-		Components: components,
+		Status:               status,
+		BridgeReady:          true,
+		ProvisioningAvailable: provisioningAvailable,
+		IsNewServer:          isNewServer,
+		Healthy:              status == "healthy",
+		Timestamp:            time.Now().UTC().Format(time.RFC3339),
+		Version:              BridgeVersion,
+		Components:           components,
 	}, nil
 }
 
