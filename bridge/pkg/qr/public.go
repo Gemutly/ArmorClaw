@@ -309,7 +309,7 @@ func (m *QRManager) GenerateConfigQR(expiration time.Duration) (*ConfigQRResult,
 	config := &ConfigPayload{
 		Version:          1,
 		MatrixHomeserver: m.serverURL,
-		RpcURL:           m.bridgeURL + "/api",
+		RpcURL:           m.bridgeURL,
 		PushGateway:      m.bridgeURL + "/_matrix/push/v1/notify",
 		ServerName:       m.serverName,
 		ExpiresAt:        time.Now().Add(expiration).Unix(),
@@ -376,7 +376,7 @@ func (m *QRManager) GenerateConfigURL(expiration time.Duration) (string, *Config
 	config := &ConfigPayload{
 		Version:          1,
 		MatrixHomeserver: m.serverURL,
-		RpcURL:           m.bridgeURL + "/api",
+		RpcURL:           m.bridgeURL,
 		PushGateway:      m.bridgeURL + "/_matrix/push/v1/notify",
 		ServerName:       m.serverName,
 		ExpiresAt:        time.Now().Add(expiration).Unix(),
