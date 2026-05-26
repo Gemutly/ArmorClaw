@@ -124,13 +124,22 @@ func NewServer(config ServerConfig, rpcServer *rpc.Server) *Server {
 	}
 
 	// Initialize QR manager for config QR codes
-	serverURL := config.MatrixHomeserver
+	// Use public URL for client-facing QR config (ArmorChat needs publicly reachable matrix_homeserver)
+	serverURL := config.MatrixPublicURL
+	if serverURL == "" {
+		serverURL = config.MatrixHomeserver
+	}
 	if serverURL == "" {
 		serverURL = "https://matrix.armorclaw.app"
 	}
-	bridgeURL := fmt.Sprintf("https://%s", config.Hostname)
-	if config.Port != 443 && config.Port != 0 {
-		bridgeURL = fmt.Sprintf("https://%s:%d", config.Hostname, config.Port)
+	// Use public URL for bridge URL so ArmorChat can reach RPC/push endpoints.
+	// ArmorChat appends "/api" to bridgeURL, so bridgeURL must NOT include "/api".
+	bridgeURL := config.MatrixPublicURL
+	if bridgeURL == "" {
+		bridgeURL = fmt.Sprintf("https://%s", config.Hostname)
+		if config.Port != 443 && config.Port != 0 {
+			bridgeURL = fmt.Sprintf("https://%s:%d", config.Hostname, config.Port)
+		}
 	}
 	serverName := config.ServerName
 	if serverName == "" {
@@ -450,8 +459,12 @@ func (s *Server) updateQRTLSInfo() {
 		trustHint = "self_signed"
 	}
 
+	wsBase := s.config.MatrixPublicURL
+	if wsBase == "" {
+		wsBase = fmt.Sprintf("https://%s:%d", s.config.Hostname, s.config.Port)
+	}
 	s.qrManager.SetTLSInfo(mode, fp, trustHint, cert.NotAfter.Unix())
-	s.qrManager.SetWsURL(toWSS(fmt.Sprintf("https://%s:%d", s.config.Hostname, s.config.Port)) + "/ws")
+	s.qrManager.SetWsURL(toWSS(wsBase) + "/ws")
 }
 
 func (s *Server) generateSelfSignedCert() ([]byte, []byte, error) {
@@ -658,7 +671,7 @@ func (s *Server) handleDiscover(w http.ResponseWriter, r *http.Request) {
 		"version":           "1.0.0",
 		"fingerprint":       fingerprint,
 		"matrix_homeserver": matrixURL,
-		"rpc_url":           bridgeURL + "/api",
+		"rpc_url":           bridgeURL,
 		"ws_url":            toWSS(bridgeURL) + "/ws",
 		"push_gateway":      bridgeURL + "/_matrix/push/v1/notify",
 		"tls":               s.GetTLSInfo(),
